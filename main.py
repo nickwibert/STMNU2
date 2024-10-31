@@ -3,7 +3,7 @@ from student_df import StudentDataFrame
 
 def main():
    # Load student info
-   students = StudentDataFrame('C:\\STMNU2\\Data\\STUD2022.csv')
+   students = StudentDataFrame('C:\\STMNU2\\Data\\STUD00.csv')
    stmnu = gui.STMNU(students)
    stmnu.mainloop()
 
