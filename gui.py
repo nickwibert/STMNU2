@@ -5,7 +5,7 @@ import widgets as w
 class STMNU(ctk.CTk):
     def __init__(self, students):
         super().__init__()
-        self.geometry("800x500")
+        self.geometry("300x350")
         self.title("Gymtek Student Menu")
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
@@ -25,10 +25,6 @@ class STMNU(ctk.CTk):
                                     self.main_frame,
                                     text="New Student",
                                     command=fn.button_click)
-        self.register_button = ctk.CTkButton(
-                                    self.main_frame,
-                                    text="Register by #",
-                                    command=fn.button_click)
         self.class_menu_button = ctk.CTkButton(
                                     self.main_frame,
                                     text="Class Menu",
@@ -37,13 +33,12 @@ class STMNU(ctk.CTk):
         # Place in grid
         self.stud_info_button.grid(row=0, column=0, padx=20, pady=10)
         self.new_stud_button.grid(row=1, column=0, padx=20, pady=10)
-        self.register_button.grid(row=2, column=0, padx=20, pady=10)
-        self.class_menu_button.grid(row=3, column=0, padx=20, pady=10)
+        self.class_menu_button.grid(row=2, column=0, padx=20, pady=10)
 
 
     # Display student info in a pop-up window (if match found)
     def display_student_info(self):
-        self.student_info_window = w.StudentInfoWindow(self.students)
+        self.student_info_window = w.StudentInfoWindow(self, self.students, height=500, width=600)
 
 
         

@@ -7,7 +7,7 @@ class MyFrame(ctk.CTkFrame):
         super().__init__(master, **kwargs)
 
 class StudentInfoWindow(ctk.CTkToplevel):
-    def __init__(self, students, *args, **kwargs):
+    def __init__(self, master, students, *args, **kwargs):
         self.students = students
         # Ask user for last name input and search for a match in the students dataframe
         dialog = ctk.CTkInputDialog(text="Last Name:", title="Student Info")        
@@ -23,7 +23,7 @@ class StudentInfoWindow(ctk.CTkToplevel):
 
         # Create and configure student info window
         super().__init__(*args, **kwargs)
-        self.geometry('600x500')
+        print(master.winfo_x, master.winfo_y)
         self.main_frame = MyFrame(self)
         self.main_frame.columnconfigure(0, weight=1)
         self.main_frame.rowconfigure((0,1,2),weight=1)
@@ -81,15 +81,15 @@ class StudentInfoWindow(ctk.CTkToplevel):
         self.name_frame.grid(row=0, column=0, sticky='nsew')
         #self.name_frame.columnconfigure(1, weight=1 if len(self.student_info['MIDDLE'].fillna('')) > 0 else 0)
 
-        # Series containing all info for a single student
-        # (capitalize all strings for visual appeal)
+        # Series containing all info for a single student (capitalize all strings for visual appeal)
         self.student_info = self.students.df.iloc[self.student_idx].astype('string').fillna('').str.title()
+        name_font = ctk.CTkFont('Britannic', 18)
         
-        self.labels['FNAME'] = ctk.CTkLabel(self.name_frame, text=self.student_info['FNAME'], anchor='e')
+        self.labels['FNAME'] = ctk.CTkLabel(self.name_frame, text=self.student_info['FNAME'], font=name_font, anchor='e')
         self.labels['FNAME'].grid(row=0, column=0, padx=2, sticky='nsew')
-        self.labels['MIDDLE'] = ctk.CTkLabel(self.name_frame, text=self.student_info['MIDDLE'])
+        self.labels['MIDDLE'] = ctk.CTkLabel(self.name_frame, text=self.student_info['MIDDLE'], font=name_font)
         self.labels['MIDDLE'].grid(row=0, column=1, sticky='nsew')
-        self.labels['LNAME'] = ctk.CTkLabel(self.name_frame, text=self.student_info['LNAME'], anchor='w')
+        self.labels['LNAME'] = ctk.CTkLabel(self.name_frame, text=self.student_info['LNAME'], font=name_font, anchor='w')
         self.labels['LNAME'].grid(row=0, column=2, padx=2, sticky='nsew')
 
         # Create frame for full address
@@ -128,7 +128,6 @@ class StudentInfoWindow(ctk.CTkToplevel):
         self.labels['PHONE'] = ctk.CTkLabel(self.student_info_frame, text=self.student_info['PHONE'])
         self.labels['PHONE'].grid(row=5, column=0, sticky='nsew')
 
-
         # Create frame for birthday
         self.bday_frame = MyFrame(self.student_info_frame)
         self.bday_frame.columnconfigure((0,1), weight=1)
@@ -139,18 +138,31 @@ class StudentInfoWindow(ctk.CTkToplevel):
         self.labels['BIRTHDAY'].grid(row=0, column=1, sticky='nsew')
 
         # Create frame for enroll date
-        self.bday_frame = MyFrame(self.student_info_frame)
-        self.bday_frame.columnconfigure((0,1), weight=1)
-        self.bday_frame.grid(row=7,column=0, sticky='nsew')
-        self.labels['ENROLLDATE_HEADER'] = ctk.CTkLabel(self.bday_frame, text='Enroll Date:', anchor='w')
+        self.enrolldate_frame = MyFrame(self.student_info_frame)
+        self.enrolldate_frame.columnconfigure((0,1), weight=1)
+        self.enrolldate_frame.grid(row=7,column=0, sticky='nsew')
+        self.labels['ENROLLDATE_HEADER'] = ctk.CTkLabel(self.enrolldate_frame, text='Enroll Date:', anchor='w')
         self.labels['ENROLLDATE_HEADER'].grid(row=0,column=0,padx=2, sticky='nsew')
-        self.labels['ENROLLDATE'] = ctk.CTkLabel(self.bday_frame, text=self.student_info['ENROLLDATE'], anchor='e')
+        self.labels['ENROLLDATE'] = ctk.CTkLabel(self.enrolldate_frame, text=self.student_info['ENROLLDATE'], anchor='e')
         self.labels['ENROLLDATE'].grid(row=0, column=1, sticky='nsew')
 
-        self.labels['MONTHLYFEE'] = ctk.CTkLabel(self.student_info_frame, text=self.student_info['MONTHLYFEE'])
-        self.labels['MONTHLYFEE'].grid(row=8, column=0, sticky='nsew')
-        self.labels['BALANCE'] = ctk.CTkLabel(self.student_info_frame, text=self.student_info['BALANCE'])
-        self.labels['BALANCE'].grid(row=9, column=0, sticky='nsew')
+        # Create frame for monthly fee
+        self.monthlyfee_frame = MyFrame(self.student_info_frame)
+        self.monthlyfee_frame.columnconfigure((0,1), weight=1)
+        self.monthlyfee_frame.grid(row=8,column=0, sticky='nsew')
+        self.labels['MONTHLYFEE_HEADER'] = ctk.CTkLabel(self.monthlyfee_frame, text='Monthly Fee:', anchor='w')
+        self.labels['MONTHLYFEE_HEADER'].grid(row=0,column=0,padx=2, sticky='nsew')
+        self.labels['MONTHLYFEE'] = ctk.CTkLabel(self.monthlyfee_frame, text=f'{float(self.student_info['MONTHLYFEE']):.2f}', anchor='e')
+        self.labels['MONTHLYFEE'].grid(row=0, column=1, sticky='nsew')
+
+        # Create frame for balance
+        self.balance_frame = MyFrame(self.student_info_frame)
+        self.balance_frame.columnconfigure((0,1), weight=1)
+        self.balance_frame.grid(row=9,column=0, sticky='nsew')
+        self.labels['BALANCE_HEADER'] = ctk.CTkLabel(self.balance_frame, text='Balance:', anchor='w')
+        self.labels['BALANCE_HEADER'].grid(row=0,column=0,padx=2, sticky='nsew')
+        self.labels['BALANCE'] = ctk.CTkLabel(self.balance_frame, text=f'{float(self.student_info['BALANCE']):.2f}', anchor='e')
+        self.labels['BALANCE'].grid(row=0, column=1, sticky='nsew')
 
     # Edit student information currently displayed in window
     def edit_student_info(self):

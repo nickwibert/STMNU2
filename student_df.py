@@ -8,6 +8,10 @@ class StudentDataFrame:
         # Drop the rows where name is completely missing
         self.df = self.df.dropna(subset=['FNAME','LNAME']).reset_index()
 
+        # Format dates
+        for col in ['BIRTHDAY', 'ENROLLDATE']:
+            self.df[col] = pd.to_datetime(self.df[col], errors='coerce', format='mixed').dt.strftime('%m/%d/%Y')
+
     def save_students_to_csv(self):
         self.df.to_csv(self.path_to_csv, index=False)
 
