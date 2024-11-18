@@ -38,7 +38,11 @@ class STMNU(ctk.CTk):
 
     # Display student info in a pop-up window (if match found)
     def display_student_info(self):
+        # Create window
         self.student_info_window = w.StudentInfoWindow(self, self.students, height=500, width=600)
+        # Focus window
+        self.student_info_window.after(10, self.student_info_window.lift)
+        self.student_info_window.after(10, self.student_info_window.focus)
 
 
         
