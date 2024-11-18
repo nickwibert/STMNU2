@@ -3,6 +3,7 @@ import os
 from datetime import datetime
 import customtkinter as ctk
 from dbfread import DBF
+import dbf
 
 # Function to convert a given .dbf file to .csv
 def dbf_to_csv(filename, save_to_path='C:\\STMNU2\\data\\dbf_format'):
@@ -187,6 +188,33 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
 
     except FileNotFoundError as err:
         print(f"File '{err.args[0]}' not found at {data_path}.")
+
+# Validate if the user entry is a number (used for numeric fields)
+# This will run every time a key is pressed, so that if the user tries to enter
+# a letter or other invalid character, nothing happens
+def validate_float(action, value_if_allowed, prior_value, text):
+    # action=1 -> insert
+    if(action=='1'):
+        if text in '0123456789.-+':
+            try:
+                float(value_if_allowed)
+
+                return True
+            except ValueError:
+                return False
+        else:
+            return False
+    else:
+        return True
+
+# Validate that a date field is entered in the correct format "MM/DD/YYYY"
+def validate_date(date_text):
+    try:
+        if date_text != datetime.strptime(date_text, "%m/%d/%Y").strftime("%m/%d/%Y"):
+            raise ValueError
+        return True
+    except ValueError:
+        return False
 
 
 def button_click():
