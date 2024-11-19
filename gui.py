@@ -21,6 +21,7 @@ class STMNU(ctk.CTk):
                                     self.main_frame,
                                     text="Student Info",
                                     command=self.display_student_info)
+        self.bind('<F1>', lambda event: self.display_student_info())
         self.new_stud_button= ctk.CTkButton(
                                     self.main_frame,
                                     text="New Student",
