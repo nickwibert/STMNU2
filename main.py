@@ -3,9 +3,10 @@ from database import StudentDatabase
 
 def main():
    # Load student info
-   students = StudentDatabase('C:\\STMNU2\\data\\dbf_format\\STUD00.csv')
+   database = StudentDatabase(student_dbf_path='C:\\dbase\\gymtek\\STUD00.dbf',
+                              clsbymon_dbf_path='C:\\dbase\\gymtek\\clsbymon.dbf')
    # Initialize instance of program
-   stmnu = gui.STMNU(students)
+   stmnu = gui.STMNU(database)
    # Start program loop
    stmnu.mainloop()
 

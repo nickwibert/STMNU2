@@ -3,15 +3,15 @@ import functions as fn
 import widgets as w
 
 class STMNU(ctk.CTk):
-    def __init__(self, students):
+    def __init__(self, database):
         super().__init__()
         self.geometry("300x350")
         self.title("Gymtek Student Menu")
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
         
-        # StudentDataFrame instance
-        self.students = students
+        # StudentDatabase instance
+        self.database = database
 
         self.main_frame = w.MyFrame(self)
         self.main_frame.grid(row=0,column=0)
@@ -40,7 +40,7 @@ class STMNU(ctk.CTk):
     # Display student info in a pop-up window (if match found)
     def display_student_info(self):
         # Create window
-        self.student_info_window = w.StudentInfoWindow(self, self.students, height=500, width=600)
+        self.student_info_window = w.StudentInfoWindow(self, self.database, height=500, width=600)
         # Focus window
         self.student_info_window.after(10, self.student_info_window.lift)
         self.student_info_window.after(10, self.student_info_window.focus)
