@@ -1,6 +1,8 @@
 import pandas as pd
+import numpy as np
 import os
 from datetime import datetime
+import calendar
 import customtkinter as ctk
 from dbfread import DBF
 import dbf
@@ -45,7 +47,7 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
 
         # Load .dbf files for students and classes
         STUD00 = pd.read_csv('data\\dbf_format\\STUD00.csv').dropna(subset=['FNAME','LNAME']).reset_index(drop=True)
-        STUD00.insert(0, 'STUDENT_ID', STUD00.index + 1)
+        STUD00.insert(0, 'STUD_ID', STUD00.index + 1)
         clsbymon = pd.read_csv('data\\dbf_format\\clsbymon.csv')
         clsbymon.insert(0, 'CLASS_ID', clsbymon.index + 1)
 
@@ -74,11 +76,12 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
         guardian.insert(len(guardian.columns),'CREA_TMS',[datetime.now()]*guardian.shape[0])
         guardian.insert(len(guardian.columns),'UPDT_TMS',[datetime.now()]*guardian.shape[0])
 
+
         ### STUDENT ###
         # New table 'student' which is very similar to 'STUD00', just with
         # parent and payment info extracted
-        student = pd.DataFrame({'STUD_ID' : STUD00['STUDENT_ID'],
-                                'CLASS_ID' : [pd.NA]*STUD00.shape[0],
+        student = pd.DataFrame({'STUD_ID' : STUD00['STUD_ID'],
+                                'CLASS' : STUD00['CLASS'],
                                 'STUDENTNO' : STUD00['STUDENTNO'],
                                 'FNAME' : STUD00['FNAME'],
                                 'MIDDLE' : STUD00['MIDDLE'],
@@ -88,6 +91,7 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
                                 'ENROLLDATE' :  STUD00['ENROLLDATE'],
                                 'LEVEL' :  STUD00['LEVEL'],
                                 'REGFEE' :  STUD00['REGFEE'],
+                                'REGFEEDATE' : STUD00['REGFEEDATE'],
                                 'MONTHLYFEE' :  STUD00['MONTHLYFEE'],
                                 'BALANCE' :  STUD00['BALANCE'],
                                 'PHONE' :  STUD00['PHONE'],
@@ -107,21 +111,47 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
         family_id = student.pop('FAMILY_ID')
         student.insert(1, 'FAMILY_ID', family_id)
 
+
+        ### PAYMENT ###
+        payment_df = STUD00[['STUDENTNO'] + [month.upper() + suffix for month in list(calendar.month_abbr[1:]) for suffix in ['PAY','DATE','BILL']]]
+
+        # 'Melt' dataframe so that all month column names are put into one column called 'COLUMN'
+        df_long = payment_df.melt(id_vars=['STUDENTNO'], var_name='COLUMN', value_name='VALUE')
+        df_long['MONTH'] = df_long['COLUMN'].str[:3].map({calendar.month_abbr[i].upper() : i for i in range(1,13)})
+        df_long['TYPE'] = df_long['COLUMN'].str[3:]  # Remaining characters for the type
+        df_long['row'] = df_long.groupby(['STUDENTNO', 'MONTH', 'TYPE']).cumcount()
+
+        df_pivot = df_long.pivot(index=['STUDENTNO','MONTH', 'row'], columns='TYPE', values='VALUE').rename_axis(columns=None).reset_index()
+        df_pivot = df_pivot[['STUDENTNO', 'MONTH', 'PAY', 'DATE', 'BILL']]
+        # Pivot payment columns so that the new table has columns: [PAYMENT_ID, STUD_ID, MONTH, 'PAY', 'DATE']
+        payment = df_pivot[(df_pivot['PAY'] != 0) | ~pd.isna(df_pivot['BILL'])].reset_index(drop=True)
+        # Get STUD_ID from 'student'
+        payment = student[['STUD_ID','STUDENTNO']].merge(payment, how='right', on='STUDENTNO')
+
+
         ### CLASSES ###
         # Keep the first 11 columns from 'clsbymon'
         classes = clsbymon.iloc[:,:11].copy()
         # Timestamp columns (placeholder)
         classes.insert(len(classes.columns),'CREA_TMS',[datetime.now()]*classes.shape[0])
         classes.insert(len(classes.columns),'UPDT_TMS',[datetime.now()]*classes.shape[0])
+
+        ### CLASS_STUDENT ###
+        # Table to connect student with classes
+        class_student = []
         
         # In 'clsbymon' there are 32 placeholder columns for students.
         # For each class, iterate through every student column, pull student number,
-        # then update CLASS_ID for corresponding record in `students`.
-        for class_id in range(clsbymon.shape[0]):
+        # create record in class_student to record that this student is enrolled in this class.
+        for class_id in clsbymon['CLASS_ID']:
             for student_num_col in [f'NUMB{i}' for i in range(1,33)]:   
-                student_num = clsbymon.loc[class_id, student_num_col]
+                student_num = clsbymon.loc[clsbymon['CLASS_ID']==class_id, student_num_col].values[0]
+                # If student is enrolled in this class, created record in class_student
                 if student_num != 0:
-                    student.loc[student['STUDENTNO'] == student_num, 'CLASS_ID'] = class_id
+                    stud_id = student.loc[student['STUDENTNO'] == student_num]['STUD_ID'].values[0]
+                    class_student.append({'CLASS_ID' : class_id, 'STUD_ID' : stud_id})
+        # Convert to dataframe
+        class_student = pd.DataFrame.from_dict(class_student)
         
         ### WAITLIST ###
         # Extract waitlist 
@@ -163,6 +193,18 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
         trial.insert(len(trial.columns),'UPDT_TMS',[datetime.now()]*trial.shape[0])
 
         ### NOTES ###
+        # Extract student notes
+        note_list = STUD00[['STUD_ID'] + [f'NOTE{i}' for i in range(1,4)]]
+        notes = []
+        # In 'clsbymon', there are 4 placeholder columns for notes.
+        # For each class, iterate through every note column
+        # and extract the text
+        for i in range(1,4):
+            notes.append(note_list[~pd.isna(note_list[f'NOTE{i}'])][['STUD_ID', f'NOTE{i}']
+                                                                ].rename(columns={f'NOTE{i}':'NOTE_TXT'}))
+        # Each row simply contains a STUD_ID and the contents of the note.
+        stud_note = pd.concat(notes)
+
         # Extract class notes
         note_list = clsbymon[['CLASS_ID'] + [f'NOTE{i}' for i in range(1,5)]]
         notes = []
@@ -174,16 +216,23 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
                                                                 ].rename(columns={f'NOTE{i}':'NOTE_TXT'}))
         # Create new table 'note' which stores notes for classes.
         # Each row simply contains a CLASS_ID and the contents of the note.
-        note = pd.concat(notes).sort_values(by='CLASS_ID')
+        class_note = pd.concat(notes)
+        # Add blank CLASS_ID to 'stud_note' and blank STUD_ID to 'class_note' so we can combine them
+        stud_note.insert(0, 'CLASS_ID', [pd.NA]*stud_note.shape[0])
+        class_note.insert(0, 'STUD_ID', [pd.NA]*class_note.shape[0])
+
+        # Create new table 'note' which contains both class and student notes
+        note = pd.concat([stud_note, class_note], axis=0).sort_values(by=['STUD_ID', 'CLASS_ID'])
         note.insert(0, 'NOTE_ID', list(range(1, note.shape[0]+1)))
         # Timestamp columns (placeholder)
         note.insert(len(note.columns),'CREA_TMS',[datetime.now()]*note.shape[0])
         note.insert(len(note.columns),'UPDT_TMS',[datetime.now()]*note.shape[0])
-
+        
+        
         # Write to csv files if option chosen
         if write_to_csv:
-            for df, csv_name in zip([guardian, student, classes, wait, trial, note],
-                                    ['guardian.csv','student.csv','classes.csv','wait.csv','trial.csv','note.csv']):
+            for df, csv_name in zip([guardian, student, payment, classes, class_student, wait, trial, note],
+                                    ['guardian.csv','student.csv','payment.csv','classes.csv','class_student.csv','wait.csv','trial.csv','note.csv']):
                 df.to_csv(save_to_path + '\\' + csv_name, index=False)
 
     except FileNotFoundError as err:
@@ -210,7 +259,7 @@ def validate_float(action, value_if_allowed, prior_value, text):
 # Validate that a date field is entered in the correct format "MM/DD/YYYY"
 def validate_date(date_text):
     try:
-        if date_text != datetime.strptime(date_text, "%m/%d/%Y").strftime("%m/%d/%Y"):
+        if len(date_text) > 0 and date_text != datetime.strptime(date_text, "%m/%d/%Y").strftime("%m/%d/%Y"):
             raise ValueError
         return True
     except ValueError:
