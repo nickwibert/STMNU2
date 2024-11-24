@@ -11,13 +11,19 @@ class MyFrame(ctk.CTkFrame):
 
 # Scrollable frame to display the results from a search 
 class SearchResultsFrame(ctk.CTkScrollableFrame):
-    def __init__(self, master, results, max_row, **kwargs):
+    def __init__(self, master, student_info_frame, max_row, **kwargs):
         super().__init__(master, **kwargs)
-        # Results from user's search (dataframe)
-        self.results = results
+        # Link to student info frame
+        self.student_info_frame = student_info_frame
         # Maximum number of rows to return
         self.max_row = max_row
+        # List of labels
+        self.labels = []
 
+    def display_search_results(self, results):
+        for label in self.labels:
+            label.destroy()
+        self.results = results
         # Boolean variable which is True when the number of matches
         # is greater than `max_row`, indicating that we need to truncate the results
         truncate_results = True if self.results.shape[0] > self.max_row else False
@@ -50,9 +56,10 @@ class SearchResultsFrame(ctk.CTkScrollableFrame):
                     label.bind("<Leave>", lambda event, row=row:
                                                 self.unhighlight_label(row))
                     label.bind("<Button-1>", lambda event, idx=student_idx:
-                                                master.create_student_info_window(idx))
+                                                self.student_info_frame.update_labels(idx))
 
                 label.grid(row=row, column=col, sticky='nsew')
+                self.labels.append(label)
     
     # Highlight student row when mouse hovers over it
     def highlight_label(self, row):
@@ -69,26 +76,22 @@ class SearchResultsFrame(ctk.CTkScrollableFrame):
                 child.configure(fg_color='transparent')
 
 class StudentInfoFrame(ctk.CTkFrame):
-    def __init__(self, master, student_idx, database, **kwargs):
+    def __init__(self, master, database, **kwargs):
         # Create window
         super().__init__(master, **kwargs)
-        # Store selected student index
-        self.student_idx = student_idx
         # Instance of student database
         self.database = database
 
         # Configure rows/columns
         self.columnconfigure((0,1), weight=1)
         self.rowconfigure(tuple(range(5)), weight=1)
-        # Button to return to search results
-        self.return_to_matches_button = ctk.CTkButton(self,
-                                            text="Return to Search Results",
-                                            command=self.return_to_matches)
-        # If more than one match was returned, hide search results
-        # and enable "return to matches" button
-        if self.master.matches.shape[0] > 1:
-            self.master.matches_frame.grid_forget()
-            self.return_to_matches_button.grid(row=0,column=0)
+        # # Button to return to search results
+        # self.return_to_matches_button = ctk.CTkButton(self,
+        #                                     text="Return to Search Results",
+        #                                     command=self.return_to_matches)
+        # if self.master.matches.shape[0] > 1:
+        #     self.master.matches_frame.grid_forget()
+        #     self.return_to_matches_button.grid(row=0,column=0)
 
         # Frame which will contain student personal info
         self.personal_frame = MyFrame(self)
@@ -161,7 +164,7 @@ class StudentInfoFrame(ctk.CTkFrame):
         ### Personal Info Frame ###
         self.labels = {}
         # Display student number above name (cannot be edited)
-        self.studentno_label = ctk.CTkLabel(self.personal_frame, font=ctk.CTkFont('Britannic',18), width=self.winfo_reqwidth())
+        self.studentno_label = ctk.CTkLabel(self.personal_frame, text='', font=ctk.CTkFont('Britannic',18), width=self.winfo_reqwidth())
         self.studentno_label.grid(row=self.personal_frame.grid_size()[1],column=0,sticky='nsew')
 
         # Create frame for full student name
@@ -169,11 +172,11 @@ class StudentInfoFrame(ctk.CTkFrame):
         self.name_frame.columnconfigure((0,1,2), weight=1)
         self.name_frame.grid(row=self.personal_frame.grid_size()[1], column=0, sticky='nsew')
         name_font = ctk.CTkFont('Britannic', 18)
-        self.labels['FNAME'] = ctk.CTkLabel(self.name_frame, font=name_font, anchor='e')
+        self.labels['FNAME'] = ctk.CTkLabel(self.name_frame, text='', font=name_font, anchor='e')
         self.labels['FNAME'].grid(row=0, column=0, padx=2, sticky='nsew')
-        self.labels['MIDDLE'] = ctk.CTkLabel(self.name_frame, font=name_font)
+        self.labels['MIDDLE'] = ctk.CTkLabel(self.name_frame, text='', font=name_font)
         self.labels['MIDDLE'].grid(row=0, column=1, sticky='nsew')
-        self.labels['LNAME'] = ctk.CTkLabel(self.name_frame, font=name_font, anchor='w')
+        self.labels['LNAME'] = ctk.CTkLabel(self.name_frame, text='', font=name_font, anchor='w')
         self.labels['LNAME'].grid(row=0, column=2, padx=2, sticky='nsew')
 
         # Create frame for full address
@@ -182,17 +185,17 @@ class StudentInfoFrame(ctk.CTkFrame):
         self.address_frame.columnconfigure((0,1,2), weight=1)
         self.address_frame.grid(row=self.personal_frame.grid_size()[1],column=0,rowspan=2, sticky='nsew')
 
-        self.labels['ADDRESS'] = ctk.CTkLabel(self.address_frame)
+        self.labels['ADDRESS'] = ctk.CTkLabel(self.address_frame,  text='',)
         self.labels['ADDRESS'].grid(row=0, column=0, columnspan=3, sticky='nsew')
-        self.labels['CITY'] = ctk.CTkLabel(self.address_frame)
+        self.labels['CITY'] = ctk.CTkLabel(self.address_frame,  text='',)
         self.labels['CITY'].grid(row=1, column=0, padx=2, sticky='nsew')
-        self.labels['STATE'] = ctk.CTkLabel(self.address_frame)
+        self.labels['STATE'] = ctk.CTkLabel(self.address_frame,  text='',)
         self.labels['STATE'].grid(row=1, column=1, padx=2, sticky='nsew')
-        self.labels['ZIP'] = ctk.CTkLabel(self.address_frame)
+        self.labels['ZIP'] = ctk.CTkLabel(self.address_frame,  text='',)
         self.labels['ZIP'].grid(row=1, column=2, padx=2, sticky='nsew')
 
         # Email address
-        self.labels['EMAIL'] = ctk.CTkLabel(self.personal_frame)
+        self.labels['EMAIL'] = ctk.CTkLabel(self.personal_frame,  text='',)
         self.labels['EMAIL'].grid(row=self.personal_frame.grid_size()[1], column=0, sticky='nsew')
 
         # Create frame for mother name
@@ -201,7 +204,7 @@ class StudentInfoFrame(ctk.CTkFrame):
         self.mom_frame.grid(row=self.personal_frame.grid_size()[1],column=0, sticky='nsew')
         self.labels['MOM_HEADER'] = ctk.CTkLabel(self.mom_frame, text='Mom:')
         self.labels['MOM_HEADER'].grid(row=0, column=0, sticky='nse', padx=4)
-        self.labels['MOMNAME'] = ctk.CTkLabel(self.mom_frame, anchor='w')
+        self.labels['MOMNAME'] = ctk.CTkLabel(self.mom_frame, text='', anchor='w')
         self.labels['MOMNAME'].grid(row=0, column=1, sticky='nsew')
 
         # Create frame for father name
@@ -210,10 +213,10 @@ class StudentInfoFrame(ctk.CTkFrame):
         self.dad_frame.grid(row=self.personal_frame.grid_size()[1],column=0, sticky='nsew')
         self.labels['DAD_HEADER'] = ctk.CTkLabel(self.dad_frame, text='Dad:')
         self.labels['DAD_HEADER'].grid(row=0,column=0, padx=4, sticky='nse')
-        self.labels['DADNAME'] = ctk.CTkLabel(self.dad_frame, anchor='w')
+        self.labels['DADNAME'] = ctk.CTkLabel(self.dad_frame, text='', anchor='w')
         self.labels['DADNAME'].grid(row=0, column=1, sticky='nsew')
 
-        self.labels['PHONE'] = ctk.CTkLabel(self.personal_frame)
+        self.labels['PHONE'] = ctk.CTkLabel(self.personal_frame, text='',)
         self.labels['PHONE'].grid(row=self.personal_frame.grid_size()[1], column=0, sticky='nsew')
 
         # Create frame for birthday
@@ -222,7 +225,7 @@ class StudentInfoFrame(ctk.CTkFrame):
         self.bday_frame.grid(row=self.personal_frame.grid_size()[1],column=0, sticky='nsew')
         self.labels['BIRTHDAY_HEADER'] = ctk.CTkLabel(self.bday_frame, text='Birthday:', anchor='w')
         self.labels['BIRTHDAY_HEADER'].grid(row=0,column=0,padx=2, sticky='nsew')
-        self.labels['BIRTHDAY'] = ctk.CTkLabel(self.bday_frame, anchor='e')
+        self.labels['BIRTHDAY'] = ctk.CTkLabel(self.bday_frame, text='', anchor='e')
         self.labels['BIRTHDAY'].grid(row=0, column=1, sticky='nsew')
 
         # Create frame for enroll date
@@ -231,7 +234,7 @@ class StudentInfoFrame(ctk.CTkFrame):
         self.enrolldate_frame.grid(row=self.personal_frame.grid_size()[1],column=0, sticky='nsew')
         self.labels['ENROLLDATE_HEADER'] = ctk.CTkLabel(self.enrolldate_frame, text='Enroll Date:', anchor='w')
         self.labels['ENROLLDATE_HEADER'].grid(row=0,column=0,padx=2, sticky='nsew')
-        self.labels['ENROLLDATE'] = ctk.CTkLabel(self.enrolldate_frame, anchor='e')
+        self.labels['ENROLLDATE'] = ctk.CTkLabel(self.enrolldate_frame, text='', anchor='e')
         self.labels['ENROLLDATE'].grid(row=0, column=1, sticky='nsew')
 
         # Create frame for monthly fee
@@ -240,7 +243,7 @@ class StudentInfoFrame(ctk.CTkFrame):
         self.monthlyfee_frame.grid(row=self.personal_frame.grid_size()[1],column=0, sticky='nsew')
         self.labels['MONTHLYFEE_HEADER'] = ctk.CTkLabel(self.monthlyfee_frame, text='Monthly Fee:', anchor='w')
         self.labels['MONTHLYFEE_HEADER'].grid(row=0,column=0,padx=2, sticky='nsew')
-        self.labels['MONTHLYFEE'] = ctk.CTkLabel(self.monthlyfee_frame, anchor='e')
+        self.labels['MONTHLYFEE'] = ctk.CTkLabel(self.monthlyfee_frame, text='', anchor='e')
         self.labels['MONTHLYFEE'].grid(row=0, column=1, sticky='nsew')
 
         # Create frame for balance
@@ -249,12 +252,12 @@ class StudentInfoFrame(ctk.CTkFrame):
         self.balance_frame.grid(row=self.personal_frame.grid_size()[1],column=0, sticky='nsew')
         self.labels['BALANCE_HEADER'] = ctk.CTkLabel(self.balance_frame, text='Balance:', anchor='w')
         self.labels['BALANCE_HEADER'].grid(row=0,column=0,padx=2, sticky='nsew')
-        self.labels['BALANCE'] = ctk.CTkLabel(self.balance_frame, anchor='e')
+        self.labels['BALANCE'] = ctk.CTkLabel(self.balance_frame, text='', anchor='e')
         self.labels['BALANCE'].grid(row=0, column=1, sticky='nsew')
 
         ### Class Frame ###
         self.class_labels = []
-        headers = [self.database.student.iloc[self.student_idx]['CLASS'], 'INSTRUCTOR', 'TIME']
+        headers = ['CODE', 'INSTRUCTOR', 'TIME']
         for row in range(3):
             row_labels = []
             for col in range(len(headers)):
@@ -266,7 +269,7 @@ class StudentInfoFrame(ctk.CTkFrame):
                 # Labels for actual data
                 else:
                     # label_txt = class_info.iloc[row-1,col] if not class_info.empty else ''
-                    row_labels.append(ctk.CTkLabel(self.class_frame))
+                    row_labels.append(ctk.CTkLabel(self.class_frame, text='',))
 
                 row_labels[-1].grid(row=row, column=col, sticky='nsew', padx=5)
             
@@ -286,10 +289,10 @@ class StudentInfoFrame(ctk.CTkFrame):
             self.payment_labels[row] = {'MONTH' : ctk.CTkLabel(month_frame, text=month_column[row],
                                                              font=payment_font,
                                                              anchor='w', width=75),
-                                        'PAY'   : ctk.CTkLabel(month_frame,
+                                        'PAY'   : ctk.CTkLabel(month_frame, text='',
                                                              font=payment_font,
                                                              anchor='e', width=50),
-                                        'DATE'  : ctk.CTkLabel(month_frame,
+                                        'DATE'  : ctk.CTkLabel(month_frame, text='',
                                                              font=payment_font,
                                                              anchor='e', width=75)}
             # Put labels into grid
@@ -309,11 +312,10 @@ class StudentInfoFrame(ctk.CTkFrame):
             label.grid(row=row, column=0, sticky='nsew')
             self.note_labels.append(label)
 
-        # Call 'update_labels' to set the text value for each label
-        self.update_labels()
 
     # Update text in labels
-    def update_labels(self):
+    def update_labels(self, student_idx):
+        self.student_idx = student_idx
         # Series containing all info for a single student (capitalize all strings for visual appeal)
         self.student_info = self.database.student.iloc[self.student_idx
                                                        ].astype('string'
@@ -410,7 +412,7 @@ class StudentInfoFrame(ctk.CTkFrame):
         # Disable prev/next student buttons
         self.prev_student_button.configure(state='disabled')
         self.next_student_button.configure(state='disabled')
-        self.return_to_matches_button.configure(state='disabled')
+        #self.return_to_matches_button.configure(state='disabled')
 
         # Replace info labels with entry boxes, and populate with the current info
         self.entry_boxes = dict.fromkeys(self.labels)
@@ -511,7 +513,7 @@ class StudentInfoFrame(ctk.CTkFrame):
             # Re-enable the deactivated buttons
             self.prev_student_button.configure(state='normal')
             self.next_student_button.configure(state='normal')
-            self.return_to_matches_button.configure(state='normal')
+            #self.return_to_matches_button.configure(state='normal')
 
     # Go back to search results window
     def return_to_matches(self):
@@ -574,10 +576,12 @@ class StudentInfoWindow(ctk.CTkToplevel):
         super().__init__(*args, **kwargs)
         self.geometry('400x300')
         self.rowconfigure(0, weight=1)
+        self.rowconfigure(1, weight=4)
         self.columnconfigure(0, weight=1)
-        # Main frame to hold widgets
-        self.main_frame = MyFrame(self)
-        self.main_frame.grid(row=0,column=0)
+        self.columnconfigure(1, weight=4)
+
+        self.search_frame = MyFrame(self)
+        self.search_frame.grid(row=0,column=0)
 
         # Dictionary of entry boxes to stay organized. The keys will act as the labels
         # next to each entry box, and the values will hold the actual EntryBox objects
@@ -585,27 +589,42 @@ class StudentInfoWindow(ctk.CTkToplevel):
         # Create and grid each entry box in a loop
         for row, key in list(zip(range(len(self.entry_boxes.keys())), self.entry_boxes.keys())):
             # Label to identify entry box
-            label = ctk.CTkLabel(self.main_frame, text=key + ':', anchor='w')
+            label = ctk.CTkLabel(self.search_frame, text=key + ':', anchor='w')
             label.grid(row=row, column=0, sticky='nsew', pady=5, padx=5)
             # If field is numeric, enable data validation
             if row == 0:
                 vcmd = (self.register(fn.validate_float), '%d', '%P', '%s', '%S')
-                self.entry_boxes[key] = (ctk.CTkEntry(self.main_frame, validate='key', validatecommand=vcmd))
+                self.entry_boxes[key] = (ctk.CTkEntry(self.search_frame, validate='key', validatecommand=vcmd))
             else:
-                self.entry_boxes[key] = (ctk.CTkEntry(self.main_frame))
+                self.entry_boxes[key] = (ctk.CTkEntry(self.search_frame))
 
             self.entry_boxes[key].grid(row=row, column=1, sticky='ew')
+
+        # Frame which will contain all student information
+        self.student_info_frame = StudentInfoFrame(self, self.database, width=self.winfo_width()-100)
+        self.student_info_frame.grid(row=0, column=1, rowspan=2)
+
+        # Frame which contains results from search
+        self.matches_frame = SearchResultsFrame(self, self.student_info_frame, max_row=100)
+        self.matches_frame.grid(row=1,column=0,sticky='nsew')
         
-        # Button to perform search when clicked (see function create_search_results_window())
-        self.search_button = ctk.CTkButton(self.main_frame, text='Search', command=self.create_search_results_window)
+        # Button to perform search when clicked 
+        self.search_button = ctk.CTkButton(self.search_frame, text='Search', command=self.update_search_results)
         self.search_button.grid(row=len(self.entry_boxes)+1, column=0, columnspan=2)
 
         # Also bind Enter key to the "Search" button
         self.bind('<Return>', lambda event: self.search_button.invoke())
 
-    def create_search_results_window(self):
-        # Unbind Enter key
-        self.unbind('<Return>')
+
+
+
+        self.geometry('1000x700')
+        self.update_idletasks()
+
+
+
+
+    def update_search_results(self):
         # Get user input
         query = dict.fromkeys(self.entry_boxes.keys())
         for key in query.keys():
@@ -614,20 +633,12 @@ class StudentInfoWindow(ctk.CTkToplevel):
         # If user provided no input whatsoever, do nothing
         if set(query.values()) == {''}: return
 
-        # Destroy existing widgets
-        self.main_frame.destroy()
         # Search for matches
         self.matches = self.database.search_student(query)
-        self.geometry(f'{100*self.matches.shape[1]}x600')
-        # If no match found, create window and display error
-        if self.matches.empty:
-            self.create_student_info_window(None)
-        # If exactly one match found, skip the search results window and go straight to student info
-        elif self.matches.shape[0] == 1:
-            self.create_student_info_window(self.matches.index[0])
-        else:
-            self.matches_frame = SearchResultsFrame(self, self.matches, max_row=100)
-            self.matches_frame.grid(row=0,column=0,sticky='nsew')
+
+        # Update matches in search results frame
+        self.matches_frame.display_search_results(self.matches)
+
 
     def create_student_info_window(self, student_idx):
         # Selected student index and student id
@@ -638,11 +649,6 @@ class StudentInfoWindow(ctk.CTkToplevel):
             ctk.CTkLabel(self, text="No matches found.").pack()
             return
         
-        self.geometry('800x700')
-        # Frame which will contain all student information
-        self.student_info_frame = StudentInfoFrame(self, self.student_idx, self.database, width=self.winfo_width()-100)
-        self.student_info_frame.grid(row=0,column=0)
-        self.update_idletasks()
         self.minsize(self.student_info_frame.winfo_width(), self.student_info_frame.winfo_height())
         
 
