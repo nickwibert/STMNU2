@@ -10,6 +10,7 @@ class StudentDatabase:
         # DBF Table object for clsbymon.dbf
         self.classes_dbf = dbf.Table(clsbymon_dbf_path)
 
+    def load_data(self):
         # Transform current versions of DBF files to CSV
         fn.dbf_to_csv('STUD00.dbf')
         fn.dbf_to_csv('clsbymon.dbf')
@@ -71,34 +72,28 @@ class StudentDatabase:
         # Force all uppercase
         for key in query.keys(): query[key] = query[key].upper()
         
-        # If student number provided, perform search using only this field
-        if len(query['Student Number']) > 0:
-            matches = self.student[self.student['STUDENTNO'].astype('str').str.startswith(query['Student Number'])
-                              ].sort_values(by='STUDENTNO'
-                              ).loc[:, ['STUDENTNO', 'FNAME','MIDDLE','LNAME']].fillna('')
-        # Otherwise, perform search using name fields
-        else:
-            matches = self.student[(((self.student['FNAME'].str.upper().str.startswith(query['First Name'], na=False)) | (len(query['First Name']) == 0))
-                               & ((self.student['MIDDLE'].str.upper().str.startswith(query['Middle Name'], na=False)) | (len(query['Middle Name']) == 0))
-                               & ((self.student['LNAME'].str.upper().str.startswith(query['Last Name'], na=False)) | (len(query['Last Name']) == 0)))
-                              ].sort_values(by=['LNAME','FNAME'], key=lambda x: x.str.upper()
-                              ).loc[:, ['STUDENTNO', 'FNAME','MIDDLE','LNAME']].fillna('')
-
+        # Perform search using name fields
+        matches = self.student[(((self.student['FNAME'].str.upper().str.startswith(query['First Name'], na=False)) | (len(query['First Name']) == 0))
+                            & ((self.student['LNAME'].str.upper().str.startswith(query['Last Name'], na=False)) | (len(query['Last Name']) == 0)))
+                            ].sort_values(by=['LNAME','FNAME'], key=lambda x: x.str.upper()
+                            ).loc[:, ['STUD_ID', 'FNAME','LNAME']
+                            ].fillna(''
+                            ).reset_index(drop=True)
+        
         return matches
 
-    def update_student_info(self, student_idx, entry_boxes):
-        float_cols = ['MONTHLYFEE', 'BALANCE']
-        int_cols = ['ZIP']
-        numeric_cols = float_cols + int_cols
+    def update_student_info(self, student_id, entry_boxes):
+        # Get dataframe index associated with 'student_id'
+        student_idx = self.student[self.student['STUD_ID'] == student_id].index[0]
 
         new_values = [entry.get() for entry in entry_boxes.values()]
         new_student_info = pd.Series({k:v for (k,v) in zip(entry_boxes.keys(), new_values)})
         for col in entry_boxes.keys():
             if len(new_student_info[col]) == 0:
-                new_student_info[col] = 0 if col in numeric_cols else None
-            elif col in float_cols:
+                new_student_info[col] = 0 if entry_boxes[col].dtype == 'float' else None
+            elif entry_boxes[col].dtype == 'float':
                 new_student_info[col] = float(new_student_info[col])
-            elif col in int_cols:
+            elif entry_boxes[col].dtype == 'int':
                 new_student_info[col] = int(float(new_student_info[col]))
             else:
                 new_student_info[col] = new_student_info[col].upper()
@@ -196,5 +191,21 @@ class StudentDatabase:
     # dealing with the case-sensitivity which is built in to Pandas
     def sort_student_alphabetical(self):
         return self.student.sort_values(by=['LNAME','FNAME'], key=lambda x: x.str.upper())
+    
+
+    # Similar to `search_students`, but for classes. User selects options to filter down
+    # list of classes (i.e. gender, class level, day of week)
+    def filter_classes(self, filters):
+        # `filters` is a dictionary where the key is the filter type (GENDER, DAY, LEVEL)
+        # and the corresponding value is some pattern to match on ('GIRL', 2, 'ADV')
+        matches = self.classes[(((self.classes['TEACH'] == filters['INSTRUCTOR']) | (len(filters['INSTRUCTOR']) == 0))
+                                & ((self.classes['CLASSNAME'].str.contains(filters['GENDER'])) | (len(filters['GENDER']) == 0))
+                                & ((self.classes['DAYOFWEEK'] == filters['DAY']) | (len(str(filters['DAY'])) == 0))
+                                & ((self.classes['CLASSNAME'].str.contains(filters['LEVEL'])) | (self.classes['CODE'] == filters['LEVEL']) | (len(filters['LEVEL']) == 0)))
+                              ].sort_values(by=['DAYOFWEEK', 'CLASSTIME']
+                              ).loc[:, ['CLASS_ID', 'TEACH', 'CLASSTIME', 'CLASSNAME', 'MAX']]
+        
+        return matches
+
 
 
