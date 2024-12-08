@@ -1,3 +1,4 @@
+import customtkinter as ctk
 import gui
 from database import StudentDatabase
 
@@ -12,4 +13,3 @@ def main():
 
 if __name__ == "__main__":
    main()
-   
