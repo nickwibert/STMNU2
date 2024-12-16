@@ -5,7 +5,9 @@ from datetime import datetime
 import calendar
 import customtkinter as ctk
 from dbfread import DBF
-import dbf
+
+import functions as fn
+from widgets.password_dialog import PasswordDialog
 
 # Function to convert a given .dbf file to .csv
 def dbf_to_csv(filename, save_to_path='C:\\STMNU2\\data\\dbf_format'):
@@ -47,9 +49,8 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
 
         # Load .dbf files for students and classes
         STUD00 = pd.read_csv('data\\dbf_format\\STUD00.csv').dropna(subset=['FNAME','LNAME']).reset_index(drop=True)
-        STUD00.insert(0, 'STUD_ID', STUD00.index + 1)
+        STUD00.insert(0, 'STUDENT_ID', STUD00.index + 1)
         clsbymon = pd.read_csv('data\\dbf_format\\clsbymon.csv')
-        clsbymon.insert(0, 'CLASS_ID', clsbymon.index + 1)
 
         ### GUARDIAN ###
         # Since we only have first names, and a lot of the data is inconsistent
@@ -80,7 +81,7 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
         ### STUDENT ###
         # New table 'student' which is very similar to 'STUD00', just with
         # parent and payment info extracted
-        student = pd.DataFrame({'STUD_ID' : STUD00['STUD_ID'],
+        student = pd.DataFrame({'STUDENT_ID' : STUD00['STUDENT_ID'],
                                 'CLASS' : STUD00['CLASS'],
                                 'STUDENTNO' : STUD00['STUDENTNO'],
                                 'FNAME' : STUD00['FNAME'],
@@ -104,9 +105,7 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
                                 'UPDT_TMS' : [datetime.now()]*STUD00.shape[0],})
 
         # Insert FAMILY_ID into student
-        student = student.merge(STUD00.merge(families[['MOMNAME','DADNAME','LNAME','FAMILY_ID']], how='left'
-                                            ).loc[:, ['STUDENTNO','FAMILY_ID']],
-                                how='left', on='STUDENTNO')
+        student = student.merge(families[['STUDENT_ID','FAMILY_ID']], how='left', on='STUDENT_ID')
         # Move FAMILY_ID to second column
         family_id = student.pop('FAMILY_ID')
         student.insert(1, 'FAMILY_ID', family_id)
@@ -123,15 +122,15 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
 
         df_pivot = df_long.pivot(index=['STUDENTNO','MONTH', 'row'], columns='TYPE', values='VALUE').rename_axis(columns=None).reset_index()
         df_pivot = df_pivot[['STUDENTNO', 'MONTH', 'PAY', 'DATE', 'BILL']]
-        # Pivot payment columns so that the new table has columns: [PAYMENT_ID, STUD_ID, MONTH, 'PAY', 'DATE']
+        # Pivot payment columns so that the new table has columns: [PAYMENT_ID, STUDENT_ID, MONTH, 'PAY', 'DATE']
         payment = df_pivot[(df_pivot['PAY'] != 0) | ~pd.isna(df_pivot['BILL'])].reset_index(drop=True)
-        # Get STUD_ID from 'student'
-        payment = student[['STUD_ID','STUDENTNO']].merge(payment, how='right', on='STUDENTNO')
+        # Get STUDENT_ID from 'student'
+        payment = student[['STUDENT_ID','STUDENTNO']].merge(payment, how='right', on='STUDENTNO')
 
 
         ### CLASSES ###
-        # Keep the first 11 columns from 'clsbymon'
-        classes = clsbymon.iloc[:,:11].copy()
+        # Keep the first 11 columns from 'clsbymon', and FINAL column (CLASS_ID)
+        classes = clsbymon.iloc[:,list(range(11)) + [clsbymon.shape[1]-1]].copy()
         # Timestamp columns (placeholder)
         classes.insert(len(classes.columns),'CREA_TMS',[datetime.now()]*classes.shape[0])
         classes.insert(len(classes.columns),'UPDT_TMS',[datetime.now()]*classes.shape[0])
@@ -148,11 +147,12 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
                 student_num = clsbymon.loc[clsbymon['CLASS_ID']==class_id, student_num_col].values[0]
                 # If student is enrolled in this class, created record in class_student
                 if student_num != 0:
-                    stud_id = student.loc[student['STUDENTNO'] == student_num]['STUD_ID'].values[0]
-                    class_student.append({'CLASS_ID' : class_id, 'STUD_ID' : stud_id})
+                    stud_id = student.loc[student['STUDENTNO'] == student_num]['STUDENT_ID'].values[0]
+                    class_student.append({'CLASS_ID' : class_id, 'STUDENT_ID' : stud_id})
         # Convert to dataframe
         class_student = pd.DataFrame.from_dict(class_student)
         
+
         ### WAITLIST ###
         # Extract waitlist 
         waitlist = clsbymon[['CLASS_ID'] + [col for i in range(1, 5) for col in (f'WAIT{i}', f'W{i}PHONE')]]
@@ -172,37 +172,62 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
         wait.insert(len(wait.columns),'CREA_TMS',[datetime.now()]*wait.shape[0])
         wait.insert(len(wait.columns),'UPDT_TMS',[datetime.now()]*wait.shape[0])
 
+
         ### TRIAL ###
-        # Extract trials
-        trial_list = clsbymon[['CLASS_ID'] + [col for i in range(1, 9) for col in (f'TRIAL{i}', f'T{i}PHONE', f'T{i}DATE')]]
-        trials = []
-        # In 'clsbymon' there are 8 placeholder columns for trials.
-        # For each class, iterate through every trial column
-        # and extract their individual info
-        for i in range(1,9):
-            trials.append(trial_list[~pd.isna(trial_list[f'TRIAL{i}'])][['CLASS_ID', f'TRIAL{i}', f'T{i}PHONE', f'T{i}DATE']
-                                                                ].rename(columns={f'TRIAL{i}' : 'NAME',
-                                                                                  f'T{i}PHONE' : 'PHONE',
-                                                                                  f'T{i}DATE' : 'DATE'}))
-        # Create new table 'trial' which stores info for class members who are trials.
-        # Each row simply contains a CLASS_ID, Name, Phone Number, and Date
-        trial = pd.concat(trials).sort_values(by='CLASS_ID')
-        trial.insert(0, 'TRIAL_ID', list(range(1, trial.shape[0]+1)))
+        columns = ['CLASS_ID'] + [col for i in range(1, 9) for col in (f'TRIAL{i}', f'T{i}PHONE', f'T{i}DATE')]
+        trial_df = clsbymon[columns]
+
+        # Step 1: Reshape the DataFrame using melt
+        df_long = trial_df.melt(id_vars=['CLASS_ID'], var_name='variable', value_name='value')
+
+        # Add ranking column to ensure rows are sorted properly within each class
+        col_name_to_rank = {**{f'TRIAL{i}'  : (i + (2*i - 2)) for i in range(1,9)},
+                            **{f'T{i}PHONE' : (i + (2*i - 1)) for i in range(1,9)},
+                            **{f'T{i}DATE'  : (i + (2*i - 0)) for i in range(1,9)}}
+        df_long['COL_RANK'] = df_long['variable'].map(col_name_to_rank)
+        df_long = df_long.sort_values(by=['CLASS_ID', 'COL_RANK'])
+
+        # Add column to remember which trial each row corresponds to
+        # (this is necessary for compatibility with DBF files, where the trials
+        # do not necessarily need to be edited in order, i.e. it is common for trials 7/8
+        # to have data while all the other trials are blank, and we need to preserve this ordering)
+        df_long['TRIAL_NO'] = df_long['variable'].str.extract('(\\d+)')
+
+        # Step 2: Extract TYPE from the column names
+        df_long['TYPE'] = np.where(df_long['variable'].str.contains('TRIAL'), 'NAME', np.where(
+                                df_long['variable'].str.contains('PHONE'), 'PHONE', 'DATE'
+                                ))
+
+        # Step 3: Group data by CLASS_ID and column type for alignment
+        df_long['row'] = df_long.groupby(['CLASS_ID','TYPE']).cumcount()
+
+        # Step 4: Pivot the table to align DATE, NAME, and PHONE
+        df_pivot = df_long.pivot(index=['CLASS_ID', 'TRIAL_NO', 'row'], columns='TYPE', values='value')
+        df_pivot.columns.name = None
+        df_pivot = df_pivot.reset_index()
+
+        # Step 5: Drop the helper index, reorder columns, and create 'TRIAL_ID'
+        trial = df_pivot[['CLASS_ID', 'TRIAL_NO', 'NAME', 'PHONE', 'DATE']]
+
+        # Finally, keep only the rows which have some data
+        trial = trial.dropna(how='all', subset=['NAME','PHONE','DATE']).reset_index(drop=True)
+        trial.insert(0, 'TRIAL_ID', trial.index + 1)
         # Timestamp columns (placeholder)
         trial.insert(len(trial.columns),'CREA_TMS',[datetime.now()]*trial.shape[0])
         trial.insert(len(trial.columns),'UPDT_TMS',[datetime.now()]*trial.shape[0])
 
+
         ### NOTES ###
         # Extract student notes
-        note_list = STUD00[['STUD_ID'] + [f'NOTE{i}' for i in range(1,4)]]
+        note_list = STUD00[['STUDENT_ID'] + [f'NOTE{i}' for i in range(1,4)]]
         notes = []
-        # In 'clsbymon', there are 4 placeholder columns for notes.
-        # For each class, iterate through every note column
+        # In 'STUD00', there are 3 placeholder columns for notes.
+        # For each student, iterate through every note column
         # and extract the text
         for i in range(1,4):
-            notes.append(note_list[~pd.isna(note_list[f'NOTE{i}'])][['STUD_ID', f'NOTE{i}']
+            notes.append(note_list[~pd.isna(note_list[f'NOTE{i}'])][['STUDENT_ID', f'NOTE{i}']
                                                                 ].rename(columns={f'NOTE{i}':'NOTE_TXT'}))
-        # Each row simply contains a STUD_ID and the contents of the note.
+        # Each row simply contains a STUDENT_ID and the contents of the note.
         stud_note = pd.concat(notes)
 
         # Extract class notes
@@ -214,15 +239,16 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
         for i in range(1,5):
             notes.append(note_list[~pd.isna(note_list[f'NOTE{i}'])][['CLASS_ID', f'NOTE{i}']
                                                                 ].rename(columns={f'NOTE{i}':'NOTE_TXT'}))
+        
         # Create new table 'note' which stores notes for classes.
         # Each row simply contains a CLASS_ID and the contents of the note.
         class_note = pd.concat(notes)
-        # Add blank CLASS_ID to 'stud_note' and blank STUD_ID to 'class_note' so we can combine them
+        # Add blank CLASS_ID to 'stud_note' and blank STUDENT_ID to 'class_note' so we can combine them
         stud_note.insert(0, 'CLASS_ID', [pd.NA]*stud_note.shape[0])
-        class_note.insert(0, 'STUD_ID', [pd.NA]*class_note.shape[0])
+        class_note.insert(0, 'STUDENT_ID', [pd.NA]*class_note.shape[0])
 
         # Create new table 'note' which contains both class and student notes
-        note = pd.concat([stud_note, class_note], axis=0).sort_values(by=['STUD_ID', 'CLASS_ID'])
+        note = pd.concat([stud_note, class_note], axis=0).sort_values(by=['STUDENT_ID', 'CLASS_ID'])
         note.insert(0, 'NOTE_ID', list(range(1, note.shape[0]+1)))
         # Timestamp columns (placeholder)
         note.insert(len(note.columns),'CREA_TMS',[datetime.now()]*note.shape[0])
