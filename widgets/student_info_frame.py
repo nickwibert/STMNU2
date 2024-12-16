@@ -1,10 +1,11 @@
 import customtkinter as ctk
 import pandas as pd
-import functions as fn
 import calendar
 from datetime import datetime
 
+import functions as fn
 from widgets.search_results_frame import SearchResultsFrame
+from widgets.password_dialog import PasswordDialog
 
 class StudentInfoFrame(ctk.CTkFrame):
     def __init__(self, window, master, database, **kwargs):
@@ -60,14 +61,23 @@ class StudentInfoFrame(ctk.CTkFrame):
         # Button to edit student info
         self.buttons['EDIT_STUDENT'] = ctk.CTkButton(self.personal_frame,
                                          text="Edit",
-                                         command = lambda labels=self.personal_labels: self.edit_info(labels))
+                                         command = lambda frame=self.personal_frame, labels=self.personal_labels, type='STUDENT':
+                                                      fn.edit_info(frame, labels, type))
         self.buttons['EDIT_STUDENT'].grid(row=self.personal_frame.grid_size()[1], column=0)
 
         # Button to edit payment info
-        self.buttons['EDIT_PAYMENT'] = ctk.CTkButton(self.payment_frame,
+        self.buttons['EDIT_STUDENT_PAYMENT'] = ctk.CTkButton(self.payment_frame,
                                          text="Edit",
-                                         command = lambda labels=self.payment_labels: self.edit_info(labels))
-        self.buttons['EDIT_PAYMENT'].grid(row=self.payment_frame.grid_size()[1], column=0)
+                                         command = lambda frame=self.payment_frame, labels=self.payment_labels, type='STUDENT_PAYMENT':
+                                                      fn.edit_info(frame, labels, type))
+        self.buttons['EDIT_STUDENT_PAYMENT'].grid(row=self.payment_frame.grid_size()[1], column=0)
+
+        # Button to edit payment info
+        self.buttons['EDIT_NOTE_STUDENT'] = ctk.CTkButton(self.note_frame,
+                                         text="Edit",
+                                         command = lambda frame=self.note_frame, labels=self.note_labels, type='NOTE_STUDENT':
+                                                      fn.edit_info(frame, labels, type))
+        self.buttons['EDIT_NOTE_STUDENT'].grid(row=self.note_frame.grid_size()[1], column=0)
 
         # Create switch to show/hide payments
         self.payment_switch = ctk.CTkSwitch(self.payment_frame,
@@ -93,26 +103,27 @@ class StudentInfoFrame(ctk.CTkFrame):
         for button in self.buttons.values():
             button.configure(state='disabled')
 
+
     # Create a label for each bit of student information and place into the frame
     def create_labels(self):
         ### Personal Info Frame ###
         self.personal_frame.columnconfigure(0, weight=1)
         self.personal_labels = {}
         # Display student number above name (cannot be edited)
-        self.studentno_label = ctk.CTkLabel(self.personal_frame, text='', font=ctk.CTkFont('Britannic',18), width=self.winfo_reqwidth())
+        self.studentno_label = ctk.CTkLabel(self.personal_frame, text='', font=ctk.CTkFont('Britannic',18), width=400)
         self.studentno_label.grid(row=self.personal_frame.grid_size()[1],column=0,sticky='nsew')
 
         # Create frame for full student name
         self.name_frame = ctk.CTkFrame(self.personal_frame)
-        self.name_frame.columnconfigure((0,1,2), weight=1)
+        self.name_frame.columnconfigure((0,1), weight=1)
         self.name_frame.grid(row=self.personal_frame.grid_size()[1], column=0, sticky='nsew')
         name_font = ctk.CTkFont('Britannic', 18)
         self.personal_labels['FNAME'] = ctk.CTkLabel(self.name_frame, text='', font=name_font, anchor='e')
         self.personal_labels['FNAME'].grid(row=0, column=0, padx=2, sticky='nsew')
-        self.personal_labels['MIDDLE'] = ctk.CTkLabel(self.name_frame, text='', font=name_font)
-        self.personal_labels['MIDDLE'].grid(row=0, column=1, sticky='nsew')
+        # self.personal_labels['MIDDLE'] = ctk.CTkLabel(self.name_frame, text='', font=name_font)
+        # self.personal_labels['MIDDLE'].grid(row=0, column=1, sticky='nsew')
         self.personal_labels['LNAME'] = ctk.CTkLabel(self.name_frame, text='', font=name_font, anchor='w')
-        self.personal_labels['LNAME'].grid(row=0, column=2, padx=2, sticky='nsew')
+        self.personal_labels['LNAME'].grid(row=0, column=1, padx=2, sticky='nsew')
 
         # Create frame for full address
         self.address_frame = ctk.CTkFrame(self.personal_frame)
@@ -202,7 +213,6 @@ class StudentInfoFrame(ctk.CTkFrame):
         self.class_labels = []
         headers = ['CODE', 'INSTRUCTOR', 'TIME']
         for row in range(4):
-            payment_font = ctk.CTkFont('Britannica',18,'bold') if row == 0 else ctk.CTkFont('Britannica',18,'normal')
             row_labels = []
             for col in range(len(headers)):
                 # Create column headers
@@ -238,7 +248,7 @@ class StudentInfoFrame(ctk.CTkFrame):
 
         # 14 rows (header row + 12 months + registration fee row)
         for row in range(14):
-            payment_font = ctk.CTkFont('Britannica',18,'bold') if row in (0,13) else ctk.CTkFont('Britannica',14,'normal')
+            payment_font = ctk.CTkFont('Britannica',16,'bold') if row in (0,13) else ctk.CTkFont('Britannica',16,'normal')
             # Create a frame for this row
             month_frame = ctk.CTkFrame(self.payment_frame, fg_color='grey70' if row % 2 == 0 else 'transparent')
             month_frame.columnconfigure((0,1,2), weight=1)
@@ -267,81 +277,91 @@ class StudentInfoFrame(ctk.CTkFrame):
                 self.payment_labels[field].is_header = False
 
         ### Notes Frame ###
-        self.note_labels = []
+        self.note_labels = {}
         # Header and Up to 3 notes
         for row in range(4):
+            suffix = '_HEADER' if row == 0 else row
             note_txt = 'Notes:' if row == 0 else ''
             label = ctk.CTkLabel(self.note_frame, text=note_txt, anchor='w', width=200, wraplength=200)
             label.grid(row=row+1, column=0, sticky='nsew')
             label.is_header = True if row == 0 else False
-            self.note_labels.append(label)
+            self.note_labels[f'NOTE{suffix}'] = label
 
 
     # Update text in labels
     def update_labels(self, student_id):
-        # SPECIAL CASE: If student_id == -1, disable buttons and reset all the labels to blank
+        # Wipe info from labels
+        self.studentno_label.configure(text='')
+
+        for label in self.personal_labels.values():
+            if not label.is_header:
+                label.configure(text='')
+
+        for row in self.class_labels:
+            for label in row:
+                if not label.is_header:
+                    label.configure(text='')
+                    for binding in ['<Button-1>', '<Enter>', '<Leave>']:
+                        label.unbind(binding)
+
+        for label in self.payment_labels.values():
+            if not label.is_header:
+                label.configure(text='')
+
+        for label in self.note_labels.values():
+            if not label.is_header:
+                label.configure(text='')
+
+        # SPECIAL CASE: If student_id == -1, disable buttons and exit function  
         if student_id == -1:
             for button in self.buttons.values():
                 button.configure(state='disabled')
-            for label in self.personal_labels.values():
-                if not label.is_header:
-                    label.configure(text='')
-            for row in self.class_labels:
-                for label in row:
-                    if not label.is_header:
-                        label.configure(text='')
-            for label in self.payment_labels.values():
-                if not label.is_header:
-                    label.configure(text='')
-            for label in self.note_labels:
-                if not label.is_header:
-                    label.configure(text='')
-
             # Exit function
             return
 
-        # If student_id is valid, populate labels with information
         # Enable buttons
         for button in self.buttons.values():
             button.configure(state='normal')
 
-
         # Update student id
         self.id = student_id
         # Series containing all info for a single student (capitalize all strings for visual appeal)
-        student_info = self.database.student[self.database.student['STUD_ID'] == student_id
-                                                 ].iloc[0
-                                                 ].astype('string'
+        student_info = self.database.student[self.database.student['STUDENT_ID'] == student_id
+                                                 ].squeeze(
+                                                 ).astype('string'
                                                  ).fillna(''
                                                  ).str.title()
         # Get family ID
-        self.family_id = student_info['STUD_ID']
+        family_id = int(student_info['FAMILY_ID'])
 
         # Dataframe containing payments
-        payment_info = self.database.payment[self.database.payment['STUD_ID'] == student_id]
+        payment_info = self.database.payment[self.database.payment['STUDENT_ID'] == student_id]
 
         # Dataframe containing info for student's guardians
-        if self.family_id == '':
+        if family_id == '' or pd.isna(family_id):
             guardian_info = pd.DataFrame(columns=self.database.guardian.columns)
         else:
-            guardian_info = self.database.guardian.loc[self.database.guardian['FAMILY_ID'] == int(float(student_info['FAMILY_ID']))]
-
+            guardian_info = self.database.guardian.loc[self.database.guardian['FAMILY_ID'] == family_id]
 
         # List of CLASS_IDs which this student is enrolled in
-        class_id = self.database.class_student.loc[self.database.class_student['STUD_ID'] == student_id, 'CLASS_ID']
-        # Class info for each class_id
-        class_info = self.database.classes.loc[self.database.classes['CLASS_ID'].isin(class_id),
-                                               ['CODE','TEACH','CLASSTIME']]
-        
-        note_info = self.database.note[self.database.note['STUD_ID'] == student_id].reset_index()
+        class_id = list(self.database.class_student.loc[self.database.class_student['STUDENT_ID'] == student_id, 'CLASS_ID'])
 
-        self.studentno_label.configure(text=f'#{student_info['STUDENTNO']}')      
+        # Class info for each class_id
+        class_info = self.database.classes.loc[self.database.classes['CLASS_ID'].isin(class_id)
+                                               ].sort_values(by='CLASS_ID'
+                                               ).loc[:,['CODE','TEACH','CLASSTIME']]
+        
+        note_info = self.database.note[self.database.note['STUDENT_ID'] == student_id].reset_index()
+
+        self.studentno_label.configure(text=f'#{student_info['STUDENTNO']}')
         # Configure text for labels
         for field in self.personal_labels.keys():
             # Update non-headers and guardian fields        
             if not any(x in field for x in ['HEADER', 'MOM', 'DAD']):
                 if field in ['BALANCE', 'MONTHLYFEE']:
                     self.personal_labels[field].configure(text=f'{float(student_info[field]):.2f}')
+                elif field == 'STATE':
+                    self.personal_labels[field].configure(text=student_info[field].upper())
                 else:
                     self.personal_labels[field].configure(text=student_info[field])
 
@@ -357,8 +377,11 @@ class StudentInfoFrame(ctk.CTkFrame):
 
         for row in range(len(self.class_labels)):
             for col in range(len(self.class_labels[0])):
+                # Get label
+                label = self.class_labels[row][col]
+                # Set text for label depending on certain conditions
                 if row == 0 and col == 0:
-                    label_txt = student_info['CLASS']
+                    label_txt = student_info['CLASS'].upper()
                 elif row == 0 or col == 0:
                     continue
                 # Configure labels for actual data
@@ -367,7 +390,17 @@ class StudentInfoFrame(ctk.CTkFrame):
                         label_txt = ''
                     else:
                         label_txt = class_info.iloc[row-1, col]
-                self.class_labels[row][col].configure(text=label_txt)
+                        label.bind("<Enter>",    lambda event, c=label.master, r=row:
+                                                    fn.highlight_label(c,r))
+                        label.bind("<Leave>",    lambda event, c=label.master, r=row:
+                                                    fn.unhighlight_label(c,r))
+                        # Using class ID, bind function so that user can click
+                        # class instructor/time to pull up class record
+                        label.bind("<Button-1>", lambda event, id=class_id[row-1]:
+                                                    self.open_class_record(id))
+                        label.configure(cursor='hand2')
+                        
+                label.configure(text=label_txt)
 
         # Prefixes/suffixes to store labels and also access data from STUD00.dbf (JANPAY, JANDATE, etc.)
         prefix = ['HEADER'] + [month.upper() for month in calendar.month_abbr[1:]] + ['REGFEE']
@@ -402,155 +435,8 @@ class StudentInfoFrame(ctk.CTkFrame):
             else:
                 note_txt = note_info.iloc[i-1]['NOTE_TXT']
             # Update text
-            self.note_labels[i].configure(text=note_txt)
+            self.note_labels[f'NOTE{i}'].configure(text=note_txt)
 
-    # Edit information currently displayed in window
-    def edit_info(self, labels):
-        # Disable prev/next student buttons and search button
-        for button in self.buttons.values():
-            button.configure(state='disabled')
-        self.search_results_frame.search_button.configure(state='disabled')
-
-        # Determine which frame we are editing based on the label keys
-        if 'MOMNAME' in labels.keys():
-            edit_type = 'STUDENT'
-        elif 'JANPAY' in labels.keys():
-            edit_type = 'PAYMENT'
-
-        # Replace info labels with entry boxes, and populate with the current info
-        self.entry_boxes = dict.fromkeys(labels)
-
-        for key in labels.keys():
-            # Ignore certain labels
-            if 'HEADER' in key:
-                self.entry_boxes.pop(key)
-                continue
-
-            default_text = ctk.StringVar()
-            default_text.set(labels[key].cget('text'))
-
-            # Date fields
-            if any(substr in key for substr in ['DATE', 'BIRTHDAY']):
-                self.entry_boxes[key] = ctk.CTkEntry(labels[key], textvariable=default_text)
-                self.entry_boxes[key].dtype = 'datetime.date'
-            # If field is numeric, enable data validation
-            elif any(substr in key for substr in ['ZIP', 'MONTHLYFEE', 'BALANCE', 'PAY', 'REGFEE']):
-                vcmd = (self.register(fn.validate_float), '%d', '%P', '%s', '%S')
-                self.entry_boxes[key] = ctk.CTkEntry(labels[key], textvariable=default_text,
-                                                     validate='key', validatecommand=vcmd)
-                self.entry_boxes[key].dtype = 'int' if key == 'ZIP' else 'float'
-            # All other fields are plain strings
-            else:
-                self.entry_boxes[key] = ctk.CTkEntry(labels[key], textvariable=default_text)
-                self.entry_boxes[key].dtype = 'string'
-
-            self.entry_boxes[key].place(x=0, y=0, relheight=1.0, relwidth=1.0) 
-           
-        self.confirm_button = ctk.CTkButton(self.buttons[f'EDIT_{edit_type}'],
-                                            text="Confirm Changes")
-        # Configure button command based on edit type
-        if edit_type == 'STUDENT':
-            self.confirm_button.configure(command = lambda labels=self.personal_labels: self.confirm_edit(labels))
-        elif edit_type == 'PAYMENT':
-            self.confirm_button.configure(command = lambda labels=self.payment_labels:  self.confirm_edit(labels))
-        
-        self.confirm_button.place(x=0, y=0, relheight=1.0, relwidth=1.0)
-
-        # Change binding for Enter key to 'confirm' edit
-        self.window.bind('<Return>', lambda event: self.confirm_button.invoke())
-
-        # Initialize empty list for possible error messages
-        self.error_labels = []
-
-
-    # Function to finalize edits to student record, validate the entered data,
-    # and then finally call function to update database if entries are valid
-    def confirm_edit(self, labels):
-        # Determine which frame we are editing based on the label keys
-        if 'MOMNAME' in labels.keys():
-            edit_type = 'STUDENT'
-        elif 'JANPAY' in labels.keys():
-            edit_type = 'PAYMENT'
-
-        # Get rid of any error labels, if they exist
-        if len(self.error_labels) > 0:
-            # self.master.geometry(f'{self.master.winfo_width()}x{self.master.winfo_height() - 50*len(self.error_labels)}')
-            for _ in range(len(self.error_labels)):
-                label = self.error_labels.pop()
-                label.destroy()
-            self.update()
-        
-        # Update labels (where necessary) and then destroy entry boxes
-        for field in self.entry_boxes.keys():
-            field_info = self.database.student_dbf.field_info(field)
-            proposed_value = self.entry_boxes[field].get()
-            is_date = (str(field_info.py_type) == "<class 'datetime.date'>")
-            is_float = proposed_value.replace('.','',1).isdigit() and field != 'ZIP'
-            is_string = (not is_date and not is_float)
-
-            # If length of user entry is beyond max limit in dbf file, display error
-            if ((is_string and (len(str(proposed_value)) > field_info.length))
-                or (is_date and not fn.validate_date(proposed_value))
-                or (is_float and float(proposed_value) > 999.99)):
-
-                # Set error message for date fields
-                if is_date:
-                    error_txt = f'Error: {field} must be entered in standard date format (MM/DD/YYYY).'
-                elif is_float:
-                    error_txt = f'Error: {field} cannot be greater that 999.99'
-                # Set error message for string fields
-                else:
-                    error_txt = f'Error: {field} cannot be longer than {field_info.length} characters.'
-
-                self.error_labels.append(ctk.CTkLabel(self,
-                                                    text=error_txt,
-                                                    text_color='red',
-                                                    wraplength=300))
-                
-                self.error_labels[-1].grid(row=self.grid_size()[1], column=0)
-
-        # If any errors so far, exit function so user can fix entry
-        if len(self.error_labels) > 0:
-            # Adjust window size to accomodate
-            # self.master.geometry(f'{self.master.winfo_width()}x{self.master.winfo_height() + 50*len(self.error_labels)}')
-            # self.master.update()
-            return
-        else:
-            # Re-bind Enter to 'search'
-            self.window.bind('<Return>', lambda event: self.search_results_frame.search_button.invoke())
-
-            # Populate payment dates where necessary
-            if edit_type == 'PAYMENT':
-                for month in list(calendar.month_abbr[1:]) + ['REGFEE']:
-                    # Month abbreviation + pay/date (i.e. 'JANPAY', 'JANDATE')
-                    pay_field = month.upper() if month == 'REGFEE' else month.upper() + 'PAY'
-                    date_field = month.upper() + 'DATE'
-                    pay_value = self.entry_boxes[pay_field].get()
-                    date_value = self.entry_boxes[date_field].get()
-                    # If pay amount is blank, enter 0.00 as default
-                    if len(pay_value) == 0:
-                        pay_value = '0.00'
-                        self.entry_boxes[pay_field].cget('textvariable').set(pay_value)
-                    # If non-zero payment entered for this month AND no payment date provided,
-                    # enter today's date as the payment date by default
-                    if float(pay_value) != 0.0 and len(date_value) == 0:
-                        self.entry_boxes[date_field].cget('textvariable').set(datetime.today().strftime('%m/%d/%Y'))
-
-            # Update student dataframe and dbf file to reflect changes
-            self.database.update_student_info(student_id=self.id, entry_boxes=self.entry_boxes)
-
-            for field in self.entry_boxes.keys():
-                proposed_value = self.entry_boxes[field].get()
-                if proposed_value != labels[field].cget("text"):
-                    labels[field].configure(text=proposed_value)
-                self.entry_boxes[field].destroy()
-
-            # Get rid of confirm edits button
-            self.confirm_button.destroy()
-            # Re-enable the deactivated buttons
-            for button in self.buttons.values():
-                button.configure(state='normal')
-            self.search_results_frame.search_button.configure(state='normal')
 
     # Show/hide student's payment info or notes
     def toggle_view(self, switch):
@@ -566,3 +452,37 @@ class StudentInfoFrame(ctk.CTkFrame):
             for child in switch.master.winfo_children():
                 if child.winfo_name() != '!ctkswitch':
                     child.lower()
+
+
+    # Function to pull up class's record in ClassInfoFrame. This is bound to labels
+    # in the student record 'class_frame' so that the user can simply click the class instructor/time
+    # to tell the program that they want to pull up that class.
+    def open_class_record(self, class_id):
+        # If the tabs menu is currently disabled, the program is in edit mode, so do nothing
+        if self.window.tabs._state == 'disabled':
+            return
+        # Get reference to class search results frame
+        class_search_frame = self.window.screens['Class Info'].search_results_frame
+
+        # Populate class instructor / day of week filters
+        class_info = self.database.classes.loc[self.database.classes['CLASS_ID'] == class_id].squeeze()
+        class_search_frame.filter_dropdowns['INSTRUCTOR'].set(class_info['TEACH'].title())
+        class_search_frame.filter_dropdowns['DAY'].set(calendar.day_name[class_info['DAYOFWEEK']-1])
+        # Activate/disable filters as necessary
+        for filter_type, checkbox in class_search_frame.checkboxes.items():
+            # Activate instructor / day filters (if not already active)
+            if filter_type in ['INSTRUCTOR', 'DAY']:
+                if not checkbox.get():
+                    checkbox.toggle()
+            # Disable gender / level filters (if not already disabled)
+            if filter_type in ['GENDER', 'LEVEL']:
+                if checkbox.get():
+                    checkbox.toggle()
+        
+        # Update search results using filters set above
+        class_search_frame.update_labels()
+        # Select class corresponding to class_id
+        class_search_frame.select_result(class_id)
+
+        # Change view to ClassInfoFrame
+        self.window.change_view(new_screen='Class Info')
