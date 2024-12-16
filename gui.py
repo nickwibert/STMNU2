@@ -62,7 +62,7 @@ class STMNU(ctk.CTk):
         self.screens['Class Info'].grid(row=0, column=0, sticky='nsew')
 
         self.tabs = ctk.CTkSegmentedButton(self, values=list(self.screens.keys()),
-                                      command=self.change_view)
+                                           command=self.change_view)
         self.tabs.grid(row=0,column=0)
 
         # Start on the student info screen
@@ -70,6 +70,11 @@ class STMNU(ctk.CTk):
         self.tabs.set(self.active_screen)
         self.screens['Class Info'].lower()
         self.change_view(self.active_screen)
+
+        # Bind left/right keys to flipping through screens
+        self.bind('<Left>',  lambda event: self.prev_screen())
+        self.bind('<Right>', lambda event: self.next_screen())
+
 
     def change_view(self, new_screen):
         # Lower active screen
@@ -86,7 +91,7 @@ class STMNU(ctk.CTk):
         self.set_binds(new_screen)
 
     def set_binds(self, new_screen):
-        keys = ['<Return>', '<F2>', '<Prior>', '<Next>', '<Up>', '<Down>']
+        keys = ['<Return>', '<F1>', '<F2>', '<F3>', '<F4>', '<Prior>', '<Next>', '<Up>', '<Down>']
         for key in keys:
             self.unbind(key)
 
@@ -99,13 +104,43 @@ class STMNU(ctk.CTk):
             self.bind('<Down>',   lambda event: frame.buttons['NEXT_STUDENT'].invoke())
             self.bind('<F1>',     lambda event: frame.buttons['EDIT_STUDENT'].invoke())
             self.bind('<F2>',     lambda event: frame.payment_switch.toggle())
-            self.bind('<F4>',     lambda event: frame.buttons['EDIT_PAYMENT'].invoke() if frame.payment_switch.get() == 'show' else False)
+            self.bind('<F4>',     lambda event: frame.buttons['EDIT_STUDENT_PAYMENT'].invoke() if frame.payment_switch.get() == 'show' else False)
             self.bind('<Return>', lambda event: frame.search_results_frame.search_button.invoke())
         elif new_screen == 'Class Info':
             self.bind('<Prior>',  lambda event: frame.search_results_frame.prev_result())
             self.bind('<Up>',     lambda event: frame.search_results_frame.prev_result())
             self.bind('<Next>',   lambda event: frame.search_results_frame.next_result())
             self.bind('<Down>',   lambda event: frame.search_results_frame.next_result())
+            self.bind('<F1>',     lambda event: frame.buttons['EDIT_TRIAL'].invoke())
+            self.bind('<F2>',     lambda event: frame.buttons['EDIT_WAIT'].invoke())
+            self.bind('<F3>',     lambda event: frame.buttons['EDIT_NOTE_CLASS'].invoke())
+
+
+    def prev_screen(self):
+        if self.tabs._state == 'disabled':
+            return
+        # Get 'index' of currently active screen (0 is leftmost screen, 1 is second screen, etc.)
+        active_screen_index = list(self.screens.keys()).index(self.active_screen)
+        # If we are at the leftmost screen, do nothing
+        if active_screen_index == 0:
+            return
+        else:
+            new_screen = list(self.screens.keys())[active_screen_index - 1]
+            self.change_view(new_screen)
+
+    def next_screen(self):
+        if self.tabs._state == 'disabled':
+            return
+        # Get 'index' of currently active screen (0 is leftmost screen, 1 is second screen, etc.)
+        active_screen_index = list(self.screens.keys()).index(self.active_screen)
+        # If we are at the rightmost screen, do nothing
+        if active_screen_index == (len(self.screens.keys()) - 1):
+            return
+        else:
+            new_screen = list(self.screens.keys())[active_screen_index + 1]
+            self.change_view(new_screen)
+
+            
 
 
 
