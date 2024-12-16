@@ -2,6 +2,7 @@ import customtkinter as ctk
 import pandas as pd
 from datetime import datetime
 import calendar
+import functions as fn
 
 # Scrollable frame to display the results from a search 
 class SearchResultsFrame(ctk.CTkFrame):
@@ -53,7 +54,7 @@ class SearchResultsFrame(ctk.CTkFrame):
 
         # Create "max_row" placeholder labels for search results
         self.create_labels()
-        #self.update_labels()
+        self.update_labels()
 
     def create_query_frame(self):
         # Container holding search boxes where user will enter their query
@@ -107,14 +108,14 @@ class SearchResultsFrame(ctk.CTkFrame):
                         'Beginner'       : 'BEG',
                         'Intermediate'   : 'INT',
                         'Advanced'       : 'ADV',
-                        'Level 5'        : 'L5',
-                        'Level 6'        : 'L6',
-                        'Level 8'        : 'L8',
+                        'Level 5/6/8'    : 'LEVEL',
+                        'Gymtrainers'    : 'GYMTRAIN',
                         'Funtastiks'     : 'FUN',
                         'Parent & Tot'   : 'TOT'
                     },
             }
             self.filter_dropdowns = {}
+            self.checkboxes = {}
             for filter_type, filter_dict in self.filter_dicts.items():
                 # Frame for option menu
                 filter_frame = ctk.CTkFrame(self.query_frame)
@@ -127,20 +128,29 @@ class SearchResultsFrame(ctk.CTkFrame):
                 checkbox = ctk.CTkCheckBox(filter_frame,
                                            text=f'{filter_type.title()}:',
                                            command = lambda f=filter_dropdown: self.toggle_filter(f))
-                checkbox.select()
+                # Disable instructor filter at outset
+                if filter_type == 'INSTRUCTOR':
+                    filter_dropdown.configure(state='disabled')
+                # Otherwise leave filter active and ensure checkbox is turned on
+                else:
+                    checkbox.select()
 
                 # Grid checkbox + option menu
                 checkbox.grid(row=0, column=0)
                 filter_dropdown.grid(row=0, column=1)
                 filter_frame.grid(row=self.query_frame.grid_size()[1], column=0, sticky='nsew')
 
-                # Store option menu
+                # Store checkbox and option menu
+                self.checkboxes[filter_type] = checkbox
                 self.filter_dropdowns[filter_type] = filter_dropdown
 
-            # Set default starting filters
+            # Set default starting filters:
+            # Gender = Girl
             self.filter_dropdowns['GENDER'].set("Girl's")
+            # Day = Current Weekday (unless today is Sunday, then set to Monday)
             current_day = datetime.now().weekday()
             self.filter_dropdowns['DAY'].set(calendar.day_name[current_day] if current_day < 6 else "Monday")
+            # Level = Beginner
             self.filter_dropdowns['LEVEL'].set("Beginner")
 
     def create_labels(self):
@@ -182,6 +192,17 @@ class SearchResultsFrame(ctk.CTkFrame):
             self.df = self.database.search_student(query)
 
         elif self.type == 'class':
+            # SPECIAL CASES: If Funtastiks, Parent & Tot, or Level 5/6/8 chosen,
+            # disable certain filters before updating search results
+            if self.filter_dropdowns['LEVEL'].get() in ['Funtastiks', 'Parent & Tot', 'Level 5/6/8', 'Gymtrainers']:
+                for filter_type in ['GENDER', 'INSTRUCTOR', 'DAY']:
+                    # Only disable instructor / day of week for high-level classes
+                    if filter_type != 'GENDER' and self.filter_dropdowns['LEVEL'].get() not in ['Level 5/6/8', 'Gymtrainers']:
+                        continue
+                    # Disable filter if necessary
+                    if self.checkboxes[filter_type].get():
+                        self.checkboxes[filter_type].toggle()
+
             # Get user input
             filters = dict.fromkeys(self.filter_dicts.keys())
             # Loop through each option menu
@@ -233,17 +254,23 @@ class SearchResultsFrame(ctk.CTkFrame):
                 # Remove from grid but keep widget in memory (along with its location)
                 label.grid_remove()
 
-        # Boolean variable which is True when the number of matches
-        # is greater than `max_row`, indicating that we need to truncate the results
-        truncate_results = True if self.df.shape[0] > self.max_row else False
-        # Number of rows in SearchResultsList including potential 'truncated results' message
-        # and column headers
+        # If search results are empty, print message stating no results found,
+        # wipe labels in parent frame, and exit function
+        if self.df.empty:
+            first_label = self.result_rows[0][0]
+            first_label.configure(text='No matches found.', bg_color='transparent', cursor='arrow')
+            first_label.grid()
+            self.master.update_labels(-1)
+            return
+
+        # Display all rows unless it exceeds max_row
         row_count = min(self.max_row, self.df.shape[0])
 
-        # Populate results into labels
+        # Populate search results into labels
         for row in range(row_count):
             # Get relevant ID column (i.e. student ID, class ID)
             id = self.df.filter(like='_ID').iloc[row].values[0]
+
             for col in range(len(self.headers)):
                 # Get text from search results and place in label
                 # (Note: we use `col+1` because the first column of `matches` is an ID column)
@@ -251,35 +278,20 @@ class SearchResultsFrame(ctk.CTkFrame):
                 label = self.result_rows[row][col]
                 label.configure(text=label_txt, bg_color='transparent')
                 # Bind functions to highlight row when mouse hovers over it
-                label.bind("<Enter>", lambda event, row=row:
-                                            self.highlight_label(row))
-                label.bind("<Leave>", lambda event, row=row:
-                                            self.unhighlight_label(row))
+                label.bind("<Enter>", lambda event, c=label.master, r=row:
+                                            fn.highlight_label(c,r))
+                label.bind("<Leave>", lambda event, c=label.master, r=row:
+                                            fn.unhighlight_label(c,r))
                 # When user clicks this row, update all of the information in 
                 # student_info_frame to display this student's records
                 label.bind("<Button-1>", lambda event, id=id:
                                             self.select_result(id))
-
                 # Place label back into grid
                 label.grid()
 
-        # If search results are empty, wipe the parent frame so no info is displayed
-        if self.df.empty:
-            self.master.update_labels(-1)
-        # Otherwise, refresh parent frame to display info for student at top of search results
-        else:
-            self.selection_idx = 0
-            self.select_result(self.df.filter(like='_ID').iloc[0].values[0])
-
-    # Highlight student row when mouse hovers over it
-    def highlight_label(self, row):
-        for label in self.results_list.grid_slaves(row=row):
-                label.configure(fg_color='white smoke')
-
-    # Undo highlight when mouse moves off
-    def unhighlight_label(self, row):
-        for label in self.results_list.grid_slaves(row=row):
-                label.configure(fg_color='transparent')
+        # Select first search result
+        self.selection_idx = 0
+        self.select_result(self.df.filter(like='_ID').iloc[0].values[0])
 
     # Select a row from the search results
     def select_result(self, id):
