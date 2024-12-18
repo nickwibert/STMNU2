@@ -30,10 +30,10 @@ class ClassInfoFrame(ctk.CTkFrame):
 
         # Containers for various information
         self.header_frame = ctk.CTkFrame(self)
-        self.roll_frame = ctk.CTkFrame(self, border_width=5)
-        self.wait_frame = ctk.CTkFrame(self, border_width=5)
-        self.trial_frame = ctk.CTkFrame(self, border_width=5)
-        self.note_frame = ctk.CTkFrame(self)
+        self.roll_frame = ctk.CTkFrame(self, border_width=5, border_color='midnightblue')
+        self.wait_frame = ctk.CTkFrame(self, border_width=5, border_color='red4')
+        self.trial_frame = ctk.CTkFrame(self, border_width=5, border_color='darkolivegreen')
+        self.note_frame = ctk.CTkFrame(self, border_width=5, border_color='goldenrod')
         # Create labels for frames created above
         self.create_labels()
         # Add frames to grid, leaving first column (column 0) open for search results
@@ -48,6 +48,12 @@ class ClassInfoFrame(ctk.CTkFrame):
         self.search_results_frame = SearchResultsFrame(self, type='class', max_row=100)
         self.search_results_frame.grid(row=0, column=0, rowspan=3, sticky='nsew')
 
+        ### BUTTONS ###
+        # Invisible buttons to scroll through classes. These will not actually be displayed to the user.
+        # We create these so that we can easily disable the scrolling function along with all other buttons
+        # when 'Edit' mode is activated
+        self.buttons['PREV_CLASS'] = ctk.CTkButton(self, command=self.search_results_frame.prev_result)
+        self.buttons['NEXT_CLASS'] = ctk.CTkButton(self, command=self.search_results_frame.next_result)
         # Button to edit waitlist
         self.buttons['EDIT_WAIT'] = ctk.CTkButton(self.wait_frame,
                                                   text="Edit Waitlist",
@@ -70,6 +76,7 @@ class ClassInfoFrame(ctk.CTkFrame):
 
 
     def create_labels(self):
+        title_font = ctk.CTkFont('Segoe UI Light', 18, 'bold')
         ### Class Header Frame ###
         self.header_frame.columnconfigure(0, weight=1)
         self.header_labels = {}
@@ -84,7 +91,9 @@ class ClassInfoFrame(ctk.CTkFrame):
         ### Class Roll Frame ###
         self.roll_frame.columnconfigure(0, weight=1)
         self.roll_labels = {}
-
+        roll_title = ctk.CTkLabel(self.roll_frame, fg_color=self.roll_frame.cget('border_color'),
+                                   text='Class Roll', font=title_font, text_color='white')
+        roll_title.grid(row=self.roll_frame.grid_size()[1], column=0, sticky='nsew')
         # Create placeholder labels based on global variable for max class size
         for row in range(1,MAX_CLASS_SIZE+1):
             label = ctk.CTkLabel(self.roll_frame, width=300,
@@ -99,14 +108,17 @@ class ClassInfoFrame(ctk.CTkFrame):
         ### Waitlist Frame ###
         self.wait_frame.columnconfigure(0, weight=1)
         self.wait_labels = {}
+        wait_title = ctk.CTkLabel(self.wait_frame, fg_color=self.wait_frame.cget('border_color'),
+                                   text='Waitlist', font=title_font, text_color='white')
+        wait_title.grid(row=self.wait_frame.grid_size()[1], column=0, sticky='nsew')
         # Create placeholder labels based on global variable for max waitlist size
         for row in range(1,MAX_WAIT_SIZE+1):
             row_frame = ctk.CTkFrame(self.wait_frame, fg_color='grey70' if row % 2 == 0 else 'transparent')
             row_frame.columnconfigure((0,1), weight=1)
-            row_frame.grid(row=self.wait_frame.grid_size()[1], column=0, padx=10, pady=(5,0), sticky='nsew')
+            row_frame.grid(row=self.wait_frame.grid_size()[1], column=0, padx=10, sticky='nsew')
             # Waitlist name
             name_label = ctk.CTkLabel(row_frame, width=300, text=f'{row}. ', anchor='w')
-            name_label.grid(row=0, column=0, sticky='nsew')
+            name_label.grid(row=0, column=0, pady=(5,0), sticky='nsew')
             # Waitlist phone number
             phone_label = ctk.CTkLabel(row_frame, width=100, text='', anchor='e')
             phone_label.grid(row=0, column=1, sticky='nsew')
@@ -118,14 +130,17 @@ class ClassInfoFrame(ctk.CTkFrame):
         ### Trial Frame ###
         self.trial_frame.columnconfigure(0, weight=1)
         self.trial_labels = {}
+        trial_title = ctk.CTkLabel(self.trial_frame, fg_color=self.trial_frame.cget('border_color'),
+                                   text='Trials', font=title_font, text_color='white')
+        trial_title.grid(row=self.trial_frame.grid_size()[1], column=0, sticky='nsew')
         # Create placeholder labels based on global variable for max trial size
         for row in range(1,MAX_TRIAL_SIZE+1):
             row_frame = ctk.CTkFrame(self.trial_frame, fg_color='grey70' if row % 2 == 0 else 'transparent')
             row_frame.columnconfigure((0,1), weight=1)
-            row_frame.grid(row=self.trial_frame.grid_size()[1], column=0, padx=10, pady=(5,0), sticky='nsew')
+            row_frame.grid(row=self.trial_frame.grid_size()[1], column=0, padx=10, sticky='nsew')
             # Trial name
             name_label = ctk.CTkLabel(row_frame, width=250, text=f'{row}. ', anchor='w')
-            name_label.grid(row=0, column=0, sticky='nsew')
+            name_label.grid(row=0, column=0, pady=(5,0), sticky='nsew')
             # Trial phone number
             phone_label = ctk.CTkLabel(row_frame, width=100, text='', anchor='w')
             phone_label.grid(row=0, column=1, sticky='nsew')
@@ -139,15 +154,17 @@ class ClassInfoFrame(ctk.CTkFrame):
 
 
         ### Notes Frame ###
+        self.note_frame.columnconfigure(0, weight=1)
         self.note_labels = {}
-        # Header and Up to 4 notes
-        for row in range(5):
-            suffix = '_HEADER' if row == 0 else row
-            note_txt = 'Notes:' if row == 0 else ''
-            label = ctk.CTkLabel(self.note_frame, text=note_txt, anchor='w', width=200, wraplength=200)
-            label.grid(row=row+1, column=0, sticky='nsew')
-            label.is_header = True if row == 0 else False
-            self.note_labels[f'NOTE{suffix}'] = label
+        note_title = ctk.CTkLabel(self.note_frame, fg_color=self.note_frame.cget('border_color'),
+                                   text='Notes', font=title_font, text_color='white')
+        note_title.grid(row=self.note_frame.grid_size()[1], column=0, sticky='nsew')
+        note_font = ctk.CTkFont('Britannic',18)
+        # Up to 4 notes
+        for row in range(1,5):
+            label = ctk.CTkLabel(self.note_frame, text='', font=note_font, anchor='w', width=200)
+            label.grid(row=self.note_frame.grid_size()[1], column=0, sticky='nsew')
+            self.note_labels[f'NOTE{row}'] = label
 
 
     def update_labels(self, class_id):
@@ -193,26 +210,27 @@ class ClassInfoFrame(ctk.CTkFrame):
         max_class_size = header_info['MAX']
         # Populate roll labels
         for row in range(len(self.roll_labels)):
-            roll_label = self.roll_labels[f'STUDENT{row+1}']
+            label = self.roll_labels[f'STUDENT{row+1}']
             # If we have not yet reached max_class_size, update roll label
             if row < max_class_size:
-                # Start label with roll #
+                # Put label back in grid
+                label.grid()
+                # Start text with roll #
                 roll_txt = f"{row+1}. "
                 # If student exists for this row, add their name
                 if row < roll_info.shape[0]:
                     roll_txt += f"{roll_info.loc[row,'FNAME']} {roll_info.loc[row,'LNAME']}"
-
-                    roll_label.bind("<Enter>",    lambda event, c=roll_label.master, r=row:
+                    # Highlight label when mouse hovers over it
+                    label.bind("<Enter>",    lambda event, c=label.master, r=label.grid_info().get('row'):
                                                      fn.highlight_label(c,r))
-                    roll_label.bind("<Leave>",    lambda event, c=roll_label.master, r=row:
+                    label.bind("<Leave>",    lambda event, c=label.master, r=label.grid_info().get('row'):
                                                      fn.unhighlight_label(c,r))
-                    # Bind function so that user can click student name in class roll to pull up student record
-                    roll_label.bind("<Button-1>", lambda event, student_id=roll_info.loc[row,'STUDENT_ID']:
+                    # Click student name in class roll to pull up student record
+                    label.bind("<Button-1>", lambda event, student_id=roll_info.loc[row,'STUDENT_ID']:
                                                      self.open_student_record(student_id))
 
-                # Update and grid roll label
-                roll_label.configure(text=roll_txt)
-                roll_label.grid()
+                # Update text in label
+                label.configure(text=roll_txt)
 
         ### Waitlist Frame ###
         for row in range(MAX_WAIT_SIZE):
@@ -268,7 +286,7 @@ class ClassInfoFrame(ctk.CTkFrame):
     # tell the program that they want to see that student's information.
     def open_student_record(self, student_id):
         # Get reference to student search results frame
-        student_search_frame = self.window.screens['Student Info'].search_results_frame
+        student_search_frame = self.window.screens['Students'].search_results_frame
 
         # Populate student's first/last name into the search fields and perform search
         student_info = self.database.student.loc[self.database.student['STUDENT_ID'] == student_id].squeeze()
@@ -277,5 +295,5 @@ class ClassInfoFrame(ctk.CTkFrame):
         student_search_frame.search_button.invoke()
 
         # Change view to StudentInfoFrame
-        self.window.change_view(new_screen='Student Info')
+        self.window.change_view(new_screen='Students')
         

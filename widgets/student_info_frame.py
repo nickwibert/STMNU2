@@ -277,12 +277,14 @@ class StudentInfoFrame(ctk.CTkFrame):
                 self.payment_labels[field].is_header = False
 
         ### Notes Frame ###
+        self.note_frame.columnconfigure(0, weight=1)
         self.note_labels = {}
+        note_font = ctk.CTkFont('Britannic',18)
         # Header and Up to 3 notes
         for row in range(4):
             suffix = '_HEADER' if row == 0 else row
-            note_txt = 'Notes:' if row == 0 else ''
-            label = ctk.CTkLabel(self.note_frame, text=note_txt, anchor='w', width=200, wraplength=200)
+            note_txt = 'NOTES:' if row == 0 else ''
+            label = ctk.CTkLabel(self.note_frame, text=note_txt, font=note_font, anchor='w', width=400, wraplength=400)
             label.grid(row=row+1, column=0, sticky='nsew')
             label.is_header = True if row == 0 else False
             self.note_labels[f'NOTE{suffix}'] = label
@@ -332,7 +334,7 @@ class StudentInfoFrame(ctk.CTkFrame):
                                                  ).fillna(''
                                                  ).str.title()
         # Get family ID
-        family_id = int(student_info['FAMILY_ID'])
+        family_id = student_info['FAMILY_ID']
 
         # Dataframe containing payments
         payment_info = self.database.payment[self.database.payment['STUDENT_ID'] == student_id]
@@ -341,7 +343,7 @@ class StudentInfoFrame(ctk.CTkFrame):
         if family_id == '' or pd.isna(family_id):
             guardian_info = pd.DataFrame(columns=self.database.guardian.columns)
         else:
-            guardian_info = self.database.guardian.loc[self.database.guardian['FAMILY_ID'] == family_id]
+            guardian_info = self.database.guardian.loc[self.database.guardian['FAMILY_ID'] == int(family_id)]
 
         # List of CLASS_IDs which this student is enrolled in
         class_id = list(self.database.class_student.loc[self.database.class_student['STUDENT_ID'] == student_id, 'CLASS_ID'])
@@ -349,7 +351,7 @@ class StudentInfoFrame(ctk.CTkFrame):
         # Class info for each class_id
         class_info = self.database.classes.loc[self.database.classes['CLASS_ID'].isin(class_id)
                                                ].sort_values(by='CLASS_ID'
-                                               ).loc[:,['CODE','TEACH','CLASSTIME']]
+                                               ).loc[:,['CODE','TEACH','CLASSTIME']] 
         
         note_info = self.database.note[self.database.note['STUDENT_ID'] == student_id].reset_index()
 
@@ -390,9 +392,9 @@ class StudentInfoFrame(ctk.CTkFrame):
                         label_txt = ''
                     else:
                         label_txt = class_info.iloc[row-1, col]
-                        label.bind("<Enter>",    lambda event, c=label.master, r=row:
+                        label.bind("<Enter>",    lambda event, c=label.master, r=label.grid_info().get('row'):
                                                     fn.highlight_label(c,r))
-                        label.bind("<Leave>",    lambda event, c=label.master, r=row:
+                        label.bind("<Leave>",    lambda event, c=label.master, r=label.grid_info().get('row'):
                                                     fn.unhighlight_label(c,r))
                         # Using class ID, bind function so that user can click
                         # class instructor/time to pull up class record
@@ -462,7 +464,7 @@ class StudentInfoFrame(ctk.CTkFrame):
         if self.window.tabs._state == 'disabled':
             return
         # Get reference to class search results frame
-        class_search_frame = self.window.screens['Class Info'].search_results_frame
+        class_search_frame = self.window.screens['Classes'].search_results_frame
 
         # Populate class instructor / day of week filters
         class_info = self.database.classes.loc[self.database.classes['CLASS_ID'] == class_id].squeeze()
@@ -485,4 +487,4 @@ class StudentInfoFrame(ctk.CTkFrame):
         class_search_frame.select_result(class_id)
 
         # Change view to ClassInfoFrame
-        self.window.change_view(new_screen='Class Info')
+        self.window.change_view(new_screen='Classes')
