@@ -24,8 +24,6 @@ class SearchResultsFrame(ctk.CTkFrame):
         self.rowconfigure(0, weight=1)
         self.rowconfigure(1, weight=4)
 
-        self.create_query_frame()
-
         # Frame which contains results from search
         self.results_frame = ctk.CTkFrame(self)
 
@@ -34,14 +32,19 @@ class SearchResultsFrame(ctk.CTkFrame):
             self.headers = ['First Name', 'Last Name']
             self.column_widths = [150, 150]
         elif self.type == 'class':
-            self.headers = ['Instructor', 'Time', 'Name', 'Max', 'Available']
-            self.column_widths = [75, 75, 150, 50, 50]
+            self.headers = ['Instructor', 'Time', 'Name', 'Available', 'Max']
+            self.column_widths = [75, 75, 125, 75, 75]
+        elif self.type == 'family':
+            self.headers = ['Last Name', 'Number of Children']
+            self.column_widths = [150, 150]
         for i in range(len(self.headers)):
             ctk.CTkLabel(self.results_frame,
                          text=self.headers[i],
                          width=self.column_widths[i],
                          anchor='w'
                         ).grid(row=0, column=i, sticky='nsew')
+            
+        self.create_query_frame()
         
         # Configure results_frame and place in SearchResultsFrame
         self.results_frame.rowconfigure(1, weight=1)
@@ -63,10 +66,10 @@ class SearchResultsFrame(ctk.CTkFrame):
         self.query_frame.rowconfigure((0,1,2,3),weight=1)
         self.query_frame.grid(row=0,column=0)
 
-        if self.type == 'student':
+        if self.type in ['student', 'family']:
             # Dictionary of entry boxes to stay organized. The keys will act as the labels
             # next to each entry box, and the values will hold the actual EntryBox objects
-            self.entry_boxes = dict.fromkeys(['First Name', 'Last Name'])
+            self.entry_boxes = dict.fromkeys([hdr for hdr in self.headers if 'Name' in hdr])
 
             # Create and grid each entry box in a loop
             for row, key in list(zip(range(len(self.entry_boxes.keys())), self.entry_boxes.keys())):
@@ -166,9 +169,11 @@ class SearchResultsFrame(ctk.CTkFrame):
             # List to store labels for this row
             row_labels = []
             for col in range(len(self.headers)):
+                # If the data displayed is a number, center; otherwise left-align
+                anchor = 'center' if self.headers[col] in ('Available', 'Max') else 'w'
                 # Create blank label
                 label = ctk.CTkLabel(self.results_list,
-                                     text='', anchor='w',
+                                     text='', anchor=anchor,
                                      width=self.column_widths[col],
                                      cursor='hand2')
                 # Place label in grid and store
@@ -179,7 +184,7 @@ class SearchResultsFrame(ctk.CTkFrame):
             self.result_rows.append(row_labels)
 
     def update_labels(self):
-        if self.type == 'student':
+        if self.type in ['student', 'family']:
             # Get user input
             query = dict.fromkeys(self.entry_boxes.keys())
             for key in query.keys():
@@ -189,7 +194,10 @@ class SearchResultsFrame(ctk.CTkFrame):
             if set(query.values()) == {''}: return
 
             # Search for matches
-            self.df = self.database.search_student(query)
+            if self.type == 'student':
+                self.df = self.database.search_student(query)
+            elif self.type == 'family':
+                self.df = self.database.search_family(query)
 
         elif self.type == 'class':
             # SPECIAL CASES: If Funtastiks, Parent & Tot, or Level 5/6/8 chosen,
@@ -232,10 +240,11 @@ class SearchResultsFrame(ctk.CTkFrame):
             # Make sure empty classes have count entered as 0
             self.df['COUNT'] = self.df['COUNT'].fillna(0).astype('int')
             # Calculate number of spots available and drop 'count' column
-            self.df['AVAILABLE'] = self.df['MAX'] - self.df['COUNT']
+            available = self.df['MAX'] - self.df['COUNT']
+            self.df.insert(self.df.shape[1]-2, 'AVAILABLE', available)
             self.df.drop(columns='COUNT', inplace=True)
             # Truncate class name
-            self.df['CLASSNAME'] = self.df['CLASSNAME'].str[:25]
+            self.df['CLASSNAME'] = self.df['CLASSNAME'].str[:16] + '...'
 
         # Update matches in search results frame
         self.display_search_results()
@@ -319,26 +328,27 @@ class SearchResultsFrame(ctk.CTkFrame):
         # Finally, update the relevant info frame based on `id`
         self.master.update_labels(id)
 
-    # Change student info window to the previous student (alphabetically)
+    # Select previous result (row ABOVE current selection in search results)
     def prev_result(self):
-        # If currently selected student is first student in results, do nothing
+        # If currently selected result is first row in results, do nothing
         if self.selection_idx == 0:
             return
         # Otherwise, get index for previous row in search results and set as current selection
         else:
-            prev_student_idx = self.df.index[self.selection_idx - 1]
-            prev_student_id = self.df.filter(like='_ID').iloc[prev_student_idx].values[0]
-            self.select_result(prev_student_id)
+            prev_result_idx = self.df.index[self.selection_idx - 1]
+            prev_id = self.df.filter(like='_ID').iloc[prev_result_idx].values[0]
+            self.select_result(prev_id)
 
-    # Change student info window to the next student in dataframe
+    # Select next result (row BELOW current selection in search results)
     def next_result(self):
-        # If currently selected student is last student in results, do nothing
+        # If currently selected result is last row in results, do nothing
         if self.selection_idx == (self.df.shape[0] - 1):
             return
+        # Otherwise, get index for next row in search results and set as current selection
         else:
-            next_student_idx = self.df.index[self.selection_idx + 1]
-            next_student_id = self.df.filter(like='_ID').iloc[next_student_idx].values[0]
-            self.select_result(next_student_id)
+            next_result_idx = self.df.index[self.selection_idx + 1]
+            next_id = self.df.filter(like='_ID').iloc[next_result_idx].values[0]
+            self.select_result(next_id)
 
     # Enable/disable filter dropdown (class search results only)
     def toggle_filter(self, filter_dropdown):
