@@ -7,9 +7,11 @@ def main():
    database = StudentDatabase(student_dbf_path='C:\\dbase\\gymtek\\STUD00.dbf',
                               clsbymon_dbf_path='C:\\dbase\\gymtek\\clsbymon.dbf')
    # Initialize instance of program
-   stmnu = gui.STMNU(database)
+   root = gui.STMNU(database)
+
    # Start program loop
-   stmnu.mainloop()
+   root.mainloop()
 
 if __name__ == "__main__":
    main()
+
