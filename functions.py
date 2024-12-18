@@ -59,7 +59,10 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
         # and dropping the duplicates (including last name). Each family has a unique 'FAMILY_ID'.
         families = STUD00.dropna(subset=['MOMNAME', 'DADNAME'], how='all'
                         ).drop_duplicates(subset=['MOMNAME', 'DADNAME', 'LNAME']).sort_values(by=['LNAME','MOMNAME','DADNAME']).copy()
-        families.insert(0, 'FAMILY_ID', list(range(1, families.shape[0]+1)))
+        # Create a 'FAMILY_ID' by grouping by Last Name, Mom Name, and Dad Name
+        # Note: this isn't foolproof as sometimes two siblings might have slightly different
+        # names entered for the mom/dad due to user error, but this should capture most families
+        families['FAMILY_ID'] = families.groupby(['LNAME','MOMNAME','DADNAME']).ngroup() + 1
 
         # Extract mom/dad info and create new column to represent relationship to student
         moms = families[~pd.isna(families['MOMNAME'])][['FAMILY_ID', 'MOMNAME', 'LNAME', 'PHONE', 'EMAIL']].rename(columns={'MOMNAME':'FNAME'})
@@ -109,7 +112,6 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
         # Move FAMILY_ID to second column
         family_id = student.pop('FAMILY_ID')
         student.insert(1, 'FAMILY_ID', family_id)
-
 
         ### PAYMENT ###
         payment_df = STUD00[['STUDENTNO'] + [month.upper() + suffix for month in list(calendar.month_abbr[1:]) for suffix in ['PAY','DATE','BILL']]]
@@ -357,7 +359,8 @@ def edit_info(edit_frame, labels, edit_type):
             case _:
                 entry_justify = 'center'
 
-        entry_box = ctk.CTkEntry(label, textvariable=default_text, justify=entry_justify)
+        # Only use text variable if there is existing data; otherwise, 
+        entry_box = ctk.CTkEntry(label, textvariable=default_text, justify=entry_justify, font=label.cget("font"))
 
         # Date fields
         if any(substr in key for substr in ['DATE', 'BIRTHDAY']):
@@ -403,19 +406,16 @@ def edit_info(edit_frame, labels, edit_type):
         for field in entry_boxes.keys():
             field_info = dbf_table.field_info(field)
             proposed_value = entry_boxes[field].get()
-            is_date = (str(field_info.py_type) == "<class 'datetime.date'>")
-            is_float = proposed_value.replace('.','',1).isdigit() and field != 'ZIP' and 'PHONE' not in field
-            is_string = (not is_date and not is_float)
-
+            dtype = entry_boxes[field].dtype
             # If length of user entry is beyond max limit in dbf file, display error
-            if ((is_string and (len(str(proposed_value)) > field_info.length))
-                or (is_date and not fn.validate_date(proposed_value))
-                or (is_float and float(proposed_value) > 999.99)):
+            if ((dtype == 'datetime.date' and not fn.validate_date(proposed_value))
+                or (dtype == 'float' and float(proposed_value) > 999.99)
+                or ((dtype in ('string', 'int')) and (len(str(proposed_value)) > field_info.length))):
 
                 # Set error message for date fields
-                if is_date:
+                if dtype == 'datetime.date':
                     error_txt = f'Error: {field} must be entered in standard date format (MM/DD/YYYY).'
-                elif is_float:
+                elif dtype == 'float':
                     error_txt = f'Error: {field} cannot be greater that 999.99'
                 # Set error message for string fields
                 else:
@@ -461,10 +461,14 @@ def edit_info(edit_frame, labels, edit_type):
     else:
         info_frame.database.update_class_info(class_id=info_frame.id, entry_boxes=entry_boxes)
 
-
     # Update labels with new data (where necessary) and destroy entry boxes
     for field in entry_boxes.keys():
-        proposed_value = entry_boxes[field].get()
+        entry = entry_boxes[field]
+        if entry.dtype == 'float':
+            proposed_value = '{:.2f}'.format(float(entry.get()))
+        else:
+            proposed_value = entry.get()
+
         if proposed_value != labels[field].cget("text"):
             labels[field].configure(text=proposed_value)
         entry_boxes[field].destroy()
@@ -481,6 +485,9 @@ def edit_info(edit_frame, labels, edit_type):
             for label in row:
                 label.configure(state='normal')
     info_frame.window.tabs.configure(state='normal')
+
+
+
 
 def button_click():
     print("button clicked")
