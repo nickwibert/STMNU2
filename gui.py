@@ -2,8 +2,9 @@ import customtkinter as ctk
 import functions as fn
 
 # Widgets
-from widgets.student_info_frame import StudentInfoFrame
 from widgets.class_info_frame import ClassInfoFrame
+from widgets.student_info_frame import StudentInfoFrame
+from widgets.family_info_frame import FamilyInfoFrame
 
 class STMNU(ctk.CTk):
     def __init__(self, database):
@@ -14,18 +15,28 @@ class STMNU(ctk.CTk):
         # StudentDatabase instance
         self.database = database
 
+        window_width = 400
+        window_height = 300
+        # Calculate center coordinates
+        x = int((self.winfo_screenwidth()/2) - (window_width/2))
+        y = int((self.winfo_screenheight()/2) - (window_height/2))
+        # Set window geometry
+        self.geometry(f"{window_width}x{window_height}+{x}+{y}")
+        self.columnconfigure(0,weight=1)
+        self.rowconfigure(0,weight=1)
+
         # Loading screen
-        self.geometry("400x300")
         self.load_screen = ctk.CTkFrame(self)
-        self.load_screen.rowconfigure((0,1), weight=1)
-        self.load_screen.grid(row=0, column=0)
+        self.load_screen.columnconfigure(0,weight=1)
+        self.load_screen.rowconfigure((0,1),weight=1)
+        self.load_screen.grid(row=0, column=0, sticky='nsew')
         title_label = ctk.CTkLabel(self.load_screen, text='Gymtek Student Menu',
                                    font = ctk.CTkFont('Britannic', 28, 'bold'))
         loading_label = ctk.CTkLabel(self.load_screen, text='Loading...')
-        title_label.grid(row=0, column=0, sticky='nsew')
-        loading_label.grid(row=1, column=0, sticky='nsew')
+        title_label.grid(row=0, column=0, sticky='s')
+        loading_label.grid(row=1, column=0, sticky='n')
 
-        # Force loading screen to display
+        # Force loading screen to render
         self.update()
         # Load data and create widgets while loading screen is displayed
         self.create_main_window()
@@ -34,11 +45,6 @@ class STMNU(ctk.CTk):
         # Load data
         self.database.load_data()
 
-        # Destroy loading screen
-        self.load_screen.destroy()
-
-        # Set-up main window
-        self.geometry("1200x800")
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
         self.rowconfigure(1, weight=10)
@@ -46,36 +52,62 @@ class STMNU(ctk.CTk):
         self.main_frame = ctk.CTkFrame(self)
         self.main_frame.columnconfigure(0,weight=1)
         self.main_frame.rowconfigure(0,weight=1)
-        self.main_frame.grid(row=1,column=0, sticky='nsew')
 
+        # Create screens
+        self.create_screens() 
+
+    # Create the different screens that the user will navigate amongst
+    def create_screens(self):
         self.screens = {}
-        # StudentInfoFrame
-        self.screens['Student Info'] = StudentInfoFrame(window=self,
-                                                          master=self.main_frame,
-                                                          database=self.database)
-        self.screens['Student Info'].grid(row=0,column=0, sticky='nsew')
+        # Class Info (like the class menu from dBASE program)
+        self.screens['Classes'] = ClassInfoFrame(window=self,
+                                                 master=self.main_frame,
+                                                 database=self.database)
+        self.screens['Classes'].grid(row=0,column=0, sticky='nsew')
+        # Student Info (like the screen you see in dBASE after searching for a student)
+        self.screens['Students'] = StudentInfoFrame(window=self,
+                                                    master=self.main_frame,
+                                                    database=self.database)
+        self.screens['Students'].grid(row=0,column=0, sticky='nsew')
+        # # Family Info (disabled for now)
+        # self.screens['Families'] = FamilyInfoFrame(window=self,
+        #                                             master=self.main_frame,
+        #                                             database=self.database)
+        # self.screens['Families'].grid(row=0,column=0, sticky='nsew')
 
-        # Class Menu
-        self.screens['Class Info'] = ClassInfoFrame(window=self,
-                                                      master=self.main_frame,
-                                                      database=self.database)
-        self.screens['Class Info'].grid(row=0, column=0, sticky='nsew')
-
-        self.tabs = ctk.CTkSegmentedButton(self, values=list(self.screens.keys()),
+        # Button "menu" which user clicks to change screens
+        self.tabs = ctk.CTkSegmentedButton(self,
+                                           font=ctk.CTkFont('Segoe UI Light', 24),
+                                           height=50,
+                                           values=list(self.screens.keys()),
                                            command=self.change_view)
-        self.tabs.grid(row=0,column=0)
 
         # Start on the student info screen
-        self.active_screen = 'Student Info'
+        self.active_screen = 'Students'
         self.tabs.set(self.active_screen)
-        self.screens['Class Info'].lower()
+        for screen_name, screen in self.screens.items():
+            if screen_name != self.active_screen:
+                screen.lower()
         self.change_view(self.active_screen)
 
         # Bind left/right keys to flipping through screens
         self.bind('<Left>',  lambda event: self.prev_screen())
         self.bind('<Right>', lambda event: self.next_screen())
 
+        # Destroy loading screen
+        self.load_screen.destroy()
+        window_width = 1200
+        window_height = 900
+        # Calculate center coordinates
+        x = int((self.winfo_screenwidth()/2) - (window_width/2))
+        y = int((self.winfo_screenheight()/2) - (window_height/2))
+        # Set window geometry
+        self.geometry(f"{window_width}x{window_height}+{x}+{y}")
+        # Place menu button and main container into grid
+        self.tabs.grid(row=0,column=0,sticky='nsew')
+        self.main_frame.grid(row=1,column=0, sticky='nsew')
 
+    # Change the current view to `new_screen`
     def change_view(self, new_screen):
         # Lower active screen
         self.screens[self.active_screen].lower()
@@ -97,7 +129,7 @@ class STMNU(ctk.CTk):
 
         frame = self.screens[new_screen]
 
-        if new_screen == 'Student Info':
+        if new_screen == 'Students':
             self.bind('<Prior>',  lambda event: frame.buttons['PREV_STUDENT'].invoke())
             self.bind('<Up>',     lambda event: frame.buttons['PREV_STUDENT'].invoke())
             self.bind('<Next>',   lambda event: frame.buttons['NEXT_STUDENT'].invoke())
@@ -106,11 +138,11 @@ class STMNU(ctk.CTk):
             self.bind('<F2>',     lambda event: frame.payment_switch.toggle())
             self.bind('<F4>',     lambda event: frame.buttons['EDIT_STUDENT_PAYMENT'].invoke() if frame.payment_switch.get() == 'show' else False)
             self.bind('<Return>', lambda event: frame.search_results_frame.search_button.invoke())
-        elif new_screen == 'Class Info':
-            self.bind('<Prior>',  lambda event: frame.search_results_frame.prev_result())
-            self.bind('<Up>',     lambda event: frame.search_results_frame.prev_result())
-            self.bind('<Next>',   lambda event: frame.search_results_frame.next_result())
-            self.bind('<Down>',   lambda event: frame.search_results_frame.next_result())
+        elif new_screen == 'Classes':
+            self.bind('<Prior>',  lambda event: frame.buttons['PREV_CLASS'].invoke())
+            self.bind('<Up>',     lambda event: frame.buttons['PREV_CLASS'].invoke())
+            self.bind('<Next>',   lambda event: frame.buttons['NEXT_CLASS'].invoke())
+            self.bind('<Down>',   lambda event: frame.buttons['NEXT_CLASS'].invoke())
             self.bind('<F1>',     lambda event: frame.buttons['EDIT_TRIAL'].invoke())
             self.bind('<F2>',     lambda event: frame.buttons['EDIT_WAIT'].invoke())
             self.bind('<F3>',     lambda event: frame.buttons['EDIT_NOTE_CLASS'].invoke())
