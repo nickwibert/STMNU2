@@ -259,6 +259,25 @@ class StudentDatabase:
                               ).loc[:, ['CLASS_ID', 'TEACH', 'CLASSTIME', 'CLASSNAME', 'MAX']]
         
         return matches
+    
+    # Search for family by last name
+    def search_family(self, query):
+        # Force all uppercase
+        for key in query.keys(): query[key] = query[key].upper()
+        
+        # Perform search using name fields
+        matches = self.student[self.student['LNAME'].str.upper().str.startswith(query['Last Name'], na=False)
+                            ].sort_values(by='LNAME', key=lambda x: x.str.upper()
+                            ).sort_values(by='FAMILY_ID'
+                            ).loc[:, ['FAMILY_ID','LNAME']
+                            ].reset_index(drop=True)
+        
+        # Determine number of students in each family
+        matches['NUM_CHILDREN'] = matches.groupby('FAMILY_ID', dropna=True).transform('size')
+        # If family ID could not be determined, make sure number of children is listed as 1
+        matches.loc[pd.isna(matches['FAMILY_ID']), 'NUM_CHILDREN'] = 1
+
+        return matches
 
 
 
