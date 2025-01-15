@@ -95,7 +95,6 @@ class StudentDatabase:
         
         return matches
 
-    def update_student_info(self, student_id, entry_boxes):
     def update_student_info(self, student_id, entry_boxes, edit_type):
         # Get dataframe index associated with 'student_id'
         student_idx = self.student[self.student['STUDENT_ID'] == student_id].index[0]
@@ -284,7 +283,7 @@ class StudentDatabase:
                                 & ((self.classes['CLASSNAME'].str.contains(filters['GENDER'])) | (len(filters['GENDER']) == 0))
                                 & ((self.classes['DAYOFWEEK'] == filters['DAY']) | (len(str(filters['DAY'])) == 0))
                                 & ((self.classes['CLASSNAME'].str.contains(filters['LEVEL'])) | (self.classes['CLASSTIME'].str.contains(filters['LEVEL'])) | (len(filters['LEVEL']) == 0)))
-                              ].sort_values(by=['DAYOFWEEK', 'CLASSTIME']
+                              ].sort_values(by=['DAYOFWEEK', 'TIMEOFDAY']
                               ).loc[:, ['CLASS_ID', 'TEACH', 'CLASSTIME', 'CLASSNAME', 'MAX']]
         
         return matches
@@ -307,6 +306,68 @@ class StudentDatabase:
         matches.loc[pd.isna(matches['FAMILY_ID']), 'NUM_CHILDREN'] = 1
 
         return matches
+    
+    # Move student from one class to another based on the user's selected options.
+    # This function is called by the `MoveStudentDialog` widget, so that we can retrieve 
+    # the user-selected options here before the pop-up window closes.
+    def move_student(self, student_id, current_class_id, new_class_id):
+        ## STEP 1: Update in Pandas dataframe
+        # First, remove student from 'current class'
+        self.class_student = self.class_student.drop(self.class_student[((self.class_student['STUDENT_ID'] == student_id)
+                                                                         & (self.class_student['CLASS_ID'] == current_class_id))
+                                                        ].index)
+        # Now, create a new record in `class_student` using the new_class_id
+        self.class_student.loc[len(self.class_student)] = {'CLASS_ID' : new_class_id, 'STUDENT_ID' : student_id}
+        # Open up a spot in the current class by adding 1 to the 'AVAILABLE' column
+        self.classes.loc[self.classes['CLASS_ID'] == current_class_id, 'AVAILABLE'] += 1
+        # Fill a spot in the 'new' class by subtracting 1 from the 'AVAILABLE' column
+        self.classes.loc[self.classes['CLASS_ID'] == new_class_id, 'AVAILABLE'] -= 1
+
+        ## STEP 2: Update original database (DBF file)
+        # Get 'STUDENTNO' and name corresponding to the selected 'student_id'
+        student_info = self.student[self.student['STUDENT_ID'] == student_id].squeeze()
+        studentno = int(student_info['STUDENTNO'])
+        student_name = student_info['FNAME'] + ' ' + student_info['LNAME']
+        # STUDENTNO columns (NUMB1, NUMB2, ...)
+        studentno_cols = [col for col in self.classes_dbf.field_names if 'NUMB' in col]
+
+        # Open 'clsbymon.dbf'
+        with self.classes_dbf:
+            class_id_idx = self.classes_dbf.create_index(lambda rec: rec.class_id)
+            # Get DBF record corresponding to current (old) class
+            record = class_id_idx.search(match=current_class_id)[0]
+            # Focus on this class's record
+            with record:
+                # Loop through each student column
+                for field in studentno_cols:
+                    # Check if this is the student we wish to move
+                    if record[field] == studentno:
+                        # If so, delete this studentno and student name from the class
+                        record[field] = 0
+                        record[f'STUDENT{field[4:]}'] = None
+                        # Open up a spot by adding 1 to 'AVAILABLE' column
+                        record['AVAILABLE'] += 1
+                        break
+
+            # Get DBF record corresponding to current (old) class
+            record = class_id_idx.search(match=new_class_id)[0]
+            # Focus on this class's record
+            with record:
+                # Loop through each student column
+                for field in studentno_cols:
+                    # Put student into the first blank spot
+                    if record[field] == 0:
+                        record[field] = studentno
+                        record[f'STUDENT{field[4:]}'] = student_name
+                        # Fill a spot by subtracting 1 from 'AVAILABLE' column
+                        record['AVAILABLE'] -= 1
+                        break
+
+
+                        
+
+
+
 
 
 
