@@ -4,6 +4,8 @@ from datetime import datetime
 import calendar
 import functions as fn
 
+CURRENT_MONTH = datetime.now().month
+
 # Scrollable frame to display the results from a search 
 class SearchResultsFrame(ctk.CTkFrame):
     def __init__(self, master, type, max_row, **kwargs):
@@ -113,6 +115,7 @@ class SearchResultsFrame(ctk.CTkFrame):
                         'Advanced'       : 'ADV',
                         'Level 5/6/8'    : 'LEVEL',
                         'Gymtrainers'    : 'GYMTRAIN',
+                        'Tumbling'       : 'TUMBL',
                         'Funtastiks'     : 'FUN',
                         'Parent & Tot'   : 'TOT'
                     },
@@ -183,7 +186,7 @@ class SearchResultsFrame(ctk.CTkFrame):
             # Store row
             self.result_rows.append(row_labels)
 
-    def update_labels(self):
+    def update_labels(self, select_first_result=True):
         if self.type in ['student', 'family']:
             # Get user input
             query = dict.fromkeys(self.entry_boxes.keys())
@@ -232,10 +235,11 @@ class SearchResultsFrame(ctk.CTkFrame):
             ## Add column for available spots in each class ##
             # Get student count for each class and add to results dataframe
             class_counts = self.df.merge(self.database.class_student, how='right'
-                                         ).groupby('CLASS_ID'
-                                         ).size(
-                                         ).rename('COUNT'
-                                         ).reset_index()
+                                 ).merge(self.database.payment.loc[self.database.payment['MONTH'] == CURRENT_MONTH, ['STUDENT_ID','PAY']], how='inner'
+                                 ).groupby('CLASS_ID'
+                                 ).size(
+                                 ).rename('COUNT'
+                                 ).reset_index()
             self.df = self.df.merge(class_counts, how='left', on='CLASS_ID')
             # Make sure empty classes have count entered as 0
             self.df['COUNT'] = self.df['COUNT'].fillna(0).astype('int')
@@ -247,11 +251,9 @@ class SearchResultsFrame(ctk.CTkFrame):
             self.df['CLASSNAME'] = self.df['CLASSNAME'].str[:16] + '...'
 
         # Update matches in search results frame
-        self.display_search_results()
+        self.display_search_results(select_first_result)
 
-    def display_search_results(self):
-        # Move scrollbar back to top
-        self.results_list._parent_canvas.yview_moveto(0)
+    def display_search_results(self, select_first_result=True):
         # Loop through search result labels
         for row in self.result_rows:
             for label in row:
@@ -298,9 +300,14 @@ class SearchResultsFrame(ctk.CTkFrame):
                 # Place label back into grid
                 label.grid()
 
-        # Select first search result
-        self.selection_idx = 0
-        self.select_result(self.df.filter(like='_ID').iloc[0].values[0])
+        # Scroll to back to top and select first search result
+        if select_first_result:
+            self.results_list._parent_canvas.yview_moveto(0)
+            self.selection_idx = 0
+            self.select_result(self.df.filter(like='_ID').iloc[0].values[0])
+        # Otherwise, stay on the currently selected result
+        else:
+            self.select_result(self.master.id)
 
     # Select a row from the search results
     def select_result(self, id):
