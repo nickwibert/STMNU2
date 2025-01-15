@@ -142,22 +142,24 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
         classes.insert(len(classes.columns),'CREA_TMS',[datetime.now()]*classes.shape[0])
         classes.insert(len(classes.columns),'UPDT_TMS',[datetime.now()]*classes.shape[0])
 
+
         ### CLASS_STUDENT ###
         # Table to connect student with classes
-        class_student = []
-        
-        # In 'clsbymon' there are 32 placeholder columns for students.
-        # For each class, iterate through every student column, pull student number,
-        # create record in class_student to record that this student is enrolled in this class.
-        for class_id in clsbymon['CLASS_ID']:
-            for student_num_col in [f'NUMB{i}' for i in range(1,33)]:   
-                student_num = clsbymon.loc[clsbymon['CLASS_ID']==class_id, student_num_col].values[0]
-                # If student is enrolled in this class, created record in class_student
-                if student_num != 0:
-                    stud_id = student.loc[student['STUDENTNO'] == student_num]['STUDENT_ID'].values[0]
-                    class_student.append({'CLASS_ID' : class_id, 'STUDENT_ID' : stud_id})
-        # Convert to dataframe
-        class_student = pd.DataFrame.from_dict(class_student)
+        class_student = pd.DataFrame()
+
+        # Go through each instructor/daytime combination, then join with 'clsbymon' to get corresponding CLASS_ID
+        # (if the instructor/daytime does not exist in clsbymon, then no record is created in 'class_student')
+        for teach_col, daytime_col in list(zip(['INSTRUCTOR', 'INST2', 'INST3'], ['DAYTIME','DAYTIME2','DAYTIME3'])):
+            # Get students who have instructor
+            students_with_class = STUD00.loc[~pd.isna(STUD00[teach_col])
+                                    ].loc[:, ['STUDENT_ID', teach_col, daytime_col]
+                                    ].rename(columns={teach_col : 'TEACH', daytime_col : 'CLASSTIME'})
+            # Join to get CLASS_ID, then append
+            class_student = pd.concat([class_student, students_with_class.merge(clsbymon[['CLASS_ID','TEACH','CLASSTIME']], how='inner'
+                                                    ).loc[:, ['CLASS_ID','STUDENT_ID']]], ignore_index=True)
+
+        # Sort values
+        class_student = class_student.sort_values(by=['CLASS_ID', 'STUDENT_ID'])
         
 
         ### WAITLIST ###
@@ -462,7 +464,7 @@ def edit_info(edit_frame, labels, edit_type):
 
     # Update dataframe and dbf file to reflect changes
     if 'STUDENT' in edit_type:
-        info_frame.database.update_student_info(student_id=info_frame.id, entry_boxes=entry_boxes)
+        info_frame.database.update_student_info(student_id=info_frame.id, entry_boxes=entry_boxes, edit_type=edit_type)
     else:
         info_frame.database.update_class_info(class_id=info_frame.id, entry_boxes=entry_boxes)
 
@@ -490,6 +492,10 @@ def edit_info(edit_frame, labels, edit_type):
             for label in row:
                 label.configure(state='normal')
     info_frame.window.tabs.configure(state='normal')
+
+    # Finally, if we have made changes to payments, we should update the information displaying in the class info frame
+    # (This step ensures that selected student is added/removed from their class if user added/deleted a payment for current month)
+    info_frame.window.screens['Classes'].search_results_frame.update_labels()
 
 
 
