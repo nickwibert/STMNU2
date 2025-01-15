@@ -58,16 +58,19 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
         # I think the best way to identify unique guardians is by looking at mom/dad pairings
         # and dropping the duplicates (including last name). Each family has a unique 'FAMILY_ID'.
         families = STUD00.dropna(subset=['MOMNAME', 'DADNAME'], how='all'
-                        ).drop_duplicates(subset=['MOMNAME', 'DADNAME', 'LNAME']).sort_values(by=['LNAME','MOMNAME','DADNAME']).copy()
+                        ).drop_duplicates(subset=['MOMNAME', 'DADNAME', 'LNAME']
+                        ).sort_values(by=['LNAME','MOMNAME','DADNAME']
+                        ).fillna(''
+                        ).copy()
         # Create a 'FAMILY_ID' by grouping by Last Name, Mom Name, and Dad Name
         # Note: this isn't foolproof as sometimes two siblings might have slightly different
         # names entered for the mom/dad due to user error, but this should capture most families
         families['FAMILY_ID'] = families.groupby(['LNAME','MOMNAME','DADNAME']).ngroup() + 1
 
         # Extract mom/dad info and create new column to represent relationship to student
-        moms = families[~pd.isna(families['MOMNAME'])][['FAMILY_ID', 'MOMNAME', 'LNAME', 'PHONE', 'EMAIL']].rename(columns={'MOMNAME':'FNAME'})
+        moms = families[families['MOMNAME'] != ''][['FAMILY_ID', 'MOMNAME', 'LNAME', 'PHONE', 'EMAIL']].rename(columns={'MOMNAME':'FNAME'})
         moms.insert(1,'RELATION','MOM')
-        dads = families[~pd.isna(families['DADNAME'])][['FAMILY_ID', 'DADNAME', 'LNAME', 'PHONE', 'EMAIL']].rename(columns={'DADNAME':'FNAME'})
+        dads = families[families['DADNAME'] != ''][['FAMILY_ID', 'DADNAME', 'LNAME', 'PHONE', 'EMAIL']].rename(columns={'DADNAME':'FNAME'})
         dads.insert(1,'RELATION','DAD')
 
         # Combine moms/dads into new table 'guardian', which holds guardian contact info.
