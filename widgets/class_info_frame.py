@@ -1,10 +1,13 @@
 import customtkinter as ctk
+import calendar
+from datetime import datetime
 import functions as fn
 
 from widgets.search_results_frame import SearchResultsFrame
 from widgets.move_student_dialog import MoveStudentDialog
 
-# Hard-coded global values 
+# Global values
+CURRENT_MONTH = datetime.now().month
 MAX_CLASS_SIZE = 16
 MAX_WAIT_SIZE = 4
 MAX_TRIAL_SIZE = 8
@@ -95,20 +98,22 @@ class ClassInfoFrame(ctk.CTkFrame):
 
 
         ### Class Roll Frame ###
-        self.roll_frame.columnconfigure(0, weight=1)
+        self.roll_frame.columnconfigure(0,weight=1)
         self.roll_labels = {}
         roll_title = ctk.CTkLabel(self.roll_frame, fg_color=self.roll_frame.cget('border_color'),
                                    text='Class Roll', font=title_font, text_color='white')
         roll_title.grid(row=self.roll_frame.grid_size()[1], column=0, sticky='nsew')
         # Create placeholder labels based on global variable for max class size
         for row in range(1,MAX_CLASS_SIZE+1):
-            label = ctk.CTkLabel(self.roll_frame, width=300,
-                                 text=f'{row}. ', anchor='w',
-                                 bg_color='grey70' if row % 2 == 0 else 'transparent',
-                                 cursor='hand2')
-            label.grid(row=self.roll_frame.grid_size()[1], column=0, padx=10, pady=(5,0), sticky='nsew')
-            # Store label using field name from DBF file
-            self.roll_labels[f'STUDENT{row}'] = label
+            # Student name
+            name_label = ctk.CTkLabel(self.roll_frame, width=300, anchor='w',
+                                      bg_color='grey70' if row % 2 == 0 else 'transparent',
+                                      cursor='hand2')
+            name_label.grid(row=self.roll_frame.grid_size()[1], column=0, sticky='nsew', padx=5)
+            # Placeholder attribute for student ID
+            name_label.student_id = -1
+            # Store labels using field names from DBF
+            self.roll_labels[f'STUDENT{row}'] = name_label
 
         
         ### Waitlist Frame ###
@@ -190,7 +195,8 @@ class ClassInfoFrame(ctk.CTkFrame):
         header_info = self.database.classes[self.database.classes['CLASS_ID'] == class_id].squeeze()
         roll_info = self.database.class_student[self.database.class_student['CLASS_ID'] == class_id
                             ].merge(self.database.student, how='left', on='STUDENT_ID'
-                            ).loc[:,['STUDENT_ID','FAMILY_ID','STUDENTNO','FNAME','LNAME','BIRTHDAY']
+                            ).merge(self.database.payment.loc[self.database.payment['MONTH'] == CURRENT_MONTH, ['STUDENT_ID','PAY']], how='inner', on='STUDENT_ID'
+                            ).loc[:,['STUDENT_ID','FAMILY_ID','STUDENTNO','FNAME','LNAME','BIRTHDAY','PAY']
                             ].reset_index(drop=True)
         wait_info = self.database.wait[self.database.wait['CLASS_ID'] == class_id
                             ].reset_index(drop=True
@@ -209,34 +215,49 @@ class ClassInfoFrame(ctk.CTkFrame):
         # First, wipe all roll labels and remove from grid
         for label in self.roll_labels.values():
             label.configure(text='')
+            label.student_id = -1
             for binding in ['<Button-1>', '<Enter>', '<Leave>']:
                 label.unbind(binding)
-            label.grid_remove()
+            # Hide entire row from view
+            label.lower()
         # Get max class size from `classes`
         max_class_size = header_info['MAX']
+        # Get current class size as the number of students who have paid for the current month
+        # (It is possible for this to exceed `max_class_size`,
+        # we still need to display the extra students when this happens)
+        actual_class_size = roll_info.shape[0]
         # Populate roll labels
-        for row in range(len(self.roll_labels)):
-            label = self.roll_labels[f'STUDENT{row+1}']
-            # If we have not yet reached max_class_size, update roll label
-            if row < max_class_size:
-                # Put label back in grid
-                label.grid()
-                # Start text with roll #
-                roll_txt = f"{row+1}. "
+        for row in range(1,MAX_CLASS_SIZE+1):
+            label = self.roll_labels[f'STUDENT{row}']
+            # Update roll label if we have not reached actual_class_size or max_class_size
+            # (whichever is larger)
+            if row <= max(actual_class_size, max_class_size):
+                # Lift row back into view
+                label.lift()
+                # Create variable to store student name (if exists)
+                roll_txt = f"{row}. "
+                # If this row exceeds the maximum class size, set font color to red
+                roll_txt_color = 'red' if row > max_class_size else 'black'
+                roll_txt_weight = 'bold' if row > max_class_size else 'normal'
+                roll_font = ctk.CTkFont('Segoe UI', 14, roll_txt_weight)
                 # If student exists for this row, add their name
-                if row < roll_info.shape[0]:
-                    roll_txt += f"{roll_info.loc[row,'FNAME']} {roll_info.loc[row,'LNAME']}"
+                if row <= actual_class_size:
+                    # Student name
+                    roll_txt += f"{roll_info.loc[row-1,'FNAME']} {roll_info.loc[row-1,'LNAME']}"
+                    # Store student ID as attribute as well (this will be necessary for moving students between classes)
+                    label.student_id = roll_info.loc[row-1, 'STUDENT_ID']
+
                     # Highlight label when mouse hovers over it
                     label.bind("<Enter>",    lambda event, c=label.master, r=label.grid_info().get('row'):
                                                      fn.highlight_label(c,r))
                     label.bind("<Leave>",    lambda event, c=label.master, r=label.grid_info().get('row'):
                                                      fn.unhighlight_label(c,r))
                     # Click student name in class roll to pull up student record
-                    label.bind("<Button-1>", lambda event, student_id=roll_info.loc[row,'STUDENT_ID']:
+                    label.bind("<Button-1>", lambda event, student_id=roll_info.loc[row-1,'STUDENT_ID']:
                                                      self.open_student_record(student_id))
 
                 # Update text in label
-                label.configure(text=roll_txt)
+                label.configure(text=roll_txt, text_color=roll_txt_color, font=roll_font)
 
         ### Waitlist Frame ###
         for row in range(MAX_WAIT_SIZE):
