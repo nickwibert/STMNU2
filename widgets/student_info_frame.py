@@ -51,30 +51,33 @@ class StudentInfoFrame(ctk.CTkFrame):
         self.buttons['NEXT_STUDENT'] = ctk.CTkButton(self.prev_next_frame,
                                          text="↓ Next Student", anchor='w',
                                          command=self.search_results_frame.next_result)
-        self.buttons['PREV_STUDENT'].grid(row=0,column=0,pady=5,padx=5)
-        self.buttons['NEXT_STUDENT'].grid(row=1,column=0,pady=5,padx=5)
-        self.prev_next_frame.grid(row=0,column=0,sticky='nsew')
+        # self.buttons['PREV_STUDENT'].grid(row=0,column=0,pady=5,padx=5)
+        # self.buttons['NEXT_STUDENT'].grid(row=1,column=0,pady=5,padx=5)
+        # self.prev_next_frame.grid(row=0,column=0,sticky='nsew')
 
         # Populate frame with labels containing student information
         self.create_labels()
-
+        
+        student_buttons_frame = ctk.CTkFrame(self.personal_frame)
+        student_buttons_frame.columnconfigure((0,1),weight=1)
+        student_buttons_frame.grid(row=self.personal_frame.grid_size()[1], column=0)
         # Button to edit student info
-        self.buttons['EDIT_STUDENT'] = ctk.CTkButton(self.personal_frame,
-                                         text="Edit",
+        self.buttons['EDIT_STUDENT'] = ctk.CTkButton(student_buttons_frame,
+                                         text="Edit Student",
                                          command = lambda frame=self.personal_frame, labels=self.personal_labels, type='STUDENT':
                                                       fn.edit_info(frame, labels, type))
-        self.buttons['EDIT_STUDENT'].grid(row=self.personal_frame.grid_size()[1], column=0)
+        self.buttons['EDIT_STUDENT'].grid(row=0, column=1, padx=5)
 
         # Button to edit payment info
         self.buttons['EDIT_STUDENT_PAYMENT'] = ctk.CTkButton(self.payment_frame,
-                                         text="Edit",
+                                         text="Edit Payments",
                                          command = lambda frame=self.payment_frame, labels=self.payment_labels, type='STUDENT_PAYMENT':
                                                       fn.edit_info(frame, labels, type))
         self.buttons['EDIT_STUDENT_PAYMENT'].grid(row=self.payment_frame.grid_size()[1], column=0)
 
         # Button to edit payment info
         self.buttons['EDIT_NOTE_STUDENT'] = ctk.CTkButton(self.note_frame,
-                                         text="Edit",
+                                         text="Edit Notes",
                                          command = lambda frame=self.note_frame, labels=self.note_labels, type='NOTE_STUDENT':
                                                       fn.edit_info(frame, labels, type))
         self.buttons['EDIT_NOTE_STUDENT'].grid(row=self.note_frame.grid_size()[1], column=0)
@@ -289,9 +292,7 @@ class StudentInfoFrame(ctk.CTkFrame):
             label.is_header = True if row == 0 else False
             self.note_labels[f'NOTE{suffix}'] = label
 
-
-    # Update text in labels
-    def update_labels(self, student_id):
+    def reset_labels(self):
         # Wipe info from labels
         self.studentno_label.configure(text='')
 
@@ -313,6 +314,11 @@ class StudentInfoFrame(ctk.CTkFrame):
         for label in self.note_labels.values():
             if not label.is_header:
                 label.configure(text='')
+
+    # Update text in labels
+    def update_labels(self, student_id):
+        # Wipe info from labels
+        self.reset_labels()
 
         # SPECIAL CASE: If student_id == -1, disable buttons and exit function  
         if student_id == -1:
@@ -346,10 +352,10 @@ class StudentInfoFrame(ctk.CTkFrame):
             guardian_info = self.database.guardian.loc[self.database.guardian['FAMILY_ID'] == int(family_id)]
 
         # List of CLASS_IDs which this student is enrolled in
-        class_id = list(self.database.class_student.loc[self.database.class_student['STUDENT_ID'] == student_id, 'CLASS_ID'])
+        class_ids = list(self.database.class_student.loc[self.database.class_student['STUDENT_ID'] == student_id, 'CLASS_ID'])
 
         # Class info for each class_id
-        class_info = self.database.classes.loc[self.database.classes['CLASS_ID'].isin(class_id)
+        class_info = self.database.classes.loc[self.database.classes['CLASS_ID'].isin(class_ids)
                                                ].sort_values(by='CLASS_ID'
                                                ).loc[:,['CODE','TEACH','CLASSTIME']] 
         
@@ -398,7 +404,7 @@ class StudentInfoFrame(ctk.CTkFrame):
                                                     fn.unhighlight_label(c,r))
                         # Using class ID, bind function so that user can click
                         # class instructor/time to pull up class record
-                        label.bind("<Button-1>", lambda event, id=class_id[row-1]:
+                        label.bind("<Button-1>", lambda event, id=class_ids[row-1]:
                                                     self.open_class_record(id))
                         label.configure(cursor='hand2')
                         
