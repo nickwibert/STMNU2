@@ -128,9 +128,11 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
         df_pivot = df_long.pivot(index=['STUDENTNO','MONTH', 'row'], columns='TYPE', values='VALUE').rename_axis(columns=None).reset_index()
         df_pivot = df_pivot[['STUDENTNO', 'MONTH', 'PAY', 'DATE', 'BILL']]
         # Pivot payment columns so that the new table has columns: [PAYMENT_ID, STUDENT_ID, MONTH, 'PAY', 'DATE']
-        payment = df_pivot[(df_pivot['PAY'] != 0) | ~pd.isna(df_pivot['BILL'])].reset_index(drop=True)
+        payment = df_pivot[df_pivot['PAY'] != 0].reset_index(drop=True)
         # Get STUDENT_ID from 'student'
         payment = student[['STUDENT_ID','STUDENTNO']].merge(payment, how='right', on='STUDENTNO')
+        # Add year column
+        payment['YEAR'] = payment['DATE'].str[:4].mode()[0]
 
 
         ### CLASSES ###
