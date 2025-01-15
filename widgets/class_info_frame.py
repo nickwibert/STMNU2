@@ -2,6 +2,7 @@ import customtkinter as ctk
 import functions as fn
 
 from widgets.search_results_frame import SearchResultsFrame
+from widgets.move_student_dialog import MoveStudentDialog
 
 # Hard-coded global values 
 MAX_CLASS_SIZE = 16
@@ -54,6 +55,11 @@ class ClassInfoFrame(ctk.CTkFrame):
         # when 'Edit' mode is activated
         self.buttons['PREV_CLASS'] = ctk.CTkButton(self, command=self.search_results_frame.prev_result)
         self.buttons['NEXT_CLASS'] = ctk.CTkButton(self, command=self.search_results_frame.next_result)
+        # Button to move students to a different class
+        self.buttons['MOVE_STUDENT'] = ctk.CTkButton(self.roll_frame,
+                                                     text='Move Student',
+                                                     command = self.create_move_student_dialog)
+        self.buttons['MOVE_STUDENT'].grid(row=MAX_CLASS_SIZE+1, column=0, pady=10)
         # Button to edit waitlist
         self.buttons['EDIT_WAIT'] = ctk.CTkButton(self.wait_frame,
                                                   text="Edit Waitlist",
@@ -296,4 +302,32 @@ class ClassInfoFrame(ctk.CTkFrame):
 
         # Change view to StudentInfoFrame
         self.window.change_view(new_screen='Students')
-        
+
+    # Create pop-up window for moving student from currently selected class to another.
+    # In this window the user will select the student they wish to move, and which class to move them to.
+    def create_move_student_dialog(self):
+        # Populate list of 'student_labels' by going through every spot in the roll
+        # and only adding the labels which contain a student name
+        student_labels = []
+        for label in self.roll_labels.values():
+            text = label.cget('text')
+            # If label is completely blank, continue
+            if len(text) == 0:
+                continue
+            # Otherwise, check if there is a name in this label
+            elif text.split('.')[1].strip():
+                student_labels.append(label)
+
+        move_window = MoveStudentDialog(self.window,
+                                        title='Move Student',
+                                        database=self.database,
+                                        current_class_id=self.id,
+                                        student_labels=student_labels)
+        # Wait for the move student dialog window to be closed
+        self.wait_window(move_window)
+        # Update search results to reflect new class availability
+        self.search_results_frame.update_labels(select_first_result=False)
+        # Update the displayed class roll
+        self.update_labels(self.id)
+    
+ 
