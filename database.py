@@ -1,7 +1,10 @@
 import pandas as pd
 import functions as fn
 import dbf
+import calendar
 from datetime import datetime
+
+CURRENT_YEAR = datetime.now().year
 
 class StudentDatabase:
     def __init__(self, student_dbf_path, clsbymon_dbf_path):
@@ -93,8 +96,15 @@ class StudentDatabase:
         return matches
 
     def update_student_info(self, student_id, entry_boxes):
+    def update_student_info(self, student_id, entry_boxes, edit_type):
         # Get dataframe index associated with 'student_id'
         student_idx = self.student[self.student['STUDENT_ID'] == student_id].index[0]
+        # Student number associated with the edited student
+        studentno = self.student.iloc[student_idx]['STUDENTNO']
+        family_id = self.student.iloc[student_idx]['FAMILY_ID']
+
+        # Guardian index
+        guardian_idx = self.guardian.loc[self.guardian['FAMILY_ID'] == family_id].index
 
         new_values = [entry.get() for entry in entry_boxes.values()]
         new_student_info = pd.Series({k:v for (k,v) in zip(entry_boxes.keys(), new_values)})
@@ -108,10 +118,6 @@ class StudentDatabase:
             else:
                 new_student_info[col] = new_student_info[col].upper()
 
-        # Student number associated with the edited student
-        studentno = self.student.iloc[student_idx]['STUDENTNO']
-        family_id = self.student.iloc[student_idx]['FAMILY_ID']
-        guardian_idx = self.guardian.loc[self.guardian['FAMILY_ID'] == family_id].index
 
         ## Step 1: Update student info in the Pandas dataframe
         # Change dtype for non-strings
@@ -136,8 +142,31 @@ class StudentDatabase:
                 else:
                     # To be added later
                     pass
+            # If this is payment info, update 'payment' table
+            elif ('PAYMENT' in edit_type) and ('REG' not in col):
+                # Integer corresponding to the month this payment applies to
+                month_num = list(calendar.month_abbr).index(col[:3].title())
+                # Get existing record for this payment (if exists)
+                pay_record = self.payment[(self.payment['STUDENT_ID'] == student_id) & (self.payment['MONTH'] == month_num)]
+                # If record DOES NOT exist, and payment amount is non-zero, create new record
+                if pay_record.empty and 'PAY' in col and new_student_info[col] not in (None, 0.0, '0.00'):
+                    self.payment.loc[len(self.payment)] = {'STUDENT_ID' : student_id,
+                                                           'STUDENTNO'  : studentno,
+                                                           'MONTH'      : month_num,
+                                                           'PAY'        : new_student_info[col],
+                                                           'YEAR'       : CURRENT_YEAR}
+                # If record already exists, but the new amount entered is zero, delete the record
+                # (therefore changing a payment amount to 0 is equivalent to deleting the payment)
+                elif new_student_info[col] in (None, 0.0, '0.00'):
+                    # Drop the record from the table by using its index
+                    self.payment = self.payment.drop(pay_record.index)
+                # Otherwise, record already exists + new amount entered is NON-ZERO, so we edit the existing record
+                else:
+                    self.payment.loc[(self.payment['STUDENT_ID'] == student_id) & (self.payment['MONTH'] == month_num), col[3:]] = new_student_info[col]
+            # Otherwise edit 'student' table
             else:
-                self.student.loc[student_idx, col] = new_student_info[col]
+                self.student.loc[student_idx, col] = new_student_info[col] 
+        
 
         ## Step 2: Update student info in original database (DBF file)
         with self.student_dbf:
