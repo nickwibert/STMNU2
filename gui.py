@@ -153,24 +153,26 @@ class STMNU(ctk.CTk):
             return
         # Get 'index' of currently active screen (0 is leftmost screen, 1 is second screen, etc.)
         active_screen_index = list(self.screens.keys()).index(self.active_screen)
-        # If we are at the leftmost screen, do nothing
+        # If we are at the first screen, jump to the last screen
         if active_screen_index == 0:
-            return
+            new_screen = list(self.screens.keys())[-1]
         else:
             new_screen = list(self.screens.keys())[active_screen_index - 1]
-            self.change_view(new_screen)
+        
+        self.change_view(new_screen)
 
     def next_screen(self):
         if self.tabs._state == 'disabled':
             return
         # Get 'index' of currently active screen (0 is leftmost screen, 1 is second screen, etc.)
         active_screen_index = list(self.screens.keys()).index(self.active_screen)
-        # If we are at the rightmost screen, do nothing
+        # If we are at the last screen, jump to first screen
         if active_screen_index == (len(self.screens.keys()) - 1):
-            return
+            new_screen = list(self.screens.keys())[0]
         else:
             new_screen = list(self.screens.keys())[active_screen_index + 1]
-            self.change_view(new_screen)
+        
+        self.change_view(new_screen)
 
             
 
