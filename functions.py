@@ -366,7 +366,6 @@ def edit_info(edit_frame, labels, edit_type):
             case _:
                 entry_justify = 'center'
 
-        # Only use text variable if there is existing data; otherwise, 
         entry_box = ctk.CTkEntry(label, textvariable=default_text, justify=entry_justify, font=label.cget("font"))
 
         # Date fields
@@ -416,14 +415,14 @@ def edit_info(edit_frame, labels, edit_type):
             dtype = entry_boxes[field].dtype
             # If length of user entry is beyond max limit in dbf file, display error
             if ((dtype == 'datetime.date' and not fn.validate_date(proposed_value))
-                or (dtype == 'float' and float(proposed_value) > 999.99)
+                or (dtype == 'float' and (len(str(proposed_value)) == 0 or float(proposed_value) > 999.99))
                 or ((dtype in ('string', 'int')) and (len(str(proposed_value)) > field_info.length))):
 
                 # Set error message for date fields
                 if dtype == 'datetime.date':
                     error_txt = f'Error: {field} must be entered in standard date format (MM/DD/YYYY).'
                 elif dtype == 'float':
-                    error_txt = f'Error: {field} cannot be greater that 999.99'
+                    error_txt = f'Error: {field} must be a number between 0 and 999.99'
                 # Set error message for string fields
                 else:
                     error_txt = f'Error: {field} cannot be longer than {field_info.length} characters.'
