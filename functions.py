@@ -1,13 +1,19 @@
 import pandas as pd
 import numpy as np
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 import calendar
 import customtkinter as ctk
 from dbfread import DBF
 
 import functions as fn
-from widgets.password_dialog import PasswordDialog
+from widgets.dialog_boxes import PasswordDialog
+
+CURRENT_MONTH = datetime.now().month
+CURRENT_YEAR = datetime.now().year
+# Cutoff date for students to be excluded
+MONTHS_SINCE_PAYMENT_LIMIT = 8
+CUTOFF_DATE = datetime.now() - timedelta(days=30*MONTHS_SINCE_PAYMENT_LIMIT)
 
 # Function to convert a given .dbf file to .csv
 def dbf_to_csv(filename, save_to_path='C:\\STMNU2\\data\\dbf_format'):
@@ -40,6 +46,7 @@ def dbf_to_csv(filename, save_to_path='C:\\STMNU2\\data\\dbf_format'):
 # Function to transform old data structure to a new relational database structure
 # Note: for this function to work, the following files must be saved to 'C:\STMNU2\Data\':
 #       - STUD00.csv
+#       - STUD99.csv
 #       - clsbymon.csv
 def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', write_to_csv=False):
     try:
@@ -50,6 +57,9 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
         # Load .dbf files for students and classes
         STUD00 = pd.read_csv('data\\dbf_format\\STUD00.csv').dropna(subset=['FNAME','LNAME']).reset_index(drop=True)
         STUD00.insert(0, 'STUDENT_ID', STUD00.index + 1)
+        STUD99 = pd.read_csv('data\\dbf_format\\STUD99.csv').dropna(subset=['FNAME','LNAME']).reset_index(drop=True)
+        STUD99.insert(0, 'STUDENT_ID', STUD99.index + 1)
+
         clsbymon = pd.read_csv('data\\dbf_format\\clsbymon.csv')
 
         ### GUARDIAN ###
@@ -99,6 +109,7 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
                                 'LEVEL' :  STUD00['LEVEL'],
                                 'REGFEE' :  STUD00['REGFEE'],
                                 'REGFEEDATE' : STUD00['REGFEEDATE'],
+                                'REGBILL' : STUD00['REGBILL'],
                                 'MONTHLYFEE' :  STUD00['MONTHLYFEE'],
                                 'BALANCE' :  STUD00['BALANCE'],
                                 'PHONE' :  STUD00['PHONE'],
@@ -116,24 +127,35 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
         family_id = student.pop('FAMILY_ID')
         student.insert(1, 'FAMILY_ID', family_id)
 
-        ### PAYMENT ###
-        payment_df = STUD00[['STUDENTNO'] + [month.upper() + suffix for month in list(calendar.month_abbr[1:]) for suffix in ['PAY','DATE','BILL']]]
+        ### PAYMENT and BILL ###
+        payment = pd.DataFrame()
+        bill = pd.DataFrame()
+        payment_cols = ['STUDENTNO'] + [month.upper() + suffix for month in list(calendar.month_abbr[1:]) for suffix in ['PAY','DATE','BILL']]
+        # Pivot payments for previous year and current year to create 'payment' table
+        for payment_df in [STUD99[payment_cols], STUD00[payment_cols]]:
+            # 'Melt' dataframe so that all month column names are put into one column called 'COLUMN'
+            df_long = payment_df.melt(id_vars=['STUDENTNO'], var_name='COLUMN', value_name='VALUE')
+            df_long['MONTH'] = df_long['COLUMN'].str[:3].map({calendar.month_abbr[i].upper() : i for i in range(1,13)})
+            df_long['TYPE'] = df_long['COLUMN'].str[3:]  # Remaining characters for the type
+            df_long['row'] = df_long.groupby(['STUDENTNO', 'MONTH', 'TYPE']).cumcount()
+            # Pivot payment columns so that the new table has columns: [PAYMENT_ID, STUDENT_ID, MONTH, 'PAY', 'DATE']
+            df_pivot = df_long.pivot(index=['STUDENTNO','MONTH', 'row'], columns='TYPE', values='VALUE').rename_axis(columns=None).reset_index()
+            df_pivot = df_pivot[['STUDENTNO', 'MONTH', 'PAY', 'DATE', 'BILL']]
+            # Add year column
+            df_pivot['YEAR'] = int(df_pivot['DATE'].str[:4].mode()[0])
 
-        # 'Melt' dataframe so that all month column names are put into one column called 'COLUMN'
-        df_long = payment_df.melt(id_vars=['STUDENTNO'], var_name='COLUMN', value_name='VALUE')
-        df_long['MONTH'] = df_long['COLUMN'].str[:3].map({calendar.month_abbr[i].upper() : i for i in range(1,13)})
-        df_long['TYPE'] = df_long['COLUMN'].str[3:]  # Remaining characters for the type
-        df_long['row'] = df_long.groupby(['STUDENTNO', 'MONTH', 'TYPE']).cumcount()
+            # When payment is 0 and BILL = '*', this indicates a payment is owed.
+            # Create records in a new table 'bill' to represent owed payments
+            bill_df = df_pivot.loc[(df_pivot['PAY'] == 0) & (df_pivot['BILL'] == '*')
+                             ].loc[:,['STUDENTNO', 'MONTH', 'YEAR']
+                             ].reset_index(drop=True)
+            bill = pd.concat([bill, bill_df], ignore_index=True)
+            # All remaining records with non-zero payments are saved to 'payment'
+            payment = pd.concat([payment, df_pivot[df_pivot['PAY'] != 0].reset_index(drop=True)], ignore_index=True)
 
-        df_pivot = df_long.pivot(index=['STUDENTNO','MONTH', 'row'], columns='TYPE', values='VALUE').rename_axis(columns=None).reset_index()
-        df_pivot = df_pivot[['STUDENTNO', 'MONTH', 'PAY', 'DATE', 'BILL']]
-        # Pivot payment columns so that the new table has columns: [PAYMENT_ID, STUDENT_ID, MONTH, 'PAY', 'DATE']
-        payment = df_pivot[df_pivot['PAY'] != 0].reset_index(drop=True)
         # Get STUDENT_ID from 'student'
         payment = student[['STUDENT_ID','STUDENTNO']].merge(payment, how='right', on='STUDENTNO')
-        # Add year column
-        payment['YEAR'] = payment['DATE'].str[:4].mode()[0]
-
+        bill = student[['STUDENT_ID','STUDENTNO']].merge(bill, how='right', on='STUDENTNO')
 
         ### CLASSES ###
         # Keep the first 11 columns from 'clsbymon', and FINAL column (CLASS_ID)
@@ -146,7 +168,7 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
         ### CLASS_STUDENT ###
         # Table to connect student with classes
         class_student = pd.DataFrame()
-
+        
         # Go through each instructor/daytime combination, then join with 'clsbymon' to get corresponding CLASS_ID
         # (if the instructor/daytime does not exist in clsbymon, then no record is created in 'class_student')
         for teach_col, daytime_col in list(zip(['INSTRUCTOR', 'INST2', 'INST3'], ['DAYTIME','DAYTIME2','DAYTIME3'])):
@@ -155,12 +177,22 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
                                     ].loc[:, ['STUDENT_ID', teach_col, daytime_col]
                                     ].rename(columns={teach_col : 'TEACH', daytime_col : 'CLASSTIME'})
             # Join to get CLASS_ID, then append
-            class_student = pd.concat([class_student, students_with_class.merge(clsbymon[['CLASS_ID','TEACH','CLASSTIME']], how='inner'
+            class_student = pd.concat([class_student, students_with_class.merge(clsbymon[['CLASS_ID','TEACH','CLASSTIME']],
+                                                                                how='inner', on=['TEACH','CLASSTIME']
                                                     ).loc[:, ['CLASS_ID','STUDENT_ID']]], ignore_index=True)
 
         # Sort values
         class_student = class_student.sort_values(by=['CLASS_ID', 'STUDENT_ID'])
-        
+        # Create 'active' column based on whether the student has paid for the current month
+        active_students = class_student.merge(payment.loc[((payment['MONTH'] == CURRENT_MONTH) & (payment['YEAR'] == CURRENT_YEAR)), 'STUDENT_ID'],
+                                            on='STUDENT_ID', how='inner'
+                                    ).loc[:,'STUDENT_ID'
+                                    ].unique()
+        class_student['ACTIVE'] = class_student['STUDENT_ID'].isin(active_students)
+        # Create 'exclude' column to flag students who have not made any payments in the last MONTHS_SINCE_PAYMENT_LIMIT months
+        payment_session = pd.to_datetime(payment[['YEAR','MONTH']].assign(DAY=1))
+        former_students = class_student.loc[~class_student['STUDENT_ID'].isin(payment.loc[payment_session >= CUTOFF_DATE,'STUDENT_ID']),'STUDENT_ID'].drop_duplicates()
+        class_student['EXCLUDE'] = class_student['STUDENT_ID'].isin(former_students)
 
         ### WAITLIST ###
         # Extract waitlist 
@@ -266,8 +298,8 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
         
         # Write to csv files if option chosen
         if write_to_csv:
-            for df, csv_name in zip([guardian, student, payment, classes, class_student, wait, trial, note],
-                                    ['guardian.csv','student.csv','payment.csv','classes.csv','class_student.csv','wait.csv','trial.csv','note.csv']):
+            for df, csv_name in zip([guardian, student, payment, bill, classes, class_student, wait, trial, note],
+                                    ['guardian.csv','student.csv','payment.csv', 'bill.csv', 'classes.csv','class_student.csv','wait.csv','trial.csv','note.csv']):
                 df.to_csv(save_to_path + '\\' + csv_name, index=False)
 
     except FileNotFoundError as err:
@@ -319,7 +351,7 @@ def unhighlight_label(container, row):
 # enter new data. The function will halt until the user provides valid data,
 # at which point the relevant record(s) will be updated in the original DBF files
 # (as well as the relevant dataframes being used by the program during runtime).
-def edit_info(edit_frame, labels, edit_type):
+def edit_info(edit_frame, labels, edit_type, year=CURRENT_YEAR):
     # Store parent frame as 'info_frame'. This will be either the
     # StudentInfoFrame or ClassInfoFrame which contains 'edit_frame'.
     info_frame = edit_frame.master
@@ -463,7 +495,7 @@ def edit_info(edit_frame, labels, edit_type):
 
     # Update dataframe and dbf file to reflect changes
     if 'STUDENT' in edit_type:
-        info_frame.database.update_student_info(student_id=info_frame.id, entry_boxes=entry_boxes, edit_type=edit_type)
+        info_frame.database.update_student_info(student_id=info_frame.id, entry_boxes=entry_boxes, edit_type=edit_type, year=year)
     else:
         info_frame.database.update_class_info(class_id=info_frame.id, entry_boxes=entry_boxes)
 
