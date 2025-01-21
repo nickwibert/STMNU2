@@ -7,12 +7,14 @@ from datetime import datetime
 CURRENT_YEAR = datetime.now().year
 
 class StudentDatabase:
-    def __init__(self, student_dbf_path, clsbymon_dbf_path):
+    def __init__(self, student_dbf_path, student_prev_year_dbf_path, clsbymon_dbf_path):
         # DBF Table object for STUD00
         self.student_dbf = dbf.Table(student_dbf_path)
+        # DBF Table object for STUD99 (student/payment records for previous year)
+        self.student_prev_year_dbf = dbf.Table(student_prev_year_dbf_path)
         # DBF Table object for clsbymon.dbf
         self.classes_dbf = dbf.Table(clsbymon_dbf_path)
-        # Add 'CLASS_ID' to clsbymon DBF file (if it doesn't exist)
+         # Add 'CLASS_ID' to clsbymon DBF file (if it doesn't exist)
         with self.classes_dbf:
             if 'CLASS_ID' not in self.classes_dbf.field_names:
                 self.classes_dbf.add_fields('CLASS_ID N(3,0)')
@@ -24,6 +26,7 @@ class StudentDatabase:
     def load_data(self):
         # Transform current versions of DBF files to CSV
         fn.dbf_to_csv('STUD00.dbf')
+        fn.dbf_to_csv('STUD99.dbf')
         fn.dbf_to_csv('clsbymon.dbf')
         # Update files representing relational database structure
         fn.transform_to_rdb(data_path='C:\\STMNU2\\data', write_to_csv=True)
@@ -45,6 +48,11 @@ class StudentDatabase:
         # Format dates
         for col in ['DATE']:
             self.payment[col] = pd.to_datetime(self.payment[col], errors='coerce', format='mixed').dt.strftime('%m/%d/%Y')
+
+        # Load bill
+        bill_csv_path = 'C:\\STMNU2\\data\\rdb_format\\bill.csv'
+        self.bill = pd.read_csv(bill_csv_path)
+        self.bill.csv_path = bill_csv_path
 
         # Load classes
         classes_csv_path = 'C:\\STMNU2\\data\\rdb_format\\classes.csv'
@@ -95,7 +103,7 @@ class StudentDatabase:
         
         return matches
 
-    def update_student_info(self, student_id, entry_boxes, edit_type):
+    def update_student_info(self, student_id, entry_boxes, edit_type, year=CURRENT_YEAR):
         # Get dataframe index associated with 'student_id'
         student_idx = self.student[self.student['STUDENT_ID'] == student_id].index[0]
         # Student number associated with the edited student
@@ -141,35 +149,51 @@ class StudentDatabase:
                 else:
                     # To be added later
                     pass
-            # If this is payment info, update 'payment' table
+            # If this is payment info, update 'payment' table according to `year` argument
             elif ('PAYMENT' in edit_type) and ('REG' not in col):
                 # Integer corresponding to the month this payment applies to
                 month_num = list(calendar.month_abbr).index(col[:3].title())
-                # Get existing record for this payment (if exists)
-                pay_record = self.payment[(self.payment['STUDENT_ID'] == student_id) & (self.payment['MONTH'] == month_num)]
-                # If record DOES NOT exist, and payment amount is non-zero, create new record
-                if pay_record.empty and 'PAY' in col and new_student_info[col] not in (None, 0.0, '0.00'):
-                    self.payment.loc[len(self.payment)] = {'STUDENT_ID' : student_id,
-                                                           'STUDENTNO'  : studentno,
-                                                           'MONTH'      : month_num,
-                                                           'PAY'        : new_student_info[col],
-                                                           'YEAR'       : CURRENT_YEAR}
+                # Get existing record for this payment/bill (if exists)
+                pay_record = self.payment[(self.payment['STUDENT_ID'] == student_id)
+                                        & (self.payment['MONTH'] == month_num)
+                                        & (self.payment['YEAR'] == year)]
+                bill_record = self.bill[(self.bill['STUDENT_ID'] == student_id)
+                                      & (self.bill['MONTH'] == month_num)
+                                      & (self.bill['YEAR'] == year)]
+                
+                if pay_record.empty:
+                    # If payment record does not exist, and payment is non-zero, create new payment record
+                    if 'PAY' in col and new_student_info[col] not in (None, 0.0, '0.00'):
+                        self.payment.loc[len(self.payment)] = {'STUDENT_ID' : student_id,
+                                                               'STUDENTNO'  : studentno,
+                                                               'MONTH'      : month_num,
+                                                               'PAY'        : new_student_info[col],
+                                                               'YEAR'       : year}
+                    # If this month/year appears in 'bill' for this student (meaning they owed),
+                    # delete that bill record to indicate that the payment has been made
+                    if not bill_record.empty:
+                        self.bill = self.bill.drop(bill_record.index).reset_index(drop=True)
                 # If record already exists, but the new amount entered is zero, delete the record
                 # (therefore changing a payment amount to 0 is equivalent to deleting the payment)
                 elif new_student_info[col] in (None, 0.0, '0.00'):
                     # Drop the record from the table by using its index
-                    self.payment = self.payment.drop(pay_record.index)
+                    self.payment = self.payment.drop(pay_record.index).reset_index(drop=True)
                 # Otherwise, record already exists + new amount entered is NON-ZERO, so we edit the existing record
                 else:
-                    self.payment.loc[(self.payment['STUDENT_ID'] == student_id) & (self.payment['MONTH'] == month_num), col[3:]] = new_student_info[col]
+                    self.payment.loc[pay_record.index, col[3:]] = new_student_info[col]
             # Otherwise edit 'student' table
             else:
                 self.student.loc[student_idx, col] = new_student_info[col] 
         
 
         ## Step 2: Update student info in original database (DBF file)
-        with self.student_dbf:
-            studentno_idx = self.student_dbf.create_index(lambda rec: rec.studentno)
+        if year == CURRENT_YEAR:
+            table_to_update = self.student_dbf
+        else:
+            table_to_update = self.student_prev_year_dbf
+
+        with table_to_update:
+            studentno_idx = table_to_update.create_index(lambda rec: rec.studentno)
             # get a list of all matching records
             match = studentno_idx.search(match=studentno)
             # should only be one student with that studentno
@@ -179,7 +203,7 @@ class StudentDatabase:
                 # Loop through each field
                 for field in new_student_info.keys():
                     # Get info about this field in the dbf file
-                    field_info = self.student_dbf.field_info(field)
+                    field_info = table_to_update.field_info(field)
                     # Convert date fields to proper format
                     if str(field_info.py_type) == "<class 'datetime.date'>":
                         if new_student_info[field] is not None:
@@ -312,12 +336,14 @@ class StudentDatabase:
     # the user-selected options here before the pop-up window closes.
     def move_student(self, student_id, current_class_id, new_class_id):
         ## STEP 1: Update in Pandas dataframe
-        # First, remove student from 'current class'
-        self.class_student = self.class_student.drop(self.class_student[((self.class_student['STUDENT_ID'] == student_id)
-                                                                         & (self.class_student['CLASS_ID'] == current_class_id))
-                                                        ].index)
+        current_record = self.class_student[((self.class_student['STUDENT_ID'] == student_id) & (self.class_student['CLASS_ID'] == current_class_id))]
         # Now, create a new record in `class_student` using the new_class_id
-        self.class_student.loc[len(self.class_student)] = {'CLASS_ID' : new_class_id, 'STUDENT_ID' : student_id}
+        self.class_student.loc[len(self.class_student)] = {'CLASS_ID' : new_class_id,
+                                                           'STUDENT_ID' : student_id,
+                                                           'ACTIVE' : current_record['ACTIVE'].values[0],
+                                                           'EXCLUDE' : current_record['EXCLUDE'].values[0]}
+        # Remove student from 'current class'
+        self.class_student = self.class_student.drop(current_record.index).reset_index(drop=True)
         # Open up a spot in the current class by adding 1 to the 'AVAILABLE' column
         self.classes.loc[self.classes['CLASS_ID'] == current_class_id, 'AVAILABLE'] += 1
         # Fill a spot in the 'new' class by subtracting 1 from the 'AVAILABLE' column
@@ -363,6 +389,13 @@ class StudentDatabase:
                         record['AVAILABLE'] -= 1
                         break
 
+
+    # Create a new record
+    def create_record(self, entry_boxes, record_type):
+        pass
+        ## Step 1: Create record in Pandas dataframe
+
+        ## Step 2: Create record in original database (DBF file)
 
                         
 
