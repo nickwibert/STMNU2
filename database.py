@@ -174,7 +174,6 @@ class StudentDatabase:
                     # If payment record does not exist, and payment is non-zero, create new payment record
                     if 'PAY' in col and new_student_info[col] not in (None, 0.0, '0.00'):
                         self.payment.loc[len(self.payment)] = {'STUDENT_ID' : student_id,
-                                                               'STUDENTNO'  : studentno,
                                                                'MONTH'      : month_num,
                                                                'PAY'        : new_student_info[col],
                                                                'YEAR'       : year}
@@ -223,39 +222,6 @@ class StudentDatabase:
                         record[field] = new_student_info[field]
 
 
-        """
-        Note: the code which is commented out below updates records in the relational database structure.
-        For the time being, the DBF files are still being treated as the master database,
-        which are opened/loaded every time the program is run, and updated every time changes are made.
-        The code below will become useful when we officially switch over to exclusively CSV files
-        and no longer rely on the DBF files / dBASE program, but until then it is disabled.
-        """
-    
-        # ## Step 3: Update student info in new database structure
-        # student_csv = pd.read_csv('C:\\STMNU2\\data\\rdb_format\\student.csv')
-        # guardian_csv = pd.read_csv('C:\\STMNU2\\data\\rdb_format\\guardian.csv')
-        # # Family ID associated with edited student
-        # family_id = int(student_csv.loc[student_csv['STUDENTNO'] == studentno, 'FAMILY_ID'].iloc[0])
-
-        # # Find student record based on `studentno`, and update fields
-        # for field in new_student_info.keys():
-        #     # Fields which belong to 'guardian'
-        #     if field in ['MOMNAME', 'DADNAME']:
-        #         # Update info in `guardian.csv`
-        #         guardian_csv.loc[((guardian_csv['FAMILY_ID'] == family_id)
-        #                             & (guardian_csv['RELATION'] == field[:3])),
-        #                             'FNAME'] = new_student_info[field]
-        #     else:
-        #         # Fields which belong to 'student'
-        #         if field in student_csv.columns:
-        #             student_csv.loc[student_csv['STUDENTNO'] == studentno, field] = new_student_info[field]
-        #         # Fields which belong to 'guardian
-        #         if field in guardian_csv.columns:
-        #             guardian_csv.loc[guardian_csv['FAMILY_ID'] == family_id, field] = new_student_info[field]
-        
-        # # Write out changes
-        # student_csv.to_csv('C:\\STMNU2\\data\\rdb_format\\student.csv', index=False, header=True)
-        # guardian_csv.to_csv('C:\\STMNU2\\data\\rdb_format\\guardian.csv', index=False, header=True)
     def activate_student(self, student_id):
         # Toggle 'ACTIVE' value for selected student between True/False
 
@@ -274,6 +240,42 @@ class StudentDatabase:
             # Focus on this student's record
             with record:
                 record['ACTIVE'] = not record['ACTIVE']
+
+    # Create/delete a `bill` record for the selected student, month, year
+    def bill_student(self, student_id, month, year):
+        if month == 'REG':
+            month_num = 13
+        else:
+            # Integer corresponding to the month this payment applies to
+            month_num = list(calendar.month_abbr).index(month.title())
+        # Step 1: Pandas DataFrame
+        bill_record = self.bill.loc[((self.bill['STUDENT_ID'] == student_id)
+                                     & (self.bill['MONTH'] == month_num)
+                                     & (self.bill['YEAR'] == year))]
+        # If this bill does not exist, create record
+        if bill_record.empty:
+            self.bill.loc[len(self.bill)] = {'STUDENT_ID' : student_id,
+                                             'MONTH'      : month_num,
+                                             'YEAR'       : year}
+        # If this month/year appears in 'bill' for this student (meaning they owed),
+        # delete that bill record to indicate that the payment has been made
+        if not bill_record.empty:
+            self.bill = self.bill.drop(bill_record.index).reset_index(drop=True)
+
+        # Step 2: DBF file
+        studentno = self.student.loc[self.student['STUDENT_ID'] == student_id, 'STUDENTNO'].squeeze()
+        with self.student_dbf:
+            studentno_idx = self.student_dbf.create_index(lambda rec: rec.studentno)
+            # get a list of all matching records
+            match = studentno_idx.search(match=studentno)
+            # should only be one student with that studentno
+            record = match[0]
+            # Focus on this student's record
+            with record:
+                bill_txt = '*' if bill_record.empty else ''
+                record[f'{month}BILL'] = bill_txt
+
+
 
 
     def update_class_info(self, class_id, entry_boxes):

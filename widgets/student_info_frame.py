@@ -42,7 +42,6 @@ class StudentInfoFrame(ctk.CTkFrame):
         self.payment_frame.grid(row=0, column=2, padx=(50,5), pady=5, sticky='nsew')
         self.note_frame.grid(row=1, column=2, padx=5, pady=5, sticky='nsew')
 
-        # Buttons to scroll through students
         # Buttons to scroll through students (not visible, mapped to keys)
         self.prev_next_frame = ctk.CTkFrame(self.personal_frame)
         self.prev_next_frame.columnconfigure(0,weight=1)
@@ -263,10 +262,10 @@ class StudentInfoFrame(ctk.CTkFrame):
         # Values that will populate month column
         month_column = ['Month'] + list(calendar.month_name)[1:] + ['Reg. Fee']
         # Prefixes/suffixes to store labels and also access data from STUD00.dbf (JANPAY, JANDATE, etc.)
-        prefix = ['HEADER'] + [month.upper() for month in calendar.month_abbr[1:]] + ['REGFEE']
-        suffix = [['HEADER','PAY','DATE'] for _ in range(13)]
-        # Special row of suffixes for REGFEE (because column with pay is simply 'REGFEE' rather than 'REGFEEPAY')
-        suffix.append(['HEADER', '', 'DATE'])
+        prefix = ['HEADER'] + [month.upper() for month in calendar.month_abbr[1:]] + ['REG']
+        suffix = [['HEADER','PAY','DATE', 'BILL'] for _ in range(13)]
+        # Special row of suffixes for REGFEE (because column with pay is simply 'REGFEE' rather than 'REGFEEPAY', and 'REGBILL')
+        suffix.append(['FEEHEADER', 'FEE', 'FEEDATE', 'BILL'])
 
         # 14 rows (header row + 12 months + registration fee row)
         for row in range(14):
@@ -284,12 +283,16 @@ class StudentInfoFrame(ctk.CTkFrame):
             self.payment_labels[prefix[row] + suffix[row][2]] = ctk.CTkLabel(month_frame, text='',
                                                                 font=payment_font,
                                                                 anchor='e', width=75)
+            self.payment_labels[prefix[row] + suffix[row][3]] = ctk.CTkLabel(month_frame, text='',
+                                                                font=payment_font,
+                                                                anchor='e', width=10)
             # Put labels into grid
             self.payment_labels[prefix[row] + suffix[row][0]].grid(row=0,column=0,padx=10,sticky='nsew')
             self.payment_labels[prefix[row] + suffix[row][1]].grid(row=0,column=1,padx=10,sticky='nsew')
             self.payment_labels[prefix[row] + suffix[row][2]].grid(row=0,column=2,padx=10,sticky='nsew')
+            self.payment_labels[prefix[row] + suffix[row][3]].grid(row=0,column=3,padx=10,sticky='nsew')
             # Grid and store month frame
-            month_frame.grid(row=row+1, column=0, sticky='nsew')
+            month_frame.grid(row=row+2, column=0, sticky='nsew')
             self.month_frames.append(month_frame)
 
         for field in self.payment_labels.keys():
@@ -329,6 +332,8 @@ class StudentInfoFrame(ctk.CTkFrame):
         for label in self.payment_labels.values():
             if not label.is_header:
                 label.configure(text='')
+            for binding in ['<Button-1>', '<Enter>', '<Leave>']:
+                label.unbind(binding)
 
         for label in self.note_labels.values():
             if not label.is_header:
@@ -366,6 +371,8 @@ class StudentInfoFrame(ctk.CTkFrame):
         # Dataframe containing payments (for selected year, could be current or previous year)
         payment_info = self.database.payment[(self.database.payment['STUDENT_ID'] == student_id)
                                              & (self.database.payment['YEAR'] == year_to_display)]
+        bill_info = self.database.bill[(self.database.bill['STUDENT_ID'] == student_id)
+                                       & (self.database.bill['YEAR'] == year_to_display)]
 
         # Dataframe containing info for student's guardians
         if family_id == '' or pd.isna(family_id):
@@ -448,28 +455,53 @@ class StudentInfoFrame(ctk.CTkFrame):
             self.payment_frame.configure(fg_color = 'indian red')
 
         # Prefixes/suffixes to store labels and also access data from STUD00.dbf (JANPAY, JANDATE, etc.)
-        prefix = ['HEADER'] + [month.upper() for month in calendar.month_abbr[1:]] + ['REGFEE']
-        suffix = [['HEADER','PAY','DATE'] for _ in range(13)]
-        # Special row of suffixes for REGFEE (because column with pay is simply 'REGFEE' rather than 'REGFEEPAY')
-        suffix.append(['HEADER', '', 'DATE'])
+        prefix = ['HEADER'] + [month.upper() for month in calendar.month_abbr[1:]] + ['REG']
+        suffix = [['HEADER','PAY','DATE', 'BILL'] for _ in range(13)]
+        # Special row of suffixes for REGFEE (because column with pay is simply 'REGFEE' rather than 'REGFEEPAY', and 'REGBILL')
+        suffix.append(['FEEHEADER', 'FEE', 'FEEDATE', 'BILL'])
         
         # Loop through header, 12 months, and registration fee
         for row in range(14):
+            pay_label = self.payment_labels[prefix[row] + suffix[row][1]]
+            date_label = self.payment_labels[prefix[row] + suffix[row][2]]
+            bill_label = self.payment_labels[prefix[row] + suffix[row][3]]
             # Header row
             if row == 0:
-                pay, date = ('Amount', 'Date')
+                pay, date, bill = ('Amount', 'Date', 'Bill')
             # Reg. Fee row
             elif row == 13:
-                pay, date = (f'{float(student_info['REGFEE']):.2f}', student_info['REGFEEDATE'])
+                pay, date, bill = (f'{float(student_info['REGFEE']):.2f}', student_info['REGFEEDATE'], student_info['REGBILL'])
             # Check if a payment exists for this month
             elif row not in payment_info['MONTH'].values:
                 pay, date = ('0.00', '')
+                bill = '*' if row in bill_info['MONTH'].values else ''
             else:
                 pay = f'{payment_info[payment_info['MONTH']==row]['PAY'].values[0]:.2f}'
                 date = payment_info[payment_info['MONTH']==row]['DATE'].values[0]
+                bill = '*' if row in bill_info['MONTH'].values else ''
             # Update pay/date text for this month
-            self.payment_labels[prefix[row] + suffix[row][1]].configure(text=pay)
-            self.payment_labels[prefix[row] + suffix[row][2]].configure(text=date)
+            pay_label.configure(text=pay)
+            date_label.configure(text=date)
+            bill_label.configure(text=bill)
+            # Change color of alternating rows based on which year is displayed
+            if row % 2 == 0:
+                pay_label.master.configure(fg_color='salmon' if year_to_display != CURRENT_YEAR else 'grey70')
+
+            # For all rows except header, make the row clickable to toggle bill (*) on/off
+            if row != 0:
+                for col in range(4):
+                    label = self.payment_labels[prefix[row] + suffix[row][col]]
+                    # Highlight/unhighlight when mouse hovers
+                    label.bind("<Enter>",    lambda event, c=label.master, r=label.grid_info().get('row'):
+                                                fn.highlight_label(c,r))
+                    label.bind("<Leave>",    lambda event, c=label.master, r=label.grid_info().get('row'):
+                                                fn.unhighlight_label(c,r))
+                    label.bind("<Button-1>", lambda event, month=prefix[row]:
+                                                self.toggle_bill(month))
+                    label.configure(cursor='hand2')
+
+
+
 
         # Up to 3 notes
         for i in range(1,4):
@@ -515,6 +547,22 @@ class StudentInfoFrame(ctk.CTkFrame):
             # Refresh class info frame 
             self.window.screens['Classes'].search_results_frame.update_labels()
 
+    # Toggle bill status
+    # In the payment_frame, under `bill` column, there will be an asterisk (*) if a payment
+    # is owed for that month. This function toggles the asterisk on/off when the month is clicked.
+    def toggle_bill(self, month):
+        print(f'Month: {month}  Year: {self.buttons['PAYMENT_YEAR'].get()}')
+        year = self.buttons['PAYMENT_YEAR'].get()
+
+        label = self.payment_labels[f'{month}BILL']
+        label_txt = '' if label.cget('text') == '*' else '*'
+        # Toggle (*) in view
+        label.configure(text=label_txt)
+
+        # Update 'bill' in database
+        self.database.bill_student(student_id=self.id, month=month, year=year)
+
+        
 
     # Function to pull up class's record in ClassInfoFrame. This is bound to labels
     # in the student record 'class_frame' so that the user can simply click the class instructor/time
