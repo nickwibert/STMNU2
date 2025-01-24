@@ -130,14 +130,15 @@ class STMNU(ctk.CTk):
         frame = self.screens[new_screen]
 
         if new_screen == 'Students':
-            self.bind('<Prior>',  lambda event: frame.buttons['PREV_STUDENT'].invoke())
-            self.bind('<Up>',     lambda event: frame.buttons['PREV_STUDENT'].invoke())
-            self.bind('<Next>',   lambda event: frame.buttons['NEXT_STUDENT'].invoke())
-            self.bind('<Down>',   lambda event: frame.buttons['NEXT_STUDENT'].invoke())
-            self.bind('<F1>',     lambda event: frame.buttons['EDIT_STUDENT'].invoke())
-            self.bind('<F2>',     lambda event: frame.payment_switch.toggle())
-            self.bind('<F4>',     lambda event: frame.buttons['EDIT_STUDENT_PAYMENT'].invoke() if frame.payment_switch.get() == 'show' else False)
-            self.bind('<Return>', lambda event: frame.search_results_frame.search_button.invoke())
+            self.bind('<Prior>',        lambda event: frame.buttons['PREV_STUDENT'].invoke())
+            self.bind('<Up>',           lambda event: frame.buttons['PREV_STUDENT'].invoke())
+            self.bind('<Next>',         lambda event: frame.buttons['NEXT_STUDENT'].invoke())
+            self.bind('<Down>',         lambda event: frame.buttons['NEXT_STUDENT'].invoke())
+            self.bind('<F1>',           lambda event: frame.buttons['EDIT_STUDENT'].invoke())
+            self.bind('<F2>',           lambda event: frame.payment_switch.toggle())
+            self.bind('<F4>',           lambda event: frame.buttons['EDIT_STUDENT_PAYMENT'].invoke() if frame.payment_switch.get() == 'show' else False)
+            self.bind('<Return>',       lambda event: frame.search_results_frame.search_button.invoke())
+            self.bind('<Control-Home>', lambda event: frame.buttons['PAYMENT_YEAR'].invoke())
         elif new_screen == 'Classes':
             self.bind('<Prior>',  lambda event: frame.buttons['PREV_CLASS'].invoke())
             self.bind('<Up>',     lambda event: frame.buttons['PREV_CLASS'].invoke())
