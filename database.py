@@ -262,10 +262,15 @@ class StudentDatabase:
         if not bill_record.empty:
             self.bill = self.bill.drop(bill_record.index).reset_index(drop=True)
 
-        # Step 2: DBF file
+        ## Step 2: Update student info in original database (DBF file)
+        if year == CURRENT_YEAR:
+            table_to_update = self.student_dbf
+        else:
+            table_to_update = self.student_prev_year_dbf
+
         studentno = self.student.loc[self.student['STUDENT_ID'] == student_id, 'STUDENTNO'].squeeze()
-        with self.student_dbf:
-            studentno_idx = self.student_dbf.create_index(lambda rec: rec.studentno)
+        with table_to_update:
+            studentno_idx = table_to_update.create_index(lambda rec: rec.studentno)
             # get a list of all matching records
             match = studentno_idx.search(match=studentno)
             # should only be one student with that studentno
