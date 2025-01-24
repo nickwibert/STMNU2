@@ -5,7 +5,8 @@ from datetime import datetime
 
 import functions as fn
 from widgets.search_results_frame import SearchResultsFrame
-from widgets.password_dialog import PasswordDialog
+
+CURRENT_YEAR = datetime.now().year
 
 class StudentInfoFrame(ctk.CTkFrame):
     def __init__(self, window, master, database, **kwargs):
@@ -66,6 +67,23 @@ class StudentInfoFrame(ctk.CTkFrame):
 
         # Populate frame with labels containing student information
         self.create_labels()
+
+        # Create switch to show/hide payments
+        self.payment_switch = ctk.CTkSwitch(self.payment_frame,
+                                            text='Show/Hide Payments',
+                                            variable=ctk.StringVar(value='hide'),
+                                            onvalue='show',offvalue='hide')
+        self.payment_switch.configure(command = lambda switch=self.payment_switch: self.toggle_view(switch))
+        self.payment_switch.grid(row=0, column=0)
+
+        # Create button to switch between payments for current year and previous year
+        self.buttons['PAYMENT_YEAR'] = ctk.CTkSegmentedButton(self.payment_frame,
+                                        font=ctk.CTkFont('Segoe UI Light', 14),
+                                        values=[CURRENT_YEAR - 1, CURRENT_YEAR],
+                                        command=lambda year: self.update_labels(self.id))
+        self.buttons['PAYMENT_YEAR'].grid(row=1, column=0)
+        # Start on the current year
+        self.buttons['PAYMENT_YEAR'].set(CURRENT_YEAR)
         
         student_buttons_frame = ctk.CTkFrame(self.personal_frame)
         student_buttons_frame.columnconfigure((0,1),weight=1)
@@ -81,7 +99,7 @@ class StudentInfoFrame(ctk.CTkFrame):
         self.buttons['EDIT_STUDENT_PAYMENT'] = ctk.CTkButton(self.payment_frame,
                                          text="Edit Payments",
                                          command = lambda frame=self.payment_frame, labels=self.payment_labels, type='STUDENT_PAYMENT':
-                                                      fn.edit_info(frame, labels, type))
+                                                      fn.edit_info(frame, labels, type, year=self.buttons['PAYMENT_YEAR'].get()))
         self.buttons['EDIT_STUDENT_PAYMENT'].grid(row=self.payment_frame.grid_size()[1], column=0)
 
         # Button to edit payment info
@@ -90,14 +108,6 @@ class StudentInfoFrame(ctk.CTkFrame):
                                          command = lambda frame=self.note_frame, labels=self.note_labels, type='NOTE_STUDENT':
                                                       fn.edit_info(frame, labels, type))
         self.buttons['EDIT_NOTE_STUDENT'].grid(row=self.note_frame.grid_size()[1], column=0)
-
-        # Create switch to show/hide payments
-        self.payment_switch = ctk.CTkSwitch(self.payment_frame,
-                                            text='Show/Hide Payments',
-                                            variable=ctk.StringVar(value='hide'),
-                                            onvalue='show',offvalue='hide')
-        self.payment_switch.configure(command = lambda switch=self.payment_switch: self.toggle_view(switch))
-        self.payment_switch.grid(row=0, column=0)
 
         # Create switch to show/hide notes
         self.note_switch = ctk.CTkSwitch(self.note_frame,
@@ -223,7 +233,7 @@ class StudentInfoFrame(ctk.CTkFrame):
         self.class_frame.columnconfigure((0,1,2), weight=1)
         # self.class_frame.rowconfigure((0,1,2), weight=1)
         self.class_labels = []
-        headers = ['CODE', 'INSTRUCTOR', 'TIME']
+        headers = ['Code', 'Instructor', 'Class Time']
         for row in range(4):
             row_labels = []
             for col in range(len(headers)):
@@ -351,8 +361,11 @@ class StudentInfoFrame(ctk.CTkFrame):
         # Get family ID
         family_id = student_info['FAMILY_ID']
 
-        # Dataframe containing payments
-        payment_info = self.database.payment[self.database.payment['STUDENT_ID'] == student_id]
+        # Year which the user has requested to display (only affects payments)
+        year_to_display = self.buttons['PAYMENT_YEAR'].get()
+        # Dataframe containing payments (for selected year, could be current or previous year)
+        payment_info = self.database.payment[(self.database.payment['STUDENT_ID'] == student_id)
+                                             & (self.database.payment['YEAR'] == year_to_display)]
 
         # Dataframe containing info for student's guardians
         if family_id == '' or pd.isna(family_id):
@@ -364,9 +377,10 @@ class StudentInfoFrame(ctk.CTkFrame):
         class_ids = list(self.database.class_student.loc[self.database.class_student['STUDENT_ID'] == student_id, 'CLASS_ID'])
 
         # Class info for each class_id
-        class_info = self.database.classes.loc[self.database.classes['CLASS_ID'].isin(class_ids)
-                                               ].sort_values(by='CLASS_ID'
-                                               ).loc[:,['CODE','TEACH','CLASSTIME']] 
+        class_info = self.database.class_student.loc[self.database.class_student['STUDENT_ID'] == student_id
+                                               ].merge(self.database.classes, on='CLASS_ID', how='left'
+                                               ).sort_values(by='CLASS_ID'
+                                               ).loc[:,['CODE','TEACH','CLASSTIME',]]
         
         note_info = self.database.note[self.database.note['STUDENT_ID'] == student_id].reset_index()
 
@@ -425,6 +439,13 @@ class StudentInfoFrame(ctk.CTkFrame):
                         label.configure(cursor='hand2')
                         
                 label.configure(text=label_txt)
+
+
+        # Change color of payment_frame based on which year is displayed
+        if year_to_display == CURRENT_YEAR:
+            self.payment_frame.configure(fg_color = 'transparent')
+        else:
+            self.payment_frame.configure(fg_color = 'indian red')
 
         # Prefixes/suffixes to store labels and also access data from STUD00.dbf (JANPAY, JANDATE, etc.)
         prefix = ['HEADER'] + [month.upper() for month in calendar.month_abbr[1:]] + ['REGFEE']
