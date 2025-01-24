@@ -18,6 +18,7 @@ class StudentInfoFrame(ctk.CTkFrame):
         # Instance of student database
         self.database = database
         self.id = None
+        self.year = CURRENT_YEAR
 
         self.buttons = {}
 
@@ -43,26 +44,22 @@ class StudentInfoFrame(ctk.CTkFrame):
         self.note_frame.grid(row=1, column=2, padx=5, pady=5, sticky='nsew')
 
         # Buttons to scroll through students (not visible, mapped to keys)
-        self.prev_next_frame = ctk.CTkFrame(self.personal_frame)
-        self.prev_next_frame.columnconfigure(0,weight=1)
-        self.prev_next_frame.rowconfigure((0,1),weight=1)
-        self.buttons['PREV_STUDENT'] = ctk.CTkButton(self.prev_next_frame,
+        self.buttons['PREV_STUDENT'] = ctk.CTkButton(self.personal_frame,
                                          text="↑ Previous Student", anchor='w',
                                          command=self.search_results_frame.prev_result)
-        self.buttons['NEXT_STUDENT'] = ctk.CTkButton(self.prev_next_frame,
+        self.buttons['NEXT_STUDENT'] = ctk.CTkButton(self.personal_frame,
                                          text="↓ Next Student", anchor='w',
                                          command=self.search_results_frame.next_result)
-        # self.buttons['PREV_STUDENT'].grid(row=0,column=0,pady=5,padx=5)
-        # self.buttons['NEXT_STUDENT'].grid(row=1,column=0,pady=5,padx=5)
-        # self.prev_next_frame.grid(row=0,column=0,sticky='nsew')
 
         # Button to toggle student between active/inactive
-        ctk.CTkLabel(self.prev_next_frame, text='Status: ',).grid(row=0,column=0,sticky='e')
-        self.buttons['ACTIVATE_STUDENT'] = ctk.CTkButton(self.prev_next_frame,
+        self.active_frame = ctk.CTkFrame(self.personal_frame, fg_color='transparent')
+        self.active_frame.columnconfigure((0,1),weight=1)
+        ctk.CTkLabel(self.active_frame, text='Status: ',).grid(row=0,column=0,sticky='e')
+        self.buttons['ACTIVATE_STUDENT'] = ctk.CTkButton(self.active_frame,
                                                          text='INACTIVE', fg_color='red2', text_color='white',
                                                          command=self.toggle_active)
         self.buttons['ACTIVATE_STUDENT'].grid(row=0,column=1,sticky='w')
-        self.prev_next_frame.grid(row=0,column=0,sticky='nsew')
+        self.active_frame.grid(row=0,column=0,sticky='nsew')
 
         # Populate frame with labels containing student information
         self.create_labels()
@@ -76,13 +73,15 @@ class StudentInfoFrame(ctk.CTkFrame):
         self.payment_switch.grid(row=0, column=0)
 
         # Create button to switch between payments for current year and previous year
-        self.buttons['PAYMENT_YEAR'] = ctk.CTkSegmentedButton(self.payment_frame,
+        self.year_frame = ctk.CTkFrame(self.payment_frame)
+        self.year_frame.columnconfigure((0,1),weight=1)
+        ctk.CTkLabel(self.year_frame, text='Currently displaying payments for:',).grid(row=0,column=0,sticky='e')
+        self.buttons['PAYMENT_YEAR'] = ctk.CTkButton(self.year_frame,
+                                        text=self.year,
                                         font=ctk.CTkFont('Segoe UI Light', 14),
-                                        values=[CURRENT_YEAR - 1, CURRENT_YEAR],
-                                        command=lambda year: self.update_labels(self.id))
-        self.buttons['PAYMENT_YEAR'].grid(row=1, column=0)
-        # Start on the current year
-        self.buttons['PAYMENT_YEAR'].set(CURRENT_YEAR)
+                                        command=self.toggle_year)
+        self.buttons['PAYMENT_YEAR'].grid(row=0, column=1)
+        self.year_frame.grid(row=1,column=0,sticky='nsew')
         
         student_buttons_frame = ctk.CTkFrame(self.personal_frame)
         student_buttons_frame.columnconfigure((0,1),weight=1)
@@ -366,13 +365,11 @@ class StudentInfoFrame(ctk.CTkFrame):
         # Get family ID
         family_id = student_info['FAMILY_ID']
 
-        # Year which the user has requested to display (only affects payments)
-        year_to_display = self.buttons['PAYMENT_YEAR'].get()
         # Dataframe containing payments (for selected year, could be current or previous year)
         payment_info = self.database.payment[(self.database.payment['STUDENT_ID'] == student_id)
-                                             & (self.database.payment['YEAR'] == year_to_display)]
+                                             & (self.database.payment['YEAR'] == self.year)]
         bill_info = self.database.bill[(self.database.bill['STUDENT_ID'] == student_id)
-                                       & (self.database.bill['YEAR'] == year_to_display)]
+                                       & (self.database.bill['YEAR'] == self.year)]
 
         # Dataframe containing info for student's guardians
         if family_id == '' or pd.isna(family_id):
@@ -449,10 +446,13 @@ class StudentInfoFrame(ctk.CTkFrame):
 
 
         # Change color of payment_frame based on which year is displayed
-        if year_to_display == CURRENT_YEAR:
+        if self.year == CURRENT_YEAR:
             self.payment_frame.configure(fg_color = 'transparent')
+            self.year_frame.configure(fg_color = 'transparent')
         else:
             self.payment_frame.configure(fg_color = 'indian red')
+            self.year_frame.configure(fg_color = 'indian red')
+            
 
         # Prefixes/suffixes to store labels and also access data from STUD00.dbf (JANPAY, JANDATE, etc.)
         prefix = ['HEADER'] + [month.upper() for month in calendar.month_abbr[1:]] + ['REG']
@@ -485,7 +485,7 @@ class StudentInfoFrame(ctk.CTkFrame):
             bill_label.configure(text=bill)
             # Change color of alternating rows based on which year is displayed
             if row % 2 == 0:
-                pay_label.master.configure(fg_color='salmon' if year_to_display != CURRENT_YEAR else 'grey70')
+                pay_label.master.configure(fg_color='salmon' if self.year != CURRENT_YEAR else 'grey70')
 
             # For all rows except header, make the row clickable to toggle bill (*) on/off
             if row != 0:
@@ -499,8 +499,6 @@ class StudentInfoFrame(ctk.CTkFrame):
                     label.bind("<Button-1>", lambda event, month=prefix[row]:
                                                 self.toggle_bill(month))
                     label.configure(cursor='hand2')
-
-
 
 
         # Up to 3 notes
@@ -551,7 +549,6 @@ class StudentInfoFrame(ctk.CTkFrame):
     # In the payment_frame, under `bill` column, there will be an asterisk (*) if a payment
     # is owed for that month. This function toggles the asterisk on/off when the month is clicked.
     def toggle_bill(self, month):
-        print(f'Month: {month}  Year: {self.buttons['PAYMENT_YEAR'].get()}')
         year = self.buttons['PAYMENT_YEAR'].get()
 
         label = self.payment_labels[f'{month}BILL']
@@ -562,7 +559,16 @@ class StudentInfoFrame(ctk.CTkFrame):
         # Update 'bill' in database
         self.database.bill_student(student_id=self.id, month=month, year=year)
 
-        
+    
+    # Toggle payment year between current/previous year
+    def toggle_year(self):
+        # Change the stored year and update labels
+        self.year = CURRENT_YEAR - 1 if self.year == CURRENT_YEAR else CURRENT_YEAR
+        button = self.buttons['PAYMENT_YEAR']
+        new_color = 'steelblue3' if self.year == CURRENT_YEAR else 'salmon'
+        button.configure(text=self.year, fg_color=new_color)
+        self.update_labels(self.id)
+
 
     # Function to pull up class's record in ClassInfoFrame. This is bound to labels
     # in the student record 'class_frame' so that the user can simply click the class instructor/time
