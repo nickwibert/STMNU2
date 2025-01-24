@@ -62,6 +62,7 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
 
         clsbymon = pd.read_csv('data\\dbf_format\\clsbymon.csv')
 
+
         ### GUARDIAN ###
         # Since we only have first names, and a lot of the data is inconsistent
         # (i.e. address in two records for the same student/parents has 'Street' and 'St'),
@@ -98,6 +99,7 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
         # New table 'student' which is very similar to 'STUD00', just with
         # parent and payment info extracted
         student = pd.DataFrame({'STUDENT_ID' : STUD00['STUDENT_ID'],
+                                'ACTIVE' : STUD00['ACTIVE'],
                                 'CLASS' : STUD00['CLASS'],
                                 'STUDENTNO' : STUD00['STUDENTNO'],
                                 'FNAME' : STUD00['FNAME'],
@@ -121,11 +123,13 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
                                 'CREA_TMS' : [datetime.now()]*STUD00.shape[0],
                                 'UPDT_TMS' : [datetime.now()]*STUD00.shape[0],})
 
+
         # Insert FAMILY_ID into student
         student = student.merge(families[['STUDENT_ID','FAMILY_ID']], how='left', on='STUDENT_ID')
         # Move FAMILY_ID to second column
         family_id = student.pop('FAMILY_ID')
         student.insert(1, 'FAMILY_ID', family_id)
+
 
         ### PAYMENT and BILL ###
         payment = pd.DataFrame()
@@ -156,6 +160,13 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
         # Get STUDENT_ID from 'student'
         payment = student[['STUDENT_ID','STUDENTNO']].merge(payment, how='right', on='STUDENTNO')
         bill = student[['STUDENT_ID','STUDENTNO']].merge(bill, how='right', on='STUDENTNO')
+        payment = payment.drop(columns='STUDENTNO')
+        bill = bill.drop(columns='STUDENTNO')
+
+        # # Add column 'ACTIVE' to 'student', which is True for students who have made a payment in the last MONTHS_SINCE_PAYMENT_LIMIT months
+        # payment_session = pd.to_datetime(payment[['YEAR','MONTH']].assign(DAY=1))
+        # active_students = student.loc[student['STUDENT_ID'].isin(payment.loc[payment_session >= CUTOFF_DATE,'STUDENT_ID']),'STUDENT_ID'].drop_duplicates()
+        # student['ACTIVE'] = student['STUDENT_ID'].isin(active_students)
 
         ### CLASSES ###
         # Keep the first 11 columns from 'clsbymon', and FINAL column (CLASS_ID)
@@ -183,16 +194,7 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
 
         # Sort values
         class_student = class_student.sort_values(by=['CLASS_ID', 'STUDENT_ID'])
-        # Create 'active' column based on whether the student has paid for the current month
-        active_students = class_student.merge(payment.loc[((payment['MONTH'] == CURRENT_MONTH) & (payment['YEAR'] == CURRENT_YEAR)), 'STUDENT_ID'],
-                                            on='STUDENT_ID', how='inner'
-                                    ).loc[:,'STUDENT_ID'
-                                    ].unique()
-        class_student['ACTIVE'] = class_student['STUDENT_ID'].isin(active_students)
-        # Create 'exclude' column to flag students who have not made any payments in the last MONTHS_SINCE_PAYMENT_LIMIT months
-        payment_session = pd.to_datetime(payment[['YEAR','MONTH']].assign(DAY=1))
-        former_students = class_student.loc[~class_student['STUDENT_ID'].isin(payment.loc[payment_session >= CUTOFF_DATE,'STUDENT_ID']),'STUDENT_ID'].drop_duplicates()
-        class_student['EXCLUDE'] = class_student['STUDENT_ID'].isin(former_students)
+
 
         ### WAITLIST ###
         # Extract waitlist 
@@ -295,7 +297,6 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
         note.insert(len(note.columns),'CREA_TMS',[datetime.now()]*note.shape[0])
         note.insert(len(note.columns),'UPDT_TMS',[datetime.now()]*note.shape[0])
         
-        
         # Write to csv files if option chosen
         if write_to_csv:
             for df, csv_name in zip([guardian, student, payment, bill, classes, class_student, wait, trial, note],
@@ -342,6 +343,7 @@ def unhighlight_label(container, row):
     for label in container.grid_slaves(row=row):
             label.configure(fg_color='transparent')
 
+
 # Edit information for a particular frame currently displayed in the window.
 # The frame and relevant labels are passed as arguments, along with
 # the string 'edit_type' which identifies the type of information that is
@@ -382,7 +384,7 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_YEAR):
 
     for key in labels.keys():
         # Ignore certain labels
-        if 'HEADER' in key:
+        if 'HEADER' in key or 'BILL' in key:
             entry_boxes.pop(key)
             continue
         
