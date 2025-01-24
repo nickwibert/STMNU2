@@ -10,6 +10,12 @@ class StudentDatabase:
     def __init__(self, student_dbf_path, student_prev_year_dbf_path, clsbymon_dbf_path):
         # DBF Table object for STUD00
         self.student_dbf = dbf.Table(student_dbf_path)
+         # Add 'ACTIVE' to student DBF file (if it doesn't exist)
+        with self.student_dbf:
+            if 'ACTIVE' not in self.student_dbf.field_names:
+                self.student_dbf.add_fields('ACTIVE L')
+                for record in self.student_dbf:
+                    dbf.write(record, ACTIVE=False)
         # DBF Table object for STUD99 (student/payment records for previous year)
         self.student_prev_year_dbf = dbf.Table(student_prev_year_dbf_path)
         # DBF Table object for clsbymon.dbf
@@ -19,9 +25,10 @@ class StudentDatabase:
             if 'CLASS_ID' not in self.classes_dbf.field_names:
                 self.classes_dbf.add_fields('CLASS_ID N(3,0)')
                 class_id = 1
-                for record in self.classes_dbf:
+                for record in self.classes_dbf: 
                     dbf.write(record, CLASS_ID=class_id)
-                    class_id += 1 
+                    class_id += 1
+
 
     def load_data(self):
         # Transform current versions of DBF files to CSV
@@ -40,6 +47,8 @@ class StudentDatabase:
         # Format dates
         for col in ['BIRTHDAY', 'ENROLLDATE', 'REGFEEDATE']:
             self.student[col] = pd.to_datetime(self.student[col], errors='coerce', format='mixed').dt.strftime('%m/%d/%Y')
+
+        self.student['ACTIVE'] = self.student['ACTIVE'].astype(bool)
 
         # Load payment
         payment_csv_path = 'C:\\STMNU2\\data\\rdb_format\\payment.csv'
@@ -175,7 +184,7 @@ class StudentDatabase:
                         self.bill = self.bill.drop(bill_record.index).reset_index(drop=True)
                 # If record already exists, but the new amount entered is zero, delete the record
                 # (therefore changing a payment amount to 0 is equivalent to deleting the payment)
-                elif new_student_info[col] in (None, 0.0, '0.00'):
+                elif 'PAY' in col and new_student_info[col] in (None, 0.0, '0.00'):
                     # Drop the record from the table by using its index
                     self.payment = self.payment.drop(pay_record.index).reset_index(drop=True)
                 # Otherwise, record already exists + new amount entered is NON-ZERO, so we edit the existing record
@@ -247,6 +256,25 @@ class StudentDatabase:
         # # Write out changes
         # student_csv.to_csv('C:\\STMNU2\\data\\rdb_format\\student.csv', index=False, header=True)
         # guardian_csv.to_csv('C:\\STMNU2\\data\\rdb_format\\guardian.csv', index=False, header=True)
+    def activate_student(self, student_id):
+        # Toggle 'ACTIVE' value for selected student between True/False
+
+        # Step 1: Pandas DataFrame
+        student_record = self.student[self.student['STUDENT_ID'] == student_id]
+        self.student.loc[student_record.index, 'ACTIVE'] = not student_record['ACTIVE'].values[0]
+
+        # Step 2: DBF file
+        studentno = student_record['STUDENTNO'].values[0]
+        with self.student_dbf:
+            studentno_idx = self.student_dbf.create_index(lambda rec: rec.studentno)
+            # get a list of all matching records
+            match = studentno_idx.search(match=studentno)
+            # should only be one student with that studentno
+            record = match[0]
+            # Focus on this student's record
+            with record:
+                record['ACTIVE'] = not record['ACTIVE']
+
 
     def update_class_info(self, class_id, entry_boxes):
         # Get dataframe index associated with 'class_id'
@@ -340,8 +368,7 @@ class StudentDatabase:
         # Now, create a new record in `class_student` using the new_class_id
         self.class_student.loc[len(self.class_student)] = {'CLASS_ID' : new_class_id,
                                                            'STUDENT_ID' : student_id,
-                                                           'ACTIVE' : current_record['ACTIVE'].values[0],
-                                                           'EXCLUDE' : current_record['EXCLUDE'].values[0]}
+                                                           'ACTIVE' : current_record['ACTIVE'].values[0]}
         # Remove student from 'current class'
         self.class_student = self.class_student.drop(current_record.index).reset_index(drop=True)
         # Open up a spot in the current class by adding 1 to the 'AVAILABLE' column

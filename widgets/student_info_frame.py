@@ -42,6 +42,7 @@ class StudentInfoFrame(ctk.CTkFrame):
         self.note_frame.grid(row=1, column=2, padx=5, pady=5, sticky='nsew')
 
         # Buttons to scroll through students
+        # Buttons to scroll through students (not visible, mapped to keys)
         self.prev_next_frame = ctk.CTkFrame(self.personal_frame)
         self.prev_next_frame.columnconfigure(0,weight=1)
         self.prev_next_frame.rowconfigure((0,1),weight=1)
@@ -54,6 +55,14 @@ class StudentInfoFrame(ctk.CTkFrame):
         # self.buttons['PREV_STUDENT'].grid(row=0,column=0,pady=5,padx=5)
         # self.buttons['NEXT_STUDENT'].grid(row=1,column=0,pady=5,padx=5)
         # self.prev_next_frame.grid(row=0,column=0,sticky='nsew')
+
+        # Button to toggle student between active/inactive
+        ctk.CTkLabel(self.prev_next_frame, text='Status: ',).grid(row=0,column=0,sticky='e')
+        self.buttons['ACTIVATE_STUDENT'] = ctk.CTkButton(self.prev_next_frame,
+                                                         text='INACTIVE', fg_color='red2', text_color='white',
+                                                         command=self.toggle_active)
+        self.buttons['ACTIVATE_STUDENT'].grid(row=0,column=1,sticky='w')
+        self.prev_next_frame.grid(row=0,column=0,sticky='nsew')
 
         # Populate frame with labels containing student information
         self.create_labels()
@@ -361,6 +370,13 @@ class StudentInfoFrame(ctk.CTkFrame):
         
         note_info = self.database.note[self.database.note['STUDENT_ID'] == student_id].reset_index()
 
+
+        # Active Status: change button appearance to match data (if necessary)
+        if ((student_info['ACTIVE'] == 'True' and self.buttons['ACTIVATE_STUDENT'].cget('text') == 'INACTIVE')
+            or (student_info['ACTIVE'] == 'False' and self.buttons['ACTIVATE_STUDENT'].cget('text') == 'ACTIVE')):
+            self.toggle_active(visual_only=True)
+
+        # Student Number
         self.studentno_label.configure(text=f'#{student_info['STUDENTNO']}')
         # Configure text for labels
         for field in self.personal_labels.keys():
@@ -460,6 +476,23 @@ class StudentInfoFrame(ctk.CTkFrame):
             for child in switch.master.winfo_children():
                 if child.winfo_name() != '!ctkswitch':
                     child.lower()
+
+    # Toggle student between active/inactive
+    # If `visual_only`=True, we just change the button's appearance to match the data.
+    # Otherwise, the value stored in the database under 'ACTIVE' will also be changed.
+    def toggle_active(self, visual_only=False):
+        button = self.buttons['ACTIVATE_STUDENT']
+        # Change button text and color
+        if button.cget('text') == 'INACTIVE':
+            button.configure(text='ACTIVE', fg_color='forest green')
+        else:
+            button.configure(text='INACTIVE', fg_color='red2')
+
+        # Update 'ACTIVE' in database
+        if not visual_only:
+            self.database.activate_student(student_id=self.id)
+            # Refresh class info frame 
+            self.window.screens['Classes'].search_results_frame.update_labels()
 
 
     # Function to pull up class's record in ClassInfoFrame. This is bound to labels
