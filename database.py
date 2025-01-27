@@ -7,7 +7,6 @@ from datetime import datetime
 # Global variables
 from globals import CURRENT_SESSION
 
-
 class StudentDatabase:
     def __init__(self, student_dbf_path, student_prev_year_dbf_path, clsbymon_dbf_path):
         # DBF Table object for STUD00
@@ -100,13 +99,14 @@ class StudentDatabase:
     def save_students_to_csv(self):
         self.student.to_csv(self.path_to_csv, index=False)
 
-    def search_student(self, query):
+    def search_student(self, query, show_inactive=False):
         # Force all uppercase
         for key in query.keys(): query[key] = query[key].upper()
         
         # Perform search using name fields
         matches = self.student[(((self.student['FNAME'].str.upper().str.startswith(query['First Name'], na=False)) | (len(query['First Name']) == 0))
-                            & ((self.student['LNAME'].str.upper().str.startswith(query['Last Name'], na=False)) | (len(query['Last Name']) == 0)))
+                            & ((self.student['LNAME'].str.upper().str.startswith(query['Last Name'], na=False)) | (len(query['Last Name']) == 0))
+                            & (self.student['ACTIVE'] | show_inactive))
                             ].sort_values(by=['LNAME','FNAME'], key=lambda x: x.str.upper()
                             ).loc[:, ['STUDENT_ID', 'FNAME','LNAME']
                             ].fillna(''

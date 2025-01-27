@@ -82,9 +82,19 @@ class SearchResultsFrame(ctk.CTkFrame):
                 self.entry_boxes[key] = (ctk.CTkEntry(self.query_frame, textvariable=ctk.StringVar()))
                 self.entry_boxes[key].grid(row=row, column=1, sticky='ew')
 
-                # Button to perform search when clicked 
-                self.search_button = ctk.CTkButton(self.query_frame, text='Search', command=self.update_labels)
-                self.search_button.grid(row=len(self.entry_boxes)+1, column=0, columnspan=2)
+            # Checkbox to show active students
+            self.active_checkbox = ctk.CTkCheckBox(self.query_frame, text='Show Inactive Students', command=self.update_labels)
+            self.active_checkbox.grid(row=self.query_frame.grid_size()[1], column=0, columnspan=2, pady=5)
+            # Button to perform search when clicked 
+            self.search_button = ctk.CTkButton(self.query_frame, text='Search', command=self.update_labels)
+            self.search_button.grid(row=self.query_frame.grid_size()[1], column=0, columnspan=2)
+
+            # Container holding option buttons (i.e. create new student)
+            self.new_student_button = ctk.CTkButton(self.query_frame,
+                                                    text='Create New Student',
+                                                    command=self.master.create_student)
+            # Disabled for now
+            # self.new_student_button.grid(row=self.query_frame.grid_size()[1],column=0, columnspan=2, pady=(50,0))
 
         elif self.type == 'class':
             # Dictionaries of values for different option menus.
