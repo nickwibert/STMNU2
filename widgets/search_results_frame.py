@@ -209,7 +209,7 @@ class SearchResultsFrame(ctk.CTkFrame):
 
             # Search for matches
             if self.type == 'student':
-                self.df = self.database.search_student(query)
+                self.df = self.database.search_student(query, show_inactive=self.active_checkbox.get())
             elif self.type == 'family':
                 self.df = self.database.search_family(query)
 
@@ -245,11 +245,17 @@ class SearchResultsFrame(ctk.CTkFrame):
 
             ## Add column for available spots in each class ##
             # Get student count for each class and add to results dataframe
+            # (spots are taken by both PAID and BILLED students)
             payment_info = self.database.payment.loc[(self.database.payment['MONTH'] == CURRENT_SESSION.month)
                                                     & (self.database.payment['YEAR'] == CURRENT_SESSION.year)
                                             ].loc[:, ['STUDENT_ID', 'PAY']]
+            bill_info = self.database.bill.loc[(self.database.bill['MONTH'] == CURRENT_SESSION.month)
+                                             & (self.database.bill['YEAR'] == CURRENT_SESSION.year)
+                                            ].assign(BILLED=True)
             class_counts = self.df.merge(self.database.class_student, how='right'
-                                 ).merge(payment_info, how='inner'
+                                 ).merge(payment_info, how='left'
+                                 ).merge(bill_info, how='left'
+                                 ).dropna(subset=['PAY','BILLED'], how='all'
                                  ).groupby('CLASS_ID'
                                  ).size(
                                  ).rename('COUNT'
