@@ -1,4 +1,3 @@
-import customtkinter as ctk
 import gui
 from database import StudentDatabase
 
