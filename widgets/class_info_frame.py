@@ -203,8 +203,21 @@ class ClassInfoFrame(ctk.CTkFrame):
                                     how='left',
                                     on='STUDENT_ID'
                             ).loc[:,['PAY','STUDENT_ID','FAMILY_ID','FNAME','LNAME','BIRTHDAY']]
+        # Create 'PAID' which is true if student has a non-zero payment for the current month/year
         roll_info['PAID'] = roll_info['PAY'] > 0
-        roll_info = roll_info.sort_values(by=['PAID','LNAME'], ascending=[False,True]
+        # Create 'BILLED' which is true if student has been billed for the current month/year
+        # (since they have a bill record, someone has confirmed that the student
+        # is attending and plans to pay; therefore they will take up a spot in the class)
+        roll_info['BILLED'] = roll_info['STUDENT_ID'].isin(self.database.bill.loc[((self.database.bill['MONTH'] == CURRENT_SESSION.month)
+                                                                             & (self.database.bill['YEAR'] == CURRENT_SESSION.year)),'STUDENT_ID'].values)
+        
+        # Create 'BILL_COUNT' which is the number of payments owed by each student in `roll_info`
+        # (this is simply determined by the number of records that student currently has in the `bill` table)
+        roll_info = roll_info.merge(self.database.bill.groupby('STUDENT_ID').size().reset_index(name='BILL_COUNT'),
+                                    how='left',
+                                    on='STUDENT_ID'
+                            ).fillna(0)
+        roll_info = roll_info.sort_values(by=['PAID','BILLED','LNAME'], ascending=[False,False,True]
                             ).reset_index(drop=True)
         wait_info = self.database.wait[self.database.wait['CLASS_ID'] == class_id
                             ].reset_index(drop=True
@@ -233,8 +246,8 @@ class ClassInfoFrame(ctk.CTkFrame):
 
         # Get max class size from `classes`
         max_class_size = header_info['MAX']
-        # Get current class size as the number of students who have paid for the current month
-        actual_class_size = roll_info.loc[roll_info['PAY'] > 0].shape[0]
+        # Get current class size as the number of students who have paid/been billed for the current month
+        actual_class_size = roll_info.loc[(roll_info['PAID'] | roll_info['BILLED'])].shape[0]
         # Get 'potential' class size as the number of students who are listed as part of this class, regardless of payment
         potential_class_size = roll_info.shape[0]
 
@@ -264,7 +277,15 @@ class ClassInfoFrame(ctk.CTkFrame):
                     label.bind("<Button-1>", lambda event, student_id=roll_info.loc[row-1,'STUDENT_ID']:
                                                      self.open_student_record(student_id))
                     
+                    # If this is a 'potential' student, their name should be blinking
+                    # (all rows up to `actual_class_size` are students who are paid for current month)
                     label.blink = row > actual_class_size
+
+                    # Add dollar signs ($) after the student's name if they owe for previous months
+                    # (i.e. if a student has 3 asterisks under 'BILL', 3 dollar signs should display here)
+                    bill_count = int(roll_info.loc[row-1, 'BILL_COUNT'])
+                    if bill_count > 0:
+                        roll_txt += ' ' + '$'*bill_count
 
                 # Update text in label
                 label.configure(text=roll_txt,)
@@ -366,6 +387,10 @@ class ClassInfoFrame(ctk.CTkFrame):
         self.wait_window(move_window)
         # Update search results to reflect new class availability
         self.search_results_frame.update_labels(select_first_result=False)
+        # Update currently selected StudentInfoFrame (if a student is active)
+        student_id = self.window.screens['Students'].id
+        if student_id is not None:
+            self.window.screens['Students'].update_labels(student_id)
         # Update the displayed class roll
         self.update_labels(self.id)
     
