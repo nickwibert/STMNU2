@@ -5,27 +5,38 @@
 # Packages
 import customtkinter as ctk
 import calendar
+from datetime import datetime
+
+### Pop-Up Window ###
+# Parent class with general attributes that will apply to all dialog boxes in the program
+class DialogBox(ctk.CTkToplevel):
+    def __init__(self, window, title, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._title = title
+        self.title(self._title)
+
+        self.window=window
+
+        self.lift()  # lift window on top
+        self.attributes("-topmost", True)  # stay on top
+
+        self.after(10, self._create_widgets)  # create widgets with slight delay, to avoid white flickering of background
+        self.resizable(False, False)
+        self.grab_set()  # make other windows not clickable        
+
 
 ### Password Dialog Box ###
 # This pop-up window is used when the user tries to modify student payment records.
 # The user must first enter the correct password in order to make edits.
-class PasswordDialog(ctk.CTkToplevel):
-    def __init__(self, window, title, text, *args, **kwargs):
+class PasswordDialog(DialogBox):
+    def __init__(self, text, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._title = title
         self._text = text
-
-        self.title(self._title)
-        self.lift()  # lift window on top
-        self.attributes("-topmost", True)  # stay on top
         self.protocol("WM_DELETE_WINDOW", self._ok_event)
-        self.after(10, self._create_widgets)  # create widgets with slight delay, to avoid white flickering of background
-        self.resizable(False, False)
-        self.grab_set()  # make other windows not clickable
 
         # Set location of window relative to the main window
-        window_x, window_y = (window.winfo_x(), window.winfo_y())
-        x, y = (window_x + (window.winfo_width()*0.66), window_y + (window.winfo_height()*0.1))
+        window_x, window_y = (self.window.winfo_x(), self.window.winfo_y())
+        x, y = (window_x + (self.window.winfo_width()*0.66), window_y + (self.window.winfo_height()*0.1))
         self.geometry(f'+{round(x)}+{round(y)}')
 
     def _create_widgets(self):
@@ -69,26 +80,18 @@ class PasswordDialog(ctk.CTkToplevel):
 # (Or, to move a student into a class for the first time, when `new_enrollment`=True)
 # The user selects options from various dropdown menus which are populated using only valid values.
 # Therefore it is not possible for the user to make an invalid selection in this window.
-class MoveStudentDialog(ctk.CTkToplevel):
-    def __init__(self, window, title, database, current_class_id, student_labels, new_enrollment=False):
-        super().__init__()
-        self._title = title
-        self.title(self._title)
+class MoveStudentDialog(DialogBox):
+    def __init__(self, database, current_class_id, student_labels, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.database = database
         self.current_class_id = current_class_id
         self.student_labels = student_labels
-        self.new_enrollment = new_enrollment
-
-        self.lift()  # lift window on top
-        self.attributes("-topmost", True)  # stay on top
-        self.after(10, self._create_widgets)  # create widgets with slight delay, to avoid white flickering of background
-        self.resizable(False, False)
-        self.grab_set()  # make other windows not clickable
+        self.new_enrollment = True if 'Enroll' in self._title else False
 
         # Set location of window relative to the main window
         self.geometry('500x250')
-        window_x, window_y = (window.winfo_x(), window.winfo_y())
-        x, y = (window_x + ((window.winfo_width() - self.winfo_reqwidth())// 2), window_y + ((window.winfo_height() - self.winfo_reqheight()) // 2))
+        window_x, window_y = (self.window.winfo_x(), self.window.winfo_y())
+        x, y = (window_x + ((self.window.winfo_width() - self.winfo_reqwidth())// 2), window_y + ((self.window.winfo_height() - self.winfo_reqheight()) // 2))
         self.geometry(f'+{round(x)}+{round(y)}')
 
     def _create_widgets(self):
@@ -126,7 +129,8 @@ class MoveStudentDialog(ctk.CTkToplevel):
         self.warning_label.grid(row=6, column=0, columnspan=2)
 
         # Button to confirm selected options
-        self.confirm_button = ctk.CTkButton(self, text='Confirm Move', command=self.validate_move_student)
+        self.confirm_button = ctk.CTkButton(self, text='Confirm Enroll' if self.new_enrollment else 'Confirm Move',
+                                            command=self.validate_move_student)
         self.confirm_button.grid(row=7, column=0, columnspan=2)
 
         # Populate dropdowns
@@ -213,7 +217,7 @@ class MoveStudentDialog(ctk.CTkToplevel):
         elif class_info['AVAILABLE'] <= 0:
             warning_txt = f'WARNING: The currently selected class already has {class_count} ' \
                           f'spots filled, and a max enrollment of {class_info['MAX']} students. Are you sure you want to proceed? ' \
-                           "(If so, click 'Confirm Move' again)"
+                           "(If so, click 'Confirm' again)"
             self.warning_label.configure(text=warning_txt)
             # Change 'confirm' button command to wait for user to click it again
             var = ctk.StringVar()
@@ -226,3 +230,106 @@ class MoveStudentDialog(ctk.CTkToplevel):
         self.destroy()
 
 
+### New Student Dialog ###
+# This pop-up window is used when the user requests to create a new student
+class NewStudentDialog(DialogBox):
+    def __init__(self, database, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.database = database
+
+        # Set location of window relative to the main window
+        self.geometry('900x500')
+        window_x, window_y = (self.window.winfo_x(), self.window.winfo_y())
+        x, y = (window_x + ((self.window.winfo_width() - self.winfo_reqwidth())// 2), window_y + ((self.window.winfo_height() - self.winfo_reqheight()) // 2))
+        self.geometry(f'+{round(x)}+{round(y)}')
+
+    def _create_widgets(self):
+        self.columnconfigure((0,1), weight=1)
+        self.rowconfigure((0,1,2), weight=1)
+
+        self.header_frame = ctk.CTkFrame(self)
+        self.header_frame.grid(row=0,column=0,columnspan=2)
+        studentno = self.database.student['STUDENTNO'].max()
+        enrolldate = datetime.today().strftime('%m/%d/%Y')
+        self.header_label = ctk.CTkLabel(self.header_frame,
+                                         text=f"Student Number: {studentno}\nEnroll Date: {enrolldate}")
+        self.header_label.grid(row=0,column=0,sticky='nsew')
+
+        ## Personal Information ##
+        self.personal_frame = ctk.CTkFrame(self)
+        self.personal_frame.grid(row=1,column=0,)
+
+        field_position = {
+            'FNAME'    : {'row' : 0, 'column' : 0, 'columnspan' : 1},
+            'LNAME'    : {'row' : 0, 'column' : 1, 'columnspan' : 2},
+            'ADDRESS'  : {'row' : 1, 'column' : 0, 'columnspan' : 3},
+            'CITY'     : {'row' : 2, 'column' : 0, 'columnspan' : 1},
+            'STATE'    : {'row' : 2, 'column' : 1, 'columnspan' : 1},
+            'ZIP'      : {'row' : 2, 'column' : 2, 'columnspan' : 1},
+            'MOMNAME'  : {'row' : 3, 'column' : 0, 'columnspan' : 3},
+            'DADNAME'  : {'row' : 4, 'column' : 0, 'columnspan' : 3},
+            'EMAIL'    : {'row' : 5, 'column' : 0, 'columnspan' : 3},
+            'PHONE'    : {'row' : 6, 'column' : 0, 'columnspan' : 3},
+            'BIRTHDAY' : {'row' : 7, 'column' : 0, 'columnspan' : 3},
+        }
+
+        self.entry_boxes = {}
+        for field, kwargs in field_position.items():
+            entry = ctk.CTkEntry(master=self.personal_frame, placeholder_text=field)
+            entry.grid(sticky='nsew', **kwargs)
+            self.entry_boxes[field] = entry
+
+
+        self.class_frame = ctk.CTkFrame(self)
+        self.class_frame.grid(row=2,column=0,)
+
+        field_position = {
+            'CODE'       : {'row' : 0, 'column' : 0,},
+            'INSTRUCTOR' : {'row' : 1, 'column' : 0,},
+            'DAYTIME'    : {'row' : 1, 'column' : 1,},
+            'INST2'      : {'row' : 2, 'column' : 0,},
+            'DAYTIME2'   : {'row' : 2, 'column' : 1,},
+            'INST3'      : {'row' : 3, 'column' : 0,},
+            'DAYTIME3'   : {'row' : 3, 'column' : 1,}
+        }
+
+        for field, kwargs in field_position.items():
+            entry = ctk.CTkEntry(master=self.class_frame, placeholder_text=field)
+            entry.grid(sticky='nsew', **kwargs)
+            self.entry_boxes[field] = entry
+
+
+        self.payment_frame = ctk.CTkFrame(self)
+        self.payment_frame.grid(row=1, column=1, rowspan=2)
+
+        
+
+        # Values that will populate month column
+        month_column = list(calendar.month_name)[1:] + ['Reg. Fee']
+        # Prefixes/suffixes to store labels and also access data from STUD00.dbf (JANPAY, JANDATE, etc.)
+        prefix = [month.upper() for month in calendar.month_abbr[1:]] + ['REG']
+        suffix = [['HEADER','PAY','DATE'] for _ in range(13)]
+        # Special row of suffixes for REGFEE (because column with pay is simply 'REGFEE' rather than 'REGFEEPAY', and 'REGBILL')
+        suffix.append(['FEEHEADER', 'FEE', 'FEEDATE'])
+        payment_font = ctk.CTkFont('Britannica',16,'bold')
+
+        # 13 rows (12 months + registration fee row)
+        for row in range(13):
+            # Create a frame for this row
+            month_frame = ctk.CTkFrame(self.payment_frame, fg_color='grey70' if row % 2 == 0 else 'transparent')
+            month_frame.columnconfigure((0,1,2), weight=1)
+            # Create labels for this row
+            header_label = ctk.CTkLabel(month_frame, text=month_column[row],
+                                        font=payment_font,
+                                        anchor='w', width=75)
+            pay_entry = ctk.CTkEntry(month_frame, placeholder_text='0.00', font=payment_font, width=50)
+            date_entry = ctk.CTkEntry(month_frame, placeholder_text='MM/DD/YYYY', font=payment_font, width=125)
+            # Put labels into grid
+            header_label.grid(row=0,column=0,padx=10,sticky='nsew')
+            pay_entry.grid(row=0,column=1,padx=10,sticky='nsew')
+            date_entry.grid(row=0,column=2,padx=10,sticky='nsew')
+            # Grid and store month frame
+            month_frame.grid(row=row+2, column=0, sticky='nsew')
+
+            self.entry_boxes[prefix[row] + suffix[row][1]] = pay_entry
+            self.entry_boxes[prefix[row] + suffix[row][2]] = date_entry

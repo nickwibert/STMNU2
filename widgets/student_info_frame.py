@@ -5,7 +5,7 @@ from datetime import datetime
 
 import functions as fn
 from widgets.search_results_frame import SearchResultsFrame
-from widgets.dialog_boxes import MoveStudentDialog
+from widgets.dialog_boxes import MoveStudentDialog, NewStudentDialog
 
 # Global variables
 from globals import CURRENT_SESSION
@@ -114,12 +114,13 @@ class StudentInfoFrame(ctk.CTkFrame):
                                          text='Show/Hide Notes',
                                          variable=ctk.StringVar(value='hide'),
                                          onvalue='show',offvalue='hide')
+        self.note_switch.select()
         self.note_switch.configure(command = lambda switch=self.note_switch: self.toggle_view(switch))
         self.note_switch.grid(row=0, column=0)
 
         # Note: payment_frame and note_frame start out hidden, until user requests to view
         self.toggle_view(self.payment_switch)
-        self.toggle_view(self.note_switch)
+        # self.toggle_view(self.note_switch)
 
         # Button to add/remove student from class (to move between classes, see ClassInfoFrame)
         self.buttons['ENROLL_STUDENT'] = ctk.CTkButton(self.class_frame, text='Enroll in Class', command=self.create_move_student_dialog)
@@ -383,14 +384,12 @@ class StudentInfoFrame(ctk.CTkFrame):
         else:
             guardian_info = self.database.guardian.loc[self.database.guardian['FAMILY_ID'] == int(family_id)]
 
-        # List of CLASS_IDs which this student is enrolled in
-        class_ids = list(self.database.class_student.loc[self.database.class_student['STUDENT_ID'] == student_id, 'CLASS_ID'])
-
         # Class info for each class_id
         class_info = self.database.class_student.loc[self.database.class_student['STUDENT_ID'] == student_id
                                                ].merge(self.database.classes, on='CLASS_ID', how='left'
                                                ).sort_values(by='CLASS_ID'
-                                               ).loc[:,['CODE','TEACH','CLASSTIME',]]
+                                               ).reset_index(drop=True
+                                               ).loc[:,['CODE','TEACH','CLASSTIME','CLASS_ID']]
         
         note_info = self.database.note[self.database.note['STUDENT_ID'] == student_id].reset_index()
 
@@ -434,7 +433,7 @@ class StudentInfoFrame(ctk.CTkFrame):
                     continue
                 # Configure labels for actual data
                 else:
-                    if class_info.empty or row >= class_info.shape[0]+1 or col >= class_info.shape[1]:
+                    if class_info.empty or row >= class_info.shape[0]+1 or col >= class_info.shape[1]-1:
                         label_txt = ''
                     else:
                         label_txt = class_info.iloc[row-1, col]
@@ -444,7 +443,7 @@ class StudentInfoFrame(ctk.CTkFrame):
                                                     fn.unhighlight_label(c,r))
                         # Using class ID, bind function so that user can click
                         # class instructor/time to pull up class record
-                        label.bind("<Button-1>", lambda event, id=class_ids[row-1]:
+                        label.bind("<Button-1>", lambda event, id=class_info.loc[row-1,'CLASS_ID']:
                                                     self.open_class_record(id))
                         label.configure(cursor='hand2')
                         
@@ -621,14 +620,19 @@ class StudentInfoFrame(ctk.CTkFrame):
         label.student_id = self.id
         student_labels = [label]
 
-        move_window = MoveStudentDialog(self.window,
-                                        title='Move Student',
+        move_window = MoveStudentDialog(window=self.window,
+                                        title='Enroll Student',
                                         database=self.database,
                                         current_class_id=-1,
-                                        student_labels=student_labels,
-                                        new_enrollment=True)
+                                        student_labels=student_labels)
         # Wait for the move student dialog window to be closed
         self.wait_window(move_window)
         # Update the displayed classes
         self.update_labels(self.id)
+
+
+    def create_student(self):
+        new_window = NewStudentDialog(window=self.window,
+                                      title='New Student',
+                                      database=self.database)
     
