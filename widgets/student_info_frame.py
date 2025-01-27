@@ -82,7 +82,7 @@ class StudentInfoFrame(ctk.CTkFrame):
                                         text=self.year,
                                         font=ctk.CTkFont('Segoe UI Light', 14),
                                         command=self.toggle_year)
-        self.buttons['PAYMENT_YEAR'].grid(row=0, column=1)
+        self.buttons['PAYMENT_YEAR'].grid(row=0, column=1,sticky='w')
         self.year_frame.grid(row=1,column=0,sticky='nsew')
         
         student_buttons_frame = ctk.CTkFrame(self.personal_frame)
@@ -549,21 +549,22 @@ class StudentInfoFrame(ctk.CTkFrame):
         if not visual_only:
             self.database.activate_student(student_id=self.id)
             # Refresh class info frame 
-            self.window.screens['Classes'].search_results_frame.update_labels()
+            self.window.screens['Classes'].search_results_frame.update_labels(select_first_result=False)
 
     # Toggle bill status
     # In the payment_frame, under `bill` column, there will be an asterisk (*) if a payment
     # is owed for that month. This function toggles the asterisk on/off when the month is clicked.
     def toggle_bill(self, month):
-        year = self.buttons['PAYMENT_YEAR'].get()
-
         label = self.payment_labels[f'{month}BILL']
         label_txt = '' if label.cget('text') == '*' else '*'
         # Toggle (*) in view
         label.configure(text=label_txt)
 
         # Update 'bill' in database
-        self.database.bill_student(student_id=self.id, month=month, year=year)
+        self.database.bill_student(student_id=self.id, month=month, year=self.year)
+
+        # Refresh class info frame 
+        self.window.screens['Classes'].search_results_frame.update_labels(select_first_result=False)
 
     
     # Toggle payment year between current/previous year
