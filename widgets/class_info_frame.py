@@ -209,7 +209,7 @@ class ClassInfoFrame(ctk.CTkFrame):
         # (since they have a bill record, someone has confirmed that the student
         # is attending and plans to pay; therefore they will take up a spot in the class)
         roll_info['BILLED'] = roll_info['STUDENT_ID'].isin(self.database.bill.loc[((self.database.bill['MONTH'] == CURRENT_SESSION.month)
-                                                                             & (self.database.bill['YEAR'] == CURRENT_SESSION.year)),'STUDENT_ID'].values)
+                                                                                 & (self.database.bill['YEAR'] == CURRENT_SESSION.year)),'STUDENT_ID'].values)
         
         # Create 'BILL_COUNT' which is the number of payments owed by each student in `roll_info`
         # (this is simply determined by the number of records that student currently has in the `bill` table)
@@ -378,7 +378,7 @@ class ClassInfoFrame(ctk.CTkFrame):
             elif text.split('.')[1].strip():
                 student_labels.append(label)
 
-        move_window = MoveStudentDialog(self.window,
+        move_window = MoveStudentDialog(window=self.window,
                                         title='Move Student',
                                         database=self.database,
                                         current_class_id=self.id,
