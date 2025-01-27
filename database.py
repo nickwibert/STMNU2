@@ -374,14 +374,15 @@ class StudentDatabase:
     def move_student(self, student_id, current_class_id, new_class_id):
         ## STEP 1: Update in Pandas dataframe
         current_record = self.class_student[((self.class_student['STUDENT_ID'] == student_id) & (self.class_student['CLASS_ID'] == current_class_id))]
+        # Remove student from 'current class' (for new enrollments, current_record will be empty, and we do nothing)
+        if not current_record.empty:
+            self.class_student = self.class_student.drop(current_record.index).reset_index(drop=True)
+            # Open up a spot in the current class by adding 1 to the 'AVAILABLE' column
+            self.classes.loc[self.classes['CLASS_ID'] == current_class_id, 'AVAILABLE'] += 1
+
         # Now, create a new record in `class_student` using the new_class_id
         self.class_student.loc[len(self.class_student)] = {'CLASS_ID' : new_class_id,
-                                                           'STUDENT_ID' : student_id,
-                                                           'ACTIVE' : current_record['ACTIVE'].values[0]}
-        # Remove student from 'current class'
-        self.class_student = self.class_student.drop(current_record.index).reset_index(drop=True)
-        # Open up a spot in the current class by adding 1 to the 'AVAILABLE' column
-        self.classes.loc[self.classes['CLASS_ID'] == current_class_id, 'AVAILABLE'] += 1
+                                                           'STUDENT_ID' : student_id,}
         # Fill a spot in the 'new' class by subtracting 1 from the 'AVAILABLE' column
         self.classes.loc[self.classes['CLASS_ID'] == new_class_id, 'AVAILABLE'] -= 1
 
@@ -404,33 +405,75 @@ class StudentDatabase:
         # Open 'clsbymon.dbf'
         with self.classes_dbf:
             class_id_idx = self.classes_dbf.create_index(lambda rec: rec.class_id)
-            # Get DBF record corresponding to current (old) class
-            record = class_id_idx.search(match=current_class_id)[0]
-            # Focus on this class's record
-            with record:
-                # Loop through each student column
-                for field in studentno_cols:
-                    # Check if this is the student we wish to move
-                    if record[field] == studentno:
-                        # If so, delete this studentno and student name from the class
-                        record[field] = 0
-                        record[f'STUDENT{field[4:]}'] = None
-                        # Open up a spot by adding 1 to 'AVAILABLE' column
-                        record['AVAILABLE'] += 1
-                        break
 
-            # Get DBF record corresponding to current (old) class
-            record = class_id_idx.search(match=new_class_id)[0]
-            # Focus on this class's record
+            # Remove student from 'current class'. Recall that the student should only be present in `clsbymon.dbf`
+            # if they have paid for the current month, and also if this is a new enrollment `current_record` will be empty.
+            # Therefore if the student has not paid for the current month, or this is a new enrollment, the `if` block below will do nothing.
+            if not current_record.empty:
+                # Get DBF record corresponding to current (old) class
+                record = class_id_idx.search(match=current_class_id)[0]
+                with record:
+                    # Loop through each student column
+                    for field in studentno_cols:
+                        # Check if this is the student we wish to move
+                        if record[field] == studentno:
+                            # If so, delete this studentno and student name from the class
+                            record[field] = 0
+                            record[f'STUDENT{field[4:]}'] = None
+                            # Open up a spot by adding 1 to 'AVAILABLE' column
+                            record['AVAILABLE'] += 1
+                            break
+
+            # Get DBF record corresponding to new class
+            # We should only enroll the student in the new class (place them in `clsbymon`) if they are paid for the current month.
+            # If they haven't paid yet, do not modify the DBF file.
+            if not pay_record.empty:
+                # Get DBF record corresponding to new class
+                record = class_id_idx.search(match=new_class_id)[0]
+                with record:
+                    # Loop through each student column
+                    for field in studentno_cols:
+                        # Put student into the first blank spot
+                        if record[field] == 0:
+                            record[field] = studentno
+                            record[f'STUDENT{field[4:]}'] = student_name
+                            # Fill a spot by subtracting 1 from 'AVAILABLE' column
+                            record['AVAILABLE'] -= 1
+                            break
+
+        # Next, we need to modify STUD00.dbf, as the instructor/daytime which are displayed in a student's record
+        # are stored here in the old program. For this step, we do not care if the student has paid or not,
+        # whether they are active or not, etc. This allows the user to move students from one class to another,
+        # or enroll them in a new class, regardless of their active or payment status. The student will
+        # get populated into relevant class rolls later whenever they are marked active and a payment is entered for current month.
+
+        # Open `STUD00.dbf`
+        with self.student_dbf:
+            studentno_idx = self.student_dbf.create_index(lambda rec: rec.studentno)
+            # Get DBF record corresponding to student
+            record = studentno_idx.search(match=studentno)[0]
+
+            # Remove instructor/daytime from student's record (for new enrollments, current_record will be empty, and we do nothing)
+            if not current_record.empty:
+                # Focus on this student's record
+                with record:
+                    # Loop through each instructor/daytime pair in STUD00
+                    for teach_col, daytime_col in list(zip(teach_cols, daytime_cols)):
+                        # Check if this is the class we wish to remove
+                        if record[teach_col].strip() == current_class_info['TEACH'] and record[daytime_col].strip() == current_class_info['CLASSTIME']:
+                            # If so, delete this instructor and daytime from the student's record
+                            record[teach_col] = ''
+                            record[daytime_col] = ''
+                            break
+
+            # Add new instructor/daytime to student's record
             with record:
-                # Loop through each student column
-                for field in studentno_cols:
-                    # Put student into the first blank spot
-                    if record[field] == 0:
-                        record[field] = studentno
-                        record[f'STUDENT{field[4:]}'] = student_name
-                        # Fill a spot by subtracting 1 from 'AVAILABLE' column
-                        record['AVAILABLE'] -= 1
+                # Loop through each instructor/daytime pair in STUD00
+                for teach_col, daytime_col in list(zip(teach_cols, daytime_cols)):
+                    # Put instructor/daytime into first blank spot
+                    if record[teach_col].strip() == '':
+                        record[teach_col] = new_class_info['TEACH']
+                        record[daytime_col] = new_class_info['CLASSTIME']
                         break
 
 

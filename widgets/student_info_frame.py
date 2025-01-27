@@ -5,6 +5,7 @@ from datetime import datetime
 
 import functions as fn
 from widgets.search_results_frame import SearchResultsFrame
+from widgets.dialog_boxes import MoveStudentDialog
 
 # Global variables
 from globals import CURRENT_SESSION
@@ -119,6 +120,10 @@ class StudentInfoFrame(ctk.CTkFrame):
         # Note: payment_frame and note_frame start out hidden, until user requests to view
         self.toggle_view(self.payment_switch)
         self.toggle_view(self.note_switch)
+
+        # Button to add/remove student from class (to move between classes, see ClassInfoFrame)
+        self.buttons['ENROLL_STUDENT'] = ctk.CTkButton(self.class_frame, text='Enroll in Class', command=self.create_move_student_dialog)
+        self.buttons['ENROLL_STUDENT'].grid(row=self.class_frame.grid_size()[1], column=0, columnspan=3)
 
         # Disable all buttons at the start
         for button in self.buttons.values():
@@ -603,3 +608,26 @@ class StudentInfoFrame(ctk.CTkFrame):
 
         # Change view to ClassInfoFrame
         self.window.change_view(new_screen='Classes')
+
+
+    # Create pop-up window for adding student to a class.
+    # In this window the user will select the parameters for the class they wish to add the student to.
+    def create_move_student_dialog(self):
+        # In this case, there is only one student label (the currently selected student)
+        # But we need to pass it in to MoveStudentDialog as a list containing one label
+        student_info = self.database.student.loc[self.database.student['STUDENT_ID'] == self.id].squeeze()
+        label = ctk.CTkLabel(self, text=f"1. {student_info['FNAME']} {student_info['LNAME']}")
+        label.student_id = self.id
+        student_labels = [label]
+
+        move_window = MoveStudentDialog(self.window,
+                                        title='Move Student',
+                                        database=self.database,
+                                        current_class_id=-1,
+                                        student_labels=student_labels,
+                                        new_enrollment=True)
+        # Wait for the move student dialog window to be closed
+        self.wait_window(move_window)
+        # Update the displayed classes
+        self.update_labels(self.id)
+    

@@ -66,16 +66,18 @@ class PasswordDialog(ctk.CTkToplevel):
 
 ### Move Student Dialog ###
 # This pop-up window is used when the user attempts to move a student from one class to another.
+# (Or, to move a student into a class for the first time, when `new_enrollment`=True)
 # The user selects options from various dropdown menus which are populated using only valid values.
 # Therefore it is not possible for the user to make an invalid selection in this window.
 class MoveStudentDialog(ctk.CTkToplevel):
-    def __init__(self, window, title, database, current_class_id, student_labels, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, window, title, database, current_class_id, student_labels, new_enrollment=False):
+        super().__init__()
         self._title = title
         self.title(self._title)
         self.database = database
         self.current_class_id = current_class_id
         self.student_labels = student_labels
+        self.new_enrollment = new_enrollment
 
         self.lift()  # lift window on top
         self.attributes("-topmost", True)  # stay on top
@@ -98,6 +100,11 @@ class MoveStudentDialog(ctk.CTkToplevel):
 
         self.student_dropdown = ctk.CTkOptionMenu(self, values=[label.cget('text') for label in self.student_labels], width=150)
         self.student_dropdown.grid(row=1, column=0, columnspan=2)
+
+        # If `new_enrollment` == True, we are looking at a specific student's record and attempting to move them into a class.
+        # Therefore, lock the `student_dropdown` on this student's name so it cannot be changed.
+        if self.new_enrollment:
+            self.student_dropdown.configure(state='disabled')
 
         self.time_dropdown = ctk.CTkOptionMenu(self, command=lambda _: self.update_time_dropdown(-1))
         self.day_dropdown = ctk.CTkOptionMenu(self, command=self.update_time_dropdown)
