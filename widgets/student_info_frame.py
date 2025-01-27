@@ -6,7 +6,8 @@ from datetime import datetime
 import functions as fn
 from widgets.search_results_frame import SearchResultsFrame
 
-CURRENT_YEAR = datetime.now().year
+# Global variables
+from globals import CURRENT_SESSION
 
 class StudentInfoFrame(ctk.CTkFrame):
     def __init__(self, window, master, database, **kwargs):
@@ -18,7 +19,7 @@ class StudentInfoFrame(ctk.CTkFrame):
         # Instance of student database
         self.database = database
         self.id = None
-        self.year = CURRENT_YEAR
+        self.year = CURRENT_SESSION.year
 
         self.buttons = {}
 
@@ -97,7 +98,7 @@ class StudentInfoFrame(ctk.CTkFrame):
         self.buttons['EDIT_STUDENT_PAYMENT'] = ctk.CTkButton(self.payment_frame,
                                          text="Edit Payments",
                                          command = lambda frame=self.payment_frame, labels=self.payment_labels, type='STUDENT_PAYMENT':
-                                                      fn.edit_info(frame, labels, type, year=self.buttons['PAYMENT_YEAR'].get()))
+                                                      fn.edit_info(frame, labels, type, year=self.year))
         self.buttons['EDIT_STUDENT_PAYMENT'].grid(row=self.payment_frame.grid_size()[1], column=0)
 
         # Button to edit payment info
@@ -446,7 +447,7 @@ class StudentInfoFrame(ctk.CTkFrame):
 
 
         # Change color of payment_frame based on which year is displayed
-        if self.year == CURRENT_YEAR:
+        if self.year == CURRENT_SESSION.year:
             self.payment_frame.configure(fg_color = 'transparent')
             self.year_frame.configure(fg_color = 'transparent')
         else:
@@ -485,7 +486,7 @@ class StudentInfoFrame(ctk.CTkFrame):
             bill_label.configure(text=bill)
             # Change color of alternating rows based on which year is displayed
             if row % 2 == 0:
-                pay_label.master.configure(fg_color='salmon' if self.year != CURRENT_YEAR else 'grey70')
+                pay_label.master.configure(fg_color='salmon' if self.year != CURRENT_SESSION.year else 'grey70')
 
             # For all rows except header, make the row clickable to toggle bill (*) on/off
             if row != 0:
@@ -563,9 +564,9 @@ class StudentInfoFrame(ctk.CTkFrame):
     # Toggle payment year between current/previous year
     def toggle_year(self):
         # Change the stored year and update labels
-        self.year = CURRENT_YEAR - 1 if self.year == CURRENT_YEAR else CURRENT_YEAR
+        self.year = CURRENT_SESSION.year - 1 if self.year == CURRENT_SESSION.year else CURRENT_SESSION.year
         button = self.buttons['PAYMENT_YEAR']
-        new_color = 'steelblue3' if self.year == CURRENT_YEAR else 'salmon'
+        new_color = 'steelblue3' if self.year == CURRENT_SESSION.year else 'salmon'
         button.configure(text=self.year, fg_color=new_color)
         self.update_labels(self.id)
 

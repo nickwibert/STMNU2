@@ -7,11 +7,7 @@ from widgets.search_results_frame import SearchResultsFrame
 from widgets.dialog_boxes import MoveStudentDialog
 
 # Global values
-CURRENT_MONTH = datetime.now().month
-CURRENT_YEAR = datetime.now().year
-MAX_CLASS_SIZE = 20
-MAX_WAIT_SIZE = 4
-MAX_TRIAL_SIZE = 8
+from globals import CURRENT_SESSION, MAX_CLASS_SIZE, MAX_WAIT_SIZE, MAX_TRIAL_SIZE
 
 # Reusable frame for class information (intended to mimic the screen from the dBASE
 # program after using class search)
@@ -197,12 +193,13 @@ class ClassInfoFrame(ctk.CTkFrame):
         self.id = class_id
 
         header_info = self.database.classes[self.database.classes['CLASS_ID'] == class_id].squeeze()
+
         roll_info = self.database.class_student[(self.database.class_student['CLASS_ID'] == class_id)
                             ].merge(self.database.student[self.database.student['ACTIVE']],
                                     how='inner',
                                     on='STUDENT_ID'
-                            ).merge(self.database.payment[((self.database.payment['MONTH'] == CURRENT_MONTH)
-                                                          & (self.database.payment['YEAR'] == CURRENT_YEAR))],
+                            ).merge(self.database.payment[((self.database.payment['MONTH'] == CURRENT_SESSION.month)
+                                                          & (self.database.payment['YEAR'] == CURRENT_SESSION.year))],
                                     how='left',
                                     on='STUDENT_ID'
                             ).loc[:,['PAY','STUDENT_ID','FAMILY_ID','FNAME','LNAME','BIRTHDAY']]

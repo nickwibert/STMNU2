@@ -4,7 +4,9 @@ import dbf
 import calendar
 from datetime import datetime
 
-CURRENT_YEAR = datetime.now().year
+# Global variables
+from globals import CURRENT_SESSION
+
 
 class StudentDatabase:
     def __init__(self, student_dbf_path, student_prev_year_dbf_path, clsbymon_dbf_path):
@@ -112,7 +114,7 @@ class StudentDatabase:
         
         return matches
 
-    def update_student_info(self, student_id, entry_boxes, edit_type, year=CURRENT_YEAR):
+    def update_student_info(self, student_id, entry_boxes, edit_type, year=CURRENT_SESSION.year):
         # Get dataframe index associated with 'student_id'
         student_idx = self.student[self.student['STUDENT_ID'] == student_id].index[0]
         # Student number associated with the edited student
@@ -195,7 +197,7 @@ class StudentDatabase:
         
 
         ## Step 2: Update student info in original database (DBF file)
-        if year == CURRENT_YEAR:
+        if year == CURRENT_SESSION.year:
             table_to_update = self.student_dbf
         else:
             table_to_update = self.student_prev_year_dbf
@@ -263,7 +265,7 @@ class StudentDatabase:
             self.bill = self.bill.drop(bill_record.index).reset_index(drop=True)
 
         ## Step 2: Update student info in original database (DBF file)
-        if year == CURRENT_YEAR:
+        if year == CURRENT_SESSION.year:
             table_to_update = self.student_dbf
         else:
             table_to_update = self.student_prev_year_dbf
@@ -390,6 +392,14 @@ class StudentDatabase:
         student_name = student_info['FNAME'] + ' ' + student_info['LNAME']
         # STUDENTNO columns (NUMB1, NUMB2, ...)
         studentno_cols = [col for col in self.classes_dbf.field_names if 'NUMB' in col]
+        # Get class info for old/current and new classes
+        current_class_info = self.classes[self.classes['CLASS_ID']==current_class_id].squeeze()
+        new_class_info = self.classes[self.classes['CLASS_ID']==new_class_id].squeeze()
+        teach_cols, daytime_cols = ['INSTRUCTOR', 'INST2', 'INST3'], ['DAYTIME','DAYTIME2','DAYTIME3']
+        # Store student's payment for the current month/year, if it exists
+        pay_record = self.payment[(self.payment['STUDENT_ID'] == student_id)
+                                & (self.payment['MONTH'] == CURRENT_SESSION.month)
+                                & (self.payment['YEAR'] == CURRENT_SESSION.year)]
 
         # Open 'clsbymon.dbf'
         with self.classes_dbf:

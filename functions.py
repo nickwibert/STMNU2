@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 import calendar
 import customtkinter as ctk
 from dbfread import DBF
@@ -9,11 +9,8 @@ from dbfread import DBF
 import functions as fn
 from widgets.dialog_boxes import PasswordDialog
 
-CURRENT_MONTH = datetime.now().month
-CURRENT_YEAR = datetime.now().year
-# Cutoff date for students to be excluded
-MONTHS_SINCE_PAYMENT_LIMIT = 8
-CUTOFF_DATE = datetime.now() - timedelta(days=30*MONTHS_SINCE_PAYMENT_LIMIT)
+# Global variables
+from globals import CURRENT_SESSION, CUTOFF_DATE
 
 # Function to convert a given .dbf file to .csv
 def dbf_to_csv(filename, save_to_path='C:\\STMNU2\\data\\dbf_format'):
@@ -353,7 +350,7 @@ def unhighlight_label(container, row):
 # enter new data. The function will halt until the user provides valid data,
 # at which point the relevant record(s) will be updated in the original DBF files
 # (as well as the relevant dataframes being used by the program during runtime).
-def edit_info(edit_frame, labels, edit_type, year=CURRENT_YEAR):
+def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
     # Store parent frame as 'info_frame'. This will be either the
     # StudentInfoFrame or ClassInfoFrame which contains 'edit_frame'.
     info_frame = edit_frame.master

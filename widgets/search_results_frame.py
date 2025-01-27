@@ -4,8 +4,8 @@ from datetime import datetime
 import calendar
 import functions as fn
 
-CURRENT_MONTH = datetime.now().month
-CURRENT_YEAR = datetime.now().year
+# Global variables
+from globals import CURRENT_SESSION
 
 # Scrollable frame to display the results from a search 
 class SearchResultsFrame(ctk.CTkFrame):
@@ -235,8 +235,8 @@ class SearchResultsFrame(ctk.CTkFrame):
 
             ## Add column for available spots in each class ##
             # Get student count for each class and add to results dataframe
-            payment_info = self.database.payment.loc[(self.database.payment['MONTH'] == CURRENT_MONTH)
-                                                    & (self.database.payment['YEAR'] == CURRENT_YEAR)
+            payment_info = self.database.payment.loc[(self.database.payment['MONTH'] == CURRENT_SESSION.month)
+                                                    & (self.database.payment['YEAR'] == CURRENT_SESSION.year)
                                             ].loc[:, ['STUDENT_ID', 'PAY']]
             class_counts = self.df.merge(self.database.class_student, how='right'
                                  ).merge(payment_info, how='inner'
