@@ -68,8 +68,7 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
         families = STUD00.dropna(subset=['MOMNAME', 'DADNAME'], how='all'
                         ).drop_duplicates(subset=['MOMNAME', 'DADNAME', 'LNAME']
                         ).sort_values(by=['LNAME','MOMNAME','DADNAME']
-                        ).fillna(''
-                        ).copy()
+                        ).fillna('')
         # Create a 'FAMILY_ID' by grouping by Last Name, Mom Name, and Dad Name
         # Note: this isn't foolproof as sometimes two siblings might have slightly different
         # names entered for the mom/dad due to user error, but this should capture most families
@@ -362,7 +361,7 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
 
     # To edit payments, user needs to enter a password.
     if edit_type == 'STUDENT_PAYMENT':
-        dialog = PasswordDialog(info_frame.window, text="Enter password:", title="Edit Payments")
+        dialog = PasswordDialog(window=info_frame.window, text="Enter password:", title="Edit Payments")
         password = dialog.get_input()
         if password != '***REMOVED***':
             return
