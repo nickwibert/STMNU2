@@ -10,13 +10,15 @@ from datetime import datetime
 from globals import CURRENT_SESSION
 
 class StudentDatabase:
-    def __init__(self, student_dbf_path, student_prev_year_dbf_path, clsbymon_dbf_path):
+    def __init__(self, student_dbf_path, student_prev_year_dbf_path, clsbymon_dbf_path, update_active=False):
+        self.update_active = update_active
         # DBF Table object for STUD00
         self.student_dbf = dbf.Table(student_dbf_path)
-         # Add 'ACTIVE' to student DBF file (if it doesn't exist)
+         # Add or modify 'ACTIVE' in DBF
         with self.student_dbf:
-            if 'ACTIVE' not in self.student_dbf.field_names:
-                self.student_dbf.add_fields('ACTIVE L')
+            if update_active:
+                if 'ACTIVE' not in self.student_dbf.field_names:
+                    self.student_dbf.add_fields('ACTIVE L')
                 for record in self.student_dbf:
                     dbf.write(record, ACTIVE=False)
         # DBF Table object for STUD99 (student/payment records for previous year)
@@ -32,19 +34,23 @@ class StudentDatabase:
                     dbf.write(record, CLASS_ID=class_id)
                     class_id += 1
 
-
     def load_data(self):
         # Transform current versions of DBF files to CSV
         fn.dbf_to_csv('STUD00.dbf')
         fn.dbf_to_csv('STUD99.dbf')
         fn.dbf_to_csv('clsbymon.dbf')
         # Update files representing relational database structure
-        fn.transform_to_rdb(data_path='C:\\STMNU2\\data', write_to_csv=True)
+        fn.transform_to_rdb(data_path='C:\\STMNU2\\data', save_to_path='C:\\STMNU2\\data\\rdb_format',
+                            write_to_csv=True, update_active=self.update_active)
+
+        # CSV paths
+        rdb_folder_path = 'C:\\STMNU2\\data\\rdb_format'
+        filenames = [filename for filename in os.listdir('C:\\STMNU2\\data\\rdb_format') if filename != 'BACKUP']
+        self.csv_paths = {filename.split('.')[0] : os.path.join(rdb_folder_path,filename) for filename in filenames}
+        self.backup_paths = {filename.split('.')[0] : os.path.join(rdb_folder_path,'BACKUP',filename) for filename in filenames}
 
         # Load student
-        student_csv_path = 'C:\\STMNU2\\data\\rdb_format\\student.csv' 
-        self.student = pd.read_csv(student_csv_path).convert_dtypes()
-        self.student.csv_path = student_csv_path
+        self.student = pd.read_csv(self.csv_paths['student']).convert_dtypes()
         # Drop the rows where name is completely missing
         self.student = self.student.dropna(subset=['FNAME','LNAME']).reset_index(drop=True)
         # Format dates
@@ -52,6 +58,15 @@ class StudentDatabase:
             self.student[col] = pd.to_datetime(self.student[col], errors='coerce', format='mixed').dt.strftime('%m/%d/%Y')
 
         self.student['ACTIVE'] = self.student['ACTIVE'].astype(bool)
+        if self.update_active:
+            with self.student_dbf:
+                for record in self.student_dbf:
+                    with record:
+                        studentno = record['STUDENTNO']
+                        if studentno in self.student['STUDENTNO'].values:
+                            record['ACTIVE'] = self.student.loc[self.student['STUDENTNO']==studentno,'ACTIVE'].values[0]
+                        else:
+                            record['ACTIVE'] = False
 
         # Load payment
         self.payment = pd.read_csv(self.csv_paths['payment'])

@@ -45,7 +45,7 @@ def dbf_to_csv(filename, save_to_path='C:\\STMNU2\\data\\dbf_format'):
 #       - STUD00.csv
 #       - STUD99.csv
 #       - clsbymon.csv
-def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', write_to_csv=False):
+def transform_to_rdb(data_path, save_to_path, do_not_load=['note'], update_active=False, write_to_csv=False):
     try:
         # If necessary files are not found, throw error
         if not os.path.isfile(data_path + '\\dbf_format\\STUD00.csv'): raise FileNotFoundError('STUD00.csv')
@@ -95,29 +95,25 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
         # New table 'student' which is very similar to 'STUD00', just with
         # parent and payment info extracted
         student = pd.DataFrame({'STUDENT_ID' : STUD00['STUDENT_ID'],
-                                'ACTIVE' : STUD00['ACTIVE'],
-                                'CLASS' : STUD00['CLASS'],
-                                'STUDENTNO' : STUD00['STUDENTNO'],
-                                'FNAME' : STUD00['FNAME'],
-                                'MIDDLE' : STUD00['MIDDLE'],
-                                'LNAME' :  STUD00['LNAME'],
-                                'SEX' :  STUD00['SEX'],
-                                'BIRTHDAY' :  STUD00['BIRTHDAY'],
-                                'ENROLLDATE' :  STUD00['ENROLLDATE'],
-                                'LEVEL' :  STUD00['LEVEL'],
-                                'REGFEE' :  STUD00['REGFEE'],
+                                'CLASS'      : STUD00['CLASS'],
+                                'STUDENTNO'  : STUD00['STUDENTNO'],
+                                'FNAME'      : STUD00['FNAME'],
+                                'LNAME'      : STUD00['LNAME'],
+                                'BIRTHDAY'   : STUD00['BIRTHDAY'],
+                                'ENROLLDATE' : STUD00['ENROLLDATE'],
+                                'REGFEE'     : STUD00['REGFEE'],
                                 'REGFEEDATE' : STUD00['REGFEEDATE'],
-                                'REGBILL' : STUD00['REGBILL'],
-                                'MONTHLYFEE' :  STUD00['MONTHLYFEE'],
-                                'BALANCE' :  STUD00['BALANCE'],
-                                'PHONE' :  STUD00['PHONE'],
-                                'EMAIL' :  STUD00['EMAIL'],
-                                'ADDRESS' : STUD00['ADDRESS'],
-                                'CITY' : STUD00['CITY'],
-                                'STATE' : STUD00['STATE'],
-                                'ZIP' : STUD00['ZIP'],
-                                'CREA_TMS' : [datetime.now()]*STUD00.shape[0],
-                                'UPDT_TMS' : [datetime.now()]*STUD00.shape[0],})
+                                'REGBILL'    : STUD00['REGBILL'],
+                                'MONTHLYFEE' : STUD00['MONTHLYFEE'],
+                                'BALANCE'    : STUD00['BALANCE'],
+                                'PHONE'      : STUD00['PHONE'],
+                                'EMAIL'      : STUD00['EMAIL'],
+                                'ADDRESS'    : STUD00['ADDRESS'],
+                                'CITY'       : STUD00['CITY'],
+                                'STATE'      : STUD00['STATE'],
+                                'ZIP'        : STUD00['ZIP'],
+                                'CREA_TMS'   : [datetime.now()]*STUD00.shape[0],
+                                'UPDT_TMS'   : [datetime.now()]*STUD00.shape[0],})
 
 
         # Insert FAMILY_ID into student
@@ -159,10 +155,18 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
         payment = payment.drop(columns='STUDENTNO')
         bill = bill.drop(columns='STUDENTNO')
 
-        # # Add column 'ACTIVE' to 'student', which is True for students who have made a payment in the last MONTHS_SINCE_PAYMENT_LIMIT months
-        # payment_session = pd.to_datetime(payment[['YEAR','MONTH']].assign(DAY=1))
-        # active_students = student.loc[student['STUDENT_ID'].isin(payment.loc[payment_session >= CUTOFF_DATE,'STUDENT_ID']),'STUDENT_ID'].drop_duplicates()
-        # student['ACTIVE'] = student['STUDENT_ID'].isin(active_students)
+        if update_active:
+            # Create column 'ACTIVE', which is True for students who have made a payment in the last MONTHS_SINCE_PAYMENT_LIMIT months
+            payment_session = pd.to_datetime(payment[['YEAR','MONTH']].assign(DAY=1))
+            active_students = student.loc[student['STUDENT_ID'].isin(payment.loc[payment_session >= CUTOFF_DATE,'STUDENT_ID']),'STUDENT_ID'].drop_duplicates()
+        # Otherwise, get active student status from current version of `student.csv`
+        else:
+            active_students = pd.read_csv(os.path.join(save_to_path,'student.csv'))
+            active_students = active_students.loc[active_students['ACTIVE'],'STUDENT_ID'].drop_duplicates()
+
+        # Student's active status
+        student['ACTIVE'] = student['STUDENT_ID'].isin(active_students)
+
 
         ### CLASSES ###
         # Keep the first 11 columns from 'clsbymon', and FINAL column (CLASS_ID)
@@ -297,7 +301,11 @@ def transform_to_rdb(data_path, save_to_path='C:\\STMNU2\\data\\rdb_format', wri
         if write_to_csv:
             for df, csv_name in zip([guardian, student, payment, bill, classes, class_student, wait, trial, note],
                                     ['guardian.csv','student.csv','payment.csv', 'bill.csv', 'classes.csv','class_student.csv','wait.csv','trial.csv','note.csv']):
-                df.to_csv(save_to_path + '\\' + csv_name, index=False)
+                # Override: if table name is in list `do_not_load`, we did not create a new version of that table and thus do not save anything
+                if csv_name.split('.')[0] in do_not_load:
+                    continue
+                else:
+                    df.to_csv(save_to_path + '\\' + csv_name, index=False)
 
     except FileNotFoundError as err:
         print(f"File '{err.args[0]}' not found at {data_path}.")
@@ -328,6 +336,7 @@ def validate_date(date_text):
         return True
     except ValueError:
         return False
+    
     
 # Highlight row when mouse hovers over it
 def highlight_label(container, row):
