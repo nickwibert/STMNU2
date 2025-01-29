@@ -266,6 +266,7 @@ class NewStudentDialog(DialogBox):
         self.personal_frame = ctk.CTkFrame(self)
         self.personal_frame.grid(row=1,column=0,sticky='nsew')
 
+        personal_field_position = {
             'FNAME'    : {'row' : 0, 'column' : 0, 'columnspan' : 1},
             'LNAME'    : {'row' : 0, 'column' : 1, 'columnspan' : 1},
             'ADDRESS'  : {'row' : 1, 'column' : 0, 'columnspan' : 3},
@@ -282,6 +283,7 @@ class NewStudentDialog(DialogBox):
         self.entry_boxes = {}
         for field, kwargs in personal_field_position.items():
             entry = ctk.CTkEntry(master=self.personal_frame, placeholder_text=field)
+            entry.dtype = 'datetime.date' if field=='BIRTHDAY' else 'string'
             entry.grid(sticky='nsew', **kwargs)
             self.entry_boxes[field] = entry
 
