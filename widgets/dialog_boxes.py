@@ -7,6 +7,8 @@ import customtkinter as ctk
 import calendar
 from datetime import datetime
 
+import functions as fn
+
 ### Pop-Up Window ###
 # Parent class with general attributes that will apply to all dialog boxes in the program
 class DialogBox(ctk.CTkToplevel):
@@ -238,30 +240,34 @@ class NewStudentDialog(DialogBox):
         self.database = database
 
         # Set location of window relative to the main window
-        self.geometry('900x500')
+        self.geometry('400x500')
         window_x, window_y = (self.window.winfo_x(), self.window.winfo_y())
         x, y = (window_x + ((self.window.winfo_width() - self.winfo_reqwidth())// 2), window_y + ((self.window.winfo_height() - self.winfo_reqheight()) // 2))
         self.geometry(f'+{round(x)}+{round(y)}')
 
+        # If window is closed, change the wait variable so the program does not get stuck
+        self.protocol("WM_DELETE_WINDOW", lambda : self.wait_var.set('exit'))
+
+
     def _create_widgets(self):
-        self.columnconfigure((0,1), weight=1)
-        self.rowconfigure((0,1,2), weight=1)
+        self.columnconfigure(0, weight=1)
+
+        self.grid_propagate(False)
 
         self.header_frame = ctk.CTkFrame(self)
-        self.header_frame.grid(row=0,column=0,columnspan=2)
+        self.header_frame.grid(row=0,column=0,)
         studentno = self.database.student['STUDENTNO'].max()
         enrolldate = datetime.today().strftime('%m/%d/%Y')
-        self.header_label = ctk.CTkLabel(self.header_frame,
+        self.header_label = ctk.CTkLabel(self.header_frame, anchor='center',
                                          text=f"Student Number: {studentno}\nEnroll Date: {enrolldate}")
         self.header_label.grid(row=0,column=0,sticky='nsew')
 
         ## Personal Information ##
         self.personal_frame = ctk.CTkFrame(self)
-        self.personal_frame.grid(row=1,column=0,)
+        self.personal_frame.grid(row=1,column=0,sticky='nsew')
 
-        field_position = {
             'FNAME'    : {'row' : 0, 'column' : 0, 'columnspan' : 1},
-            'LNAME'    : {'row' : 0, 'column' : 1, 'columnspan' : 2},
+            'LNAME'    : {'row' : 0, 'column' : 1, 'columnspan' : 1},
             'ADDRESS'  : {'row' : 1, 'column' : 0, 'columnspan' : 3},
             'CITY'     : {'row' : 2, 'column' : 0, 'columnspan' : 1},
             'STATE'    : {'row' : 2, 'column' : 1, 'columnspan' : 1},
@@ -274,29 +280,41 @@ class NewStudentDialog(DialogBox):
         }
 
         self.entry_boxes = {}
-        for field, kwargs in field_position.items():
+        for field, kwargs in personal_field_position.items():
             entry = ctk.CTkEntry(master=self.personal_frame, placeholder_text=field)
             entry.grid(sticky='nsew', **kwargs)
             self.entry_boxes[field] = entry
 
+        # Frame to contain error messages (if needed)
+        self.error_frame = ctk.CTkFrame(self, height=100)
+        self.error_frame.grid(row=2, column=0, sticky='nsew')
+        # Wait variable
+        self.wait_var = ctk.StringVar()
+        self.wait_var.set('validate')
+        # Button to confirm info
+        self.confirm_button = ctk.CTkButton(self, text="Create Student")
+        self.confirm_button.configure(command=lambda d=self.database.student_dbf, c=self.confirm_button,
+                                                     eb=self.entry_boxes, ef=self.error_frame, v=self.wait_var:
+                                                        fn.validate_entryboxes(d, c, eb, ef, v))
+        self.confirm_button.grid(row=3, column=0)
+        self.bind('<Return>', lambda event: self.confirm_button.invoke())
 
-        self.class_frame = ctk.CTkFrame(self)
-        self.class_frame.grid(row=2,column=0,)
+        # Wait for valid input before continuing
+        self.confirm_button.wait_variable(self.wait_var)
 
-        field_position = {
-            'CODE'       : {'row' : 0, 'column' : 0,},
-            'INSTRUCTOR' : {'row' : 1, 'column' : 0,},
-            'DAYTIME'    : {'row' : 1, 'column' : 1,},
-            'INST2'      : {'row' : 2, 'column' : 0,},
-            'DAYTIME2'   : {'row' : 2, 'column' : 1,},
-            'INST3'      : {'row' : 3, 'column' : 0,},
-            'DAYTIME3'   : {'row' : 3, 'column' : 1,}
-        }
+        self.window.bind('<Return>', lambda event: self.window.screens['Students'].search_results_frame.search_button.invoke())
 
-        for field, kwargs in field_position.items():
-            entry = ctk.CTkEntry(master=self.class_frame, placeholder_text=field)
-            entry.grid(sticky='nsew', **kwargs)
-            self.entry_boxes[field] = entry
+        
+        # If wait variable is set to 'exit', the user closed the window, so we do nothing
+        # (even if all fields are filled out, we will not create a student if user closes window)
+        if self.wait_var.get() == 'exit':
+            pass
+        # If data is validated AND both a first name and last name were provided, create student. Otherwise, do nothing
+        elif self.entry_boxes['FNAME'].get() and self.entry_boxes['LNAME'].get():
+            self.database.create_student(self.entry_boxes)
+        
+        # Destroy pop-up window
+        self.destroy()
 
 class BackupDialog(DialogBox):
     def __init__(self, wait_var, *args, **kwargs):

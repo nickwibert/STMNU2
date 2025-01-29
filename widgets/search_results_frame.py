@@ -69,13 +69,21 @@ class SearchResultsFrame(ctk.CTkFrame):
         self.query_frame.rowconfigure((0,1,2,3),weight=1)
         self.query_frame.grid(row=0,column=0)
 
-        if self.type in ['student', 'family']:
+        if self.type == 'student':
+            # Button to create new student
+            self.new_student_button = ctk.CTkButton(self.query_frame,
+                                                    text='Create New Student',
+                                                    command=self.master.create_student)
+            self.new_student_button.grid(row=0,column=0, columnspan=2, pady=20)
+
+            ctk.CTkLabel(self.query_frame, text='STUDENT SEARCH', font=ctk.CTkFont('Britannic',18,'bold')).grid(row=1,column=0,columnspan=2)
+
             # Dictionary of entry boxes to stay organized. The keys will act as the labels
             # next to each entry box, and the values will hold the actual EntryBox objects
             self.entry_boxes = dict.fromkeys([hdr for hdr in self.headers if 'Name' in hdr])
 
             # Create and grid each entry box in a loop
-            for row, key in list(zip(range(len(self.entry_boxes.keys())), self.entry_boxes.keys())):
+            for row, key in list(zip(range(2,len(self.entry_boxes.keys())+2), self.entry_boxes.keys())):
                 # Label to identify entry box
                 label = ctk.CTkLabel(self.query_frame, text=key + ':', anchor='w')
                 label.grid(row=row, column=0, sticky='nsew', pady=5, padx=5)
@@ -88,13 +96,6 @@ class SearchResultsFrame(ctk.CTkFrame):
             # Button to perform search when clicked 
             self.search_button = ctk.CTkButton(self.query_frame, text='Search', command=self.update_labels)
             self.search_button.grid(row=self.query_frame.grid_size()[1], column=0, columnspan=2)
-
-            # Container holding option buttons (i.e. create new student)
-            self.new_student_button = ctk.CTkButton(self.query_frame,
-                                                    text='Create New Student',
-                                                    command=self.master.create_student)
-            # Disabled for now
-            # self.new_student_button.grid(row=self.query_frame.grid_size()[1],column=0, columnspan=2, pady=(50,0))
 
         elif self.type == 'class':
             # Dictionaries of values for different option menus.
@@ -190,9 +191,11 @@ class SearchResultsFrame(ctk.CTkFrame):
                                      text='', anchor=anchor,
                                      width=self.column_widths[col],
                                      cursor='hand2')
+                # Placeholder for ID 
+                label.id = None
                 # Place label in grid and store
-                label.grid(row=row, column=col, sticky='nsew')
                 row_labels.append(label)
+                row_labels[-1].grid(row=row, column=col, sticky='nsew')
 
             # Store row
             self.result_rows.append(row_labels)
@@ -307,6 +310,8 @@ class SearchResultsFrame(ctk.CTkFrame):
                 # (Note: we use `col+1` because the first column of `matches` is an ID column)
                 label_txt = self.df.iloc[row,col+1]
                 label = self.result_rows[row][col]
+                # Store relevant ID column as attribute in label
+                label.id = id
                 label.configure(text=label_txt, bg_color='transparent')
                 # Bind functions to highlight row when mouse hovers over it
                 label.bind("<Enter>", lambda event, c=label.master, r=row:
@@ -315,7 +320,7 @@ class SearchResultsFrame(ctk.CTkFrame):
                                             fn.unhighlight_label(c,r))
                 # When user clicks this row, update all of the information in 
                 # student_info_frame to display this student's records
-                label.bind("<Button-1>", lambda event, id=id:
+                label.bind("<Button-1>", lambda event, id=label.id:
                                             self.select_result(id))
                 # Place label back into grid
                 label.grid()

@@ -130,6 +130,46 @@ class StudentDatabase:
                             ).reset_index(drop=True)
         
         return matches
+    
+
+    # Create new student record in `student` and `STUD00`
+    def create_student(self, entry_boxes):
+        # Extract all (non-blank) user entries
+        new_student_info = {field : entry.get() for (field,entry) in entry_boxes.items() if entry.get()}
+        # Add other fields in `student` table
+        new_student_info.update({'STUDENT_ID' : self.student.shape[0]+1,
+                                 'ACTIVE'     : True,
+                                 'STUDENTNO'  : self.student['STUDENTNO'].max()+1,
+                                 'ENROLLDATE' : datetime.today().strftime('%m/%d/%Y'),
+                                 'REGFEE'     : 0,
+                                 'MONTHLYFEE' : 0,
+                                 'BALANCE'    : 0,
+                                 'CREA_TMS'   : datetime.now(),
+                                 'UPDT_TMS'   : datetime.now()})
+        
+        ## Step 1: Create new record for this student in Pandas DataFrame
+        self.student.loc[len(self.student)] = new_student_info
+        self.student.to_csv(self.csv_paths['student'], index=False)
+
+        ## Step 2: Create new record for this student in original database (DBF file)
+        # Special handling for dates
+        for field in ['ENROLLDATE', 'BIRTHDAY']:
+            if field in new_student_info.keys():
+                new_student_info[field] = datetime.strptime(new_student_info[field], "%m/%d/%Y")
+
+        # For string fields, make sure they are in all-uppercase before updating DBF file
+        for field, entry in entry_boxes.items():
+            if entry.get() and entry.dtype == 'string':
+                new_student_info[field] = entry.get().upper()
+
+        ## (Note: create this student in both current/previous year databases, in case user enters payments for last year)
+        for table_to_update in (self.student_dbf, self.student_prev_year_dbf):
+            with table_to_update:
+                # Drop any fields that appear in `new_student_info` which are not present in the DBF file
+                new_student_info = {field:value for field,value in new_student_info.items() if field in table_to_update.field_names}
+                # Append record to DBF table
+                table_to_update.append(new_student_info) 
+
 
     def update_student_info(self, student_id, entry_boxes, edit_type, year=CURRENT_SESSION.year):
         # Get dataframe index associated with 'student_id'
@@ -143,15 +183,15 @@ class StudentDatabase:
 
         new_values = [entry.get() for entry in entry_boxes.values()]
         new_student_info = pd.Series({k:v for (k,v) in zip(entry_boxes.keys(), new_values)})
-        for col in entry_boxes.keys():
-            if len(new_student_info[col]) == 0:
-                new_student_info[col] = 0 if entry_boxes[col].dtype == 'float' else None
-            elif entry_boxes[col].dtype == 'float':
-                new_student_info[col] = float(new_student_info[col])
-            elif entry_boxes[col].dtype == 'int':
-                new_student_info[col] = int(float(new_student_info[col]))
+        for field in new_student_info.index:
+            if len(new_student_info[field]) == 0:
+                new_student_info[field] = 0 if entry_boxes[field].dtype == 'float' else None
+            elif entry_boxes[field].dtype == 'float':
+                new_student_info[field] = float(new_student_info[field])
+            elif entry_boxes[field].dtype == 'int':
+                new_student_info[field] = int(float(new_student_info[field]))
             else:
-                new_student_info[col] = new_student_info[col].upper()
+                new_student_info[field] = new_student_info[field].upper()
 
 
         ## Step 1: Update student info in the Pandas dataframe
