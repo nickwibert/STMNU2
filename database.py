@@ -195,65 +195,46 @@ class StudentDatabase:
 
 
         ## Step 1: Update student info in the Pandas dataframe
-        # Change dtype for non-strings
-        for col in entry_boxes.keys():
-            if col == 'MOMNAME':
-                # Check that guardian exists
-                if (len(guardian_idx) > 0) and ('MOM' in self.guardian.iloc[guardian_idx]['RELATION'].values):
-                    self.guardian.loc[
-                        ((self.guardian['FAMILY_ID'] == family_id)
-                        & (self.guardian['RELATION'] == 'MOM')), 'FNAME'] = new_student_info[col]
-                # If mom doesn't exist, create new record in 'guardian'
+
+        # Update payments
+        if 'PAYMENT' in edit_type:
+            self.update_payment_info(student_id, new_student_info, year)
+        # Update student notes
+        elif 'NOTE' in edit_type:
+            self.update_note_info(student_id, new_student_info)
+        # Otherwise, update student and guardian tables
+        else:
+            # Loop through fields
+            for field in entry_boxes.keys():
+                # For MOMNAME and DADNAME, we update `guardian`
+                if field == 'MOMNAME':
+                    # Check that guardian exists
+                    if (len(guardian_idx) > 0) and ('MOM' in self.guardian.iloc[guardian_idx]['RELATION'].values):
+                        self.guardian.loc[
+                            ((self.guardian['FAMILY_ID'] == family_id)
+                            & (self.guardian['RELATION'] == 'MOM')), 'FNAME'] = new_student_info[field]
+                    # If mom doesn't exist, create new record in 'guardian'
+                    else:
+                        # To be added later
+                        pass
+                elif field == 'DADNAME':
+                    # Check that guardian exists
+                    if (len(guardian_idx) > 0) and ('DAD' in self.guardian.iloc[guardian_idx]['RELATION'].values):
+                        self.guardian.loc[
+                            ((self.guardian['FAMILY_ID'] == family_id)
+                            & (self.guardian['RELATION'] == 'DAD')), 'FNAME'] = new_student_info[field]
+                    # If dad doesn't exist, create new record in 'guardian'
+                    else:
+                        # To be added later
+                        pass
+                # Otherwise edit 'student' table
                 else:
-                    # To be added later
-                    pass
-            elif col == 'DADNAME':
-                # Check that guardian exists
-                if (len(guardian_idx) > 0) and ('DAD' in self.guardian.iloc[guardian_idx]['RELATION'].values):
-                    self.guardian.loc[
-                        ((self.guardian['FAMILY_ID'] == family_id)
-                        & (self.guardian['RELATION'] == 'DAD')), 'FNAME'] = new_student_info[col]
-                # If dad doesn't exist, create new record in 'guardian'
-                else:
-                    # To be added later
-                    pass
-            # If this is payment info, update 'payment' table according to `year` argument
-            elif ('PAYMENT' in edit_type) and ('REG' not in col):
-                # Integer corresponding to the month this payment applies to
-                month_num = list(calendar.month_abbr).index(col[:3].title())
-                # Get existing record for this payment/bill (if exists)
-                pay_record = self.payment[(self.payment['STUDENT_ID'] == student_id)
-                                        & (self.payment['MONTH'] == month_num)
-                                        & (self.payment['YEAR'] == year)]
-                bill_record = self.bill[(self.bill['STUDENT_ID'] == student_id)
-                                      & (self.bill['MONTH'] == month_num)
-                                      & (self.bill['YEAR'] == year)]
-                
-                if pay_record.empty:
-                    # If payment record does not exist, and payment is non-zero, create new payment record
-                    if 'PAY' in col and new_student_info[col] not in (None, 0.0, '0.00'):
-                        self.payment.loc[len(self.payment)] = {'STUDENT_ID' : student_id,
-                                                               'MONTH'      : month_num,
-                                                               'PAY'        : new_student_info[col],
-                                                               'YEAR'       : year}
-                    # If this month/year appears in 'bill' for this student (meaning they owed),
-                    # delete that bill record to indicate that the payment has been made
-                    if not bill_record.empty:
-                        self.bill = self.bill.drop(bill_record.index).reset_index(drop=True)
-                # If record already exists, but the new amount entered is zero, delete the record
-                # (therefore changing a payment amount to 0 is equivalent to deleting the payment)
-                elif 'PAY' in col and new_student_info[col] in (None, 0.0, '0.00'):
-                    # Drop the record from the table by using its index
-                    self.payment = self.payment.drop(pay_record.index).reset_index(drop=True)
-                # Otherwise, record already exists + new amount entered is NON-ZERO, so we edit the existing record
-                else:
-                    self.payment.loc[pay_record.index, col[3:]] = new_student_info[col]
-            # Otherwise edit 'student' table
-            else:
-                self.student.loc[student_idx, col] = new_student_info[col] 
+                    self.student.loc[student_idx, field] = new_student_info[field] 
         
 
         ## Step 2: Update student info in original database (DBF file)
+        
+        # Determine which STUD dbf to use (current year or previous year)
         if year == CURRENT_SESSION.year:
             table_to_update = self.student_dbf
         else:
@@ -280,10 +261,8 @@ class StudentDatabase:
                     if record[field] != new_student_info[field]:
                         record[field] = new_student_info[field]
 
-
+    # Toggle 'ACTIVE' value for selected student between True/False
     def activate_student(self, student_id):
-        # Toggle 'ACTIVE' value for selected student between True/False
-
         # Step 1: Pandas DataFrame
         student_record = self.student[self.student['STUDENT_ID'] == student_id]
         self.student.loc[student_record.index, 'ACTIVE'] = not student_record['ACTIVE'].values[0]
@@ -339,8 +318,114 @@ class StudentDatabase:
                 bill_txt = '*' if bill_record.empty else ''
                 record[f'{month}BILL'] = bill_txt
 
+    # Create/delete/modify payments for a given student in the `payment` table
+    def update_payment_info(self, student_id, new_info, year):
+        for field in new_info.index:
+            # For now, reg. fee is stored in `student`, so ignore it here
+            if 'REG' in field:
+                continue
+    
+            # Integer corresponding to the month this payment applies to
+            month_num = list(calendar.month_abbr).index(field[:3].title())
+            # Get existing record for this payment/bill (if exists)
+            pay_record = self.payment[(self.payment['STUDENT_ID'] == student_id)
+                                    & (self.payment['MONTH'] == month_num)
+                                    & (self.payment['YEAR'] == year)]
+            bill_record = self.bill[(self.bill['STUDENT_ID'] == student_id)
+                                & (self.bill['MONTH'] == month_num)
+                                & (self.bill['YEAR'] == year)]
+            
+            if pay_record.empty:
+                # If payment record does not exist, and payment is non-zero, create new payment record
+                if 'PAY' in field and new_info[field] not in (None, 0.0, '0.00'):
+                    self.payment.loc[len(self.payment)] = {'STUDENT_ID' : student_id,
+                                                           'MONTH'      : month_num,
+                                                           'PAY'        : new_info[field],
+                                                           'YEAR'       : year}
+                # If this month/year appears in 'bill' for this student (meaning they owed),
+                # delete that bill record to indicate that the payment has been made
+                if not bill_record.empty:
+                    self.bill = self.bill.drop(bill_record.index).reset_index(drop=True)
+            # If record already exists, but the new amount entered is zero, delete the record
+            # (therefore changing a payment amount to 0 is equivalent to deleting the payment)
+            elif 'PAY' in field and new_info[field] in (None, 0.0, '0.00'):
+                # Drop the record from the table by using its index
+                self.payment = self.payment.drop(pay_record.index).reset_index(drop=True)
+            # Otherwise, record already exists + new amount entered is NON-ZERO, so we edit the existing record
+            else:
+                self.payment.loc[pay_record.index, field[3:]] = new_info[field]
+
+    # Create/delete/modify notes for a given student/class in the `note` table
+    # The type of note we are dealing with is provided by edit_type (either 'NOTE_STUDENT' or 'NOTE_CLASS')
+    # and the relevant ID field (STUDENT_ID or CLASS_ID) is given by 'id'
+    def update_note_info(self, id, edit_type, note_textbox):
+        # Get all text from the textbox
+        note_txt = note_textbox.get('1.0', 'end-1c')
+        # Determine name of ID column we will use
+        id_field = edit_type.split('_')[1] + '_ID'
+        # Pull note record for this ID (if exists)
+        note_record = self.note[self.note[id_field] == id]
+
+        ## Step 1: Update `note` Pandas DataFrame
+        # If record exists...
+        if not note_record.empty:
+            # If new text is not blank, update note record
+            if note_txt.strip():
+                self.note.loc[note_record.index, 'NOTE_TXT'] = note_txt
+                self.note.loc[note_record.index, 'UPDT_TMS'] = datetime.now()
+            # If new text is blank, delete record
+            else:
+                self.note = self.note.drop(note_record.index).reset_index(drop=True)
+        # Otherwise, create new note record using the user entry
+        else:
+            self.note.loc[len(self.note)] = {'NOTE_ID' : len(self.note),
+                                             id_field : id,
+                                             'NOTE_TXT' : note_txt,
+                                             'CREA_TMS' : datetime.now(),
+                                             'UPDT_TMS' : datetime.now()
+                                             }
+
+        # Save out to csv file
+        self.note.to_csv(self.csv_paths['note'], index=False)
+            
+        ## Step 2: Update DBF file
+        if 'STUDENT' in edit_type:
+            table_to_update = self.student_dbf
+            # 'STUD00' has 3 columns for notes
+            note_cols = [f'NOTE{i}' for i in range(1,4)]
+            field = 'STUDENTNO'
+            record_no = self.student.loc[self.student['STUDENT_ID'] == id, field].squeeze()
+        else:
+            table_to_update = self.classes_dbf
+            # 'clsbymon.dbf' has 4 columns for notes
+            note_cols = [f'NOTE{i}' for i in range(1,5)]
+            # For classes, CLASS_ID is the same in `classes.csv` and in the `clsbymon.dbf`
+            field = 'CLASS_ID'
+            record_no = id
+
+        # Get rid of any newline characters (causes issues in old program)
+        note_txt = note_txt.replace('\n', ' ')
+
+        with table_to_update:
+            idx = table_to_update.create_index(lambda rec: rec[field])
+            # get a list of all matching records
+            match = idx.search(match=record_no)
+            # should only be one student with that studentno
+            record = match[0]
+
+            with record:
+                # Loop through every note column
+                for col in note_cols:
+                    # Determine max byte size of this field in the DBF file
+                    max_length = table_to_update.field_info(col).length
+                    # Store up to `max_length` characters in column
+                    record[col] = note_txt[:max_length].strip()
+                    # Delete first `max_length` characters and continue
+                    note_txt = note_txt[max_length:].strip()
+                
 
 
+        
 
     def update_class_info(self, class_id, entry_boxes):
         # Get dataframe index associated with 'class_id'
@@ -348,20 +433,20 @@ class StudentDatabase:
 
         new_values = [entry.get() for entry in entry_boxes.values()]
         new_info = pd.Series({k:v for (k,v) in zip(entry_boxes.keys(), new_values)})
-        for col in entry_boxes.keys():
-            if len(new_info[col]) == 0:
-                new_info[col] = 0 if entry_boxes[col].dtype == 'float' else None
-            elif entry_boxes[col].dtype == 'float':
-                new_info[col] = float(new_info[col])
-            elif entry_boxes[col].dtype == 'int':
-                new_info[col] = int(float(new_info[col]))
+        for field in entry_boxes.keys():
+            if len(new_info[field]) == 0:
+                new_info[field] = 0 if entry_boxes[field].dtype == 'float' else None
+            elif entry_boxes[field].dtype == 'float':
+                new_info[field] = float(new_info[field])
+            elif entry_boxes[field].dtype == 'int':
+                new_info[field] = int(float(new_info[field]))
             else:
-                new_info[col] = new_info[col].upper()
+                new_info[field] = new_info[field].upper()
 
 
         ## Step 1: Update student info in the Pandas dataframe
-        for col in entry_boxes.keys():
-            self.classes.loc[class_idx, col] = new_info[col]
+        for field in entry_boxes.keys():
+            self.classes.loc[class_idx, field] = new_info[field]
 
         ## Step 2: Update student info in original database (DBF file)
         with self.classes_dbf:
@@ -383,7 +468,7 @@ class StudentDatabase:
                     # For this record, if the dbase field does not match the user-entered field,
                     # update that field in the dbf file (if the field is unchanged, ignore)
                     if record[field] != new_info[field]:
-                        record[field] = new_info[field]        
+                        record[field] = new_info[field]
 
 
     # The dataframe is sorted chronologically by default. This function will sort the dataframe alphabetically,
@@ -533,13 +618,6 @@ class StudentDatabase:
                         record[daytime_col] = new_class_info['CLASSTIME']
                         break
 
-
-    # Create a new record
-    def create_record(self, entry_boxes, record_type):
-        pass
-        ## Step 1: Create record in Pandas dataframe
-
-        ## Step 2: Create record in original database (DBF file)
 
                         
 
