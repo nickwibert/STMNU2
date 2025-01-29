@@ -1,3 +1,5 @@
+import os
+import shutil
 import pandas as pd
 import functions as fn
 import dbf
@@ -52,52 +54,52 @@ class StudentDatabase:
         self.student['ACTIVE'] = self.student['ACTIVE'].astype(bool)
 
         # Load payment
-        payment_csv_path = 'C:\\STMNU2\\data\\rdb_format\\payment.csv'
-        self.payment = pd.read_csv(payment_csv_path)
-        self.payment.csv_path = payment_csv_path
+        self.payment = pd.read_csv(self.csv_paths['payment'])
         # Format dates
         for col in ['DATE']:
             self.payment[col] = pd.to_datetime(self.payment[col], errors='coerce', format='mixed').dt.strftime('%m/%d/%Y')
 
         # Load bill
-        bill_csv_path = 'C:\\STMNU2\\data\\rdb_format\\bill.csv'
-        self.bill = pd.read_csv(bill_csv_path)
-        self.bill.csv_path = bill_csv_path
+        self.bill = pd.read_csv(self.csv_paths['bill'])
 
         # Load classes
-        classes_csv_path = 'C:\\STMNU2\\data\\rdb_format\\classes.csv'
-        self.classes = pd.read_csv(classes_csv_path)
-        self.classes.csv_path = classes_csv_path
+        self.classes = pd.read_csv(self.csv_paths['classes'])
 
         # Load class_student
-        class_student_csv_path = 'C:\\STMNU2\\data\\rdb_format\\class_student.csv'
-        self.class_student = pd.read_csv(class_student_csv_path)
-        self.class_student.csv_path = class_student_csv_path
+        self.class_student = pd.read_csv(self.csv_paths['class_student'])
 
         # Load guardian
-        guardian_csv_path = 'C:\\STMNU2\\data\\rdb_format\\guardian.csv'
-        self.guardian = pd.read_csv(guardian_csv_path)
-        self.guardian.csv_path = guardian_csv_path
+        self.guardian = pd.read_csv(self.csv_paths['guardian'])
 
         # Load note
-        note_csv_path = 'C:\\STMNU2\\data\\rdb_format\\note.csv'
-        self.note = pd.read_csv(note_csv_path)
-        self.note.csv_path = note_csv_path
+        self.note = pd.read_csv(self.csv_paths['note'])
 
         # Load trial students
-        trial_csv_path = 'C:\\STMNU2\\data\\rdb_format\\trial.csv'
-        self.trial = pd.read_csv(trial_csv_path)
-        self.trial.csv_path = trial_csv_path
+        self.trial = pd.read_csv(self.csv_paths['trial'])
         for col in ['DATE']:
             self.trial[col] = pd.to_datetime(self.trial[col], errors='coerce', format='mixed').dt.strftime('%m/%d/%Y')
 
         # Load waitlist students
-        wait_csv_path = 'C:\\STMNU2\\data\\rdb_format\\wait.csv'
-        self.wait = pd.read_csv(wait_csv_path)
-        self.wait.csv_path = wait_csv_path
+        self.wait = pd.read_csv(self.csv_paths['wait'])
 
-    def save_students_to_csv(self):
-        self.student.to_csv(self.path_to_csv, index=False)
+    # Export all of the tables as csv files
+    def save_data(self, backup=False):
+        # Save out all changes made during current run of program
+        self.guardian.to_csv(self.csv_paths['guardian'],index=False)
+        self.student.to_csv(self.csv_paths['student'],index=False)
+        self.payment.to_csv(self.csv_paths['payment'],index=False)
+        self.bill.to_csv(self.csv_paths['bill'],index=False)
+        self.classes.to_csv(self.csv_paths['classes'],index=False)
+        self.class_student.to_csv(self.csv_paths['class_student'],index=False)
+        self.wait.to_csv(self.csv_paths['wait'],index=False)
+        self.trial.to_csv(self.csv_paths['trial'],index=False)
+        self.note.to_csv(self.csv_paths['note'],index=False)
+
+        # If backup requested, copy the above files into the BACKUP folder
+        if backup:
+            for table in self.csv_paths.keys():
+                shutil.copy(src=self.csv_paths[table], dst=self.backup_paths[table])
+
 
     def search_student(self, query, show_inactive=False):
         # Force all uppercase

@@ -298,38 +298,54 @@ class NewStudentDialog(DialogBox):
             entry.grid(sticky='nsew', **kwargs)
             self.entry_boxes[field] = entry
 
+class BackupDialog(DialogBox):
+    def __init__(self, wait_var, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.wait_var = wait_var
+        # Set location of window relative to the main window
+        self.geometry('250x100')
+        window_x, window_y = (self.window.winfo_x(), self.window.winfo_y())
+        x, y = (window_x + ((self.window.winfo_width() - self.winfo_reqwidth())// 2), window_y + ((self.window.winfo_height() - self.winfo_reqheight()) // 2))
+        self.geometry(f'+{round(x)}+{round(y)}')
 
-        self.payment_frame = ctk.CTkFrame(self)
-        self.payment_frame.grid(row=1, column=1, rowspan=2)
+        self.buttons = {}
 
-        
+        # If window is closed, change the wait variable so the program does not get stuck
+        self.protocol("WM_DELETE_WINDOW", self._no_event)
 
-        # Values that will populate month column
-        month_column = list(calendar.month_name)[1:] + ['Reg. Fee']
-        # Prefixes/suffixes to store labels and also access data from STUD00.dbf (JANPAY, JANDATE, etc.)
-        prefix = [month.upper() for month in calendar.month_abbr[1:]] + ['REG']
-        suffix = [['HEADER','PAY','DATE'] for _ in range(13)]
-        # Special row of suffixes for REGFEE (because column with pay is simply 'REGFEE' rather than 'REGFEEPAY', and 'REGBILL')
-        suffix.append(['FEEHEADER', 'FEE', 'FEEDATE'])
-        payment_font = ctk.CTkFont('Britannica',16,'bold')
+    def _create_widgets(self):
+        self.columnconfigure((0,1),weight=1)
+        self.label = ctk.CTkLabel(self, text='Back-up database?')
+        self.buttons['YES'] = ctk.CTkButton(self, text='YES', command = self._yes_event)
+        self.buttons['NO'] = ctk.CTkButton(self, text='NO', command = self._no_event)
+        self.countdown_label = ctk.CTkLabel(self, text='Exiting without backup in 5 seconds...')
 
-        # 13 rows (12 months + registration fee row)
-        for row in range(13):
-            # Create a frame for this row
-            month_frame = ctk.CTkFrame(self.payment_frame, fg_color='grey70' if row % 2 == 0 else 'transparent')
-            month_frame.columnconfigure((0,1,2), weight=1)
-            # Create labels for this row
-            header_label = ctk.CTkLabel(month_frame, text=month_column[row],
-                                        font=payment_font,
-                                        anchor='w', width=75)
-            pay_entry = ctk.CTkEntry(month_frame, placeholder_text='0.00', font=payment_font, width=50)
-            date_entry = ctk.CTkEntry(month_frame, placeholder_text='MM/DD/YYYY', font=payment_font, width=125)
-            # Put labels into grid
-            header_label.grid(row=0,column=0,padx=10,sticky='nsew')
-            pay_entry.grid(row=0,column=1,padx=10,sticky='nsew')
-            date_entry.grid(row=0,column=2,padx=10,sticky='nsew')
-            # Grid and store month frame
-            month_frame.grid(row=row+2, column=0, sticky='nsew')
+        self.label.grid(row=0,column=0,columnspan=2,sticky='nsew')
+        self.buttons['YES'].grid(row=1,column=0,)
+        self.buttons['NO'].grid(row=1,column=1,)
+        self.countdown_label.grid(row=2,column=0,columnspan=2,sticky='nsew')
 
-            self.entry_boxes[prefix[row] + suffix[row][1]] = pay_entry
-            self.entry_boxes[prefix[row] + suffix[row][2]] = date_entry
+        # Start countdown
+        self.countdown(count=5)
+
+    def countdown(self,count):
+        self.countdown_label.configure(text=f'Exiting without backup in {count} seconds...')
+        if count == 0:
+            self._no_event()
+    
+        self.after(1000, self.countdown, count-1)
+
+    def _yes_event(self):
+        self.destroy_buttons()
+        self.label.configure(text='Saving changes and backing up files...')
+        self.wait_var.set('backup')
+
+    def _no_event(self):
+        self.destroy_buttons()
+        self.label.configure(text='Saving changes and exiting...')
+        self.wait_var.set('no backup')
+
+    def destroy_buttons(self):
+        self.countdown_label.destroy()
+        for button in self.buttons.values():
+            button.destroy()

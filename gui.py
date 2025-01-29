@@ -5,6 +5,7 @@ import functions as fn
 from widgets.class_info_frame import ClassInfoFrame
 from widgets.student_info_frame import StudentInfoFrame
 from widgets.family_info_frame import FamilyInfoFrame
+from widgets.dialog_boxes import BackupDialog
 
 class STMNU(ctk.CTk):
     def __init__(self, database):
@@ -40,6 +41,8 @@ class STMNU(ctk.CTk):
         self.update()
         # Load data and create widgets while loading screen is displayed
         self.create_main_window()
+
+        self.protocol("WM_DELETE_WINDOW", self.exit_program)
 
     def create_main_window(self):
         # Load data
@@ -175,6 +178,21 @@ class STMNU(ctk.CTk):
         
         self.change_view(new_screen)
 
+
+    # Function called when the user closes the main program window
+    def exit_program(self):
+        # Ask user if they want to backup files
+        wait_var = ctk.StringVar()
+
+        backup_dialog = BackupDialog(window=self, title='Backup Data?', wait_var=wait_var)
+        self.wait_variable(wait_var)
+        backup_dialog.update()
+        backup = True if wait_var.get() == 'backup' else False
+        # Export database tables to csv files (in new RDB format)
+        self.database.save_data(backup)
+
+        # Destroy window/program
+        self.destroy()
             
 
 
