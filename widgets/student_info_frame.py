@@ -105,7 +105,7 @@ class StudentInfoFrame(ctk.CTkFrame):
         # Button to edit payment info
         self.buttons['EDIT_NOTE_STUDENT'] = ctk.CTkButton(self.note_frame,
                                          text="Edit Notes",
-                                         command = lambda frame=self.note_frame, labels=self.note_labels, type='NOTE_STUDENT':
+                                         command = lambda frame=self.note_frame, labels=self.note_textbox, type='NOTE_STUDENT':
                                                       fn.edit_info(frame, labels, type))
         self.buttons['EDIT_NOTE_STUDENT'].grid(row=self.note_frame.grid_size()[1], column=0)
 
@@ -308,17 +308,19 @@ class StudentInfoFrame(ctk.CTkFrame):
                 self.payment_labels[field].is_header = False
 
         ### Notes Frame ###
+        # This is handled differently than the other frames, as there is one note field per student.
+        # This has no limit on length, so we want a scrollable textbox rather than a label.
         self.note_frame.columnconfigure(0, weight=1)
-        self.note_labels = {}
-        note_font = ctk.CTkFont('Britannic',18)
-        # Header and Up to 3 notes
-        for row in range(4):
-            suffix = '_HEADER' if row == 0 else row
-            note_txt = 'NOTES:' if row == 0 else ''
-            label = ctk.CTkLabel(self.note_frame, text=note_txt, font=note_font, anchor='w', width=400, wraplength=400)
-            label.grid(row=row+1, column=0, sticky='nsew')
-            label.is_header = True if row == 0 else False
-            self.note_labels[f'NOTE{suffix}'] = label
+        self.note_frame.rowconfigure(2,weight=1)
+        note_header = ctk.CTkLabel(self.note_frame, text='Notes:', anchor='w')
+        note_header.grid(row=self.note_frame.grid_size()[1], column=0, sticky='nsew')
+
+        self.note_textbox = ctk.CTkTextbox(self.note_frame, height=200, width=400, wrap='word',
+                                           font=ctk.CTkFont('Britannic',24), fg_color=self.note_frame.cget('fg_color'))
+        self.note_textbox.grid(row=self.note_frame.grid_size()[1],column=0,sticky='nsew')
+        # Set to 'disabled' so the displayed text cannot be edited
+        self.note_textbox.configure(state='disabled')
+
 
     def reset_labels(self):
         # Wipe info from labels
@@ -341,9 +343,11 @@ class StudentInfoFrame(ctk.CTkFrame):
             for binding in ['<Button-1>', '<Enter>', '<Leave>']:
                 label.unbind(binding)
 
-        for label in self.note_labels.values():
-            if not label.is_header:
-                label.configure(text='')
+        # Delete text displayed in note textbox
+        self.note_textbox.configure(state='normal')   
+        self.note_textbox.delete('1.0', ctk.END)
+        self.note_textbox.configure(state='disabled')   
+
 
     # Update text in labels
     def update_labels(self, student_id):
@@ -366,7 +370,7 @@ class StudentInfoFrame(ctk.CTkFrame):
         # Series containing all info for a single student (capitalize all strings for visual appeal)
         student_info = self.database.student[self.database.student['STUDENT_ID'] == student_id
                                                  ].squeeze(
-                                                 ).astype('string'
+                                                  ).astype('string'
                                                  ).fillna(''
                                                  ).str.title()
         # Get family ID
@@ -391,7 +395,8 @@ class StudentInfoFrame(ctk.CTkFrame):
                                                ).reset_index(drop=True
                                                ).loc[:,['CODE','TEACH','CLASSTIME','CLASS_ID']]
         
-        note_info = self.database.note[self.database.note['STUDENT_ID'] == student_id].reset_index()
+        # This will either be empty, or contain exactly one note
+        note_info = self.database.note[self.database.note['STUDENT_ID'] == student_id].squeeze()
 
 
         # Active Status: change button appearance to match data (if necessary)
@@ -475,7 +480,8 @@ class StudentInfoFrame(ctk.CTkFrame):
                 pay, date, bill = ('Amount', 'Date', 'Bill')
             # Reg. Fee row
             elif row == 13:
-                pay, date, bill = (f'{float(student_info['REGFEE']):.2f}', student_info['REGFEEDATE'], student_info['REGBILL'])
+                pay, date = (f'{float(student_info['REGFEE']):.2f}', student_info['REGFEEDATE'])
+                bill = '*' if row in bill_info['MONTH'].values else ''
             # Check if a payment exists for this month
             elif row not in payment_info['MONTH'].values:
                 pay, date = ('0.00', '')
@@ -505,17 +511,11 @@ class StudentInfoFrame(ctk.CTkFrame):
                                                 self.toggle_bill(month))
                     label.configure(cursor='hand2')
 
-
-        # Up to 3 notes
-        for i in range(1,4):
-            # If note doesn't exist, make text blank
-            if i > note_info.shape[0]:
-                note_txt = ''
-            # Otherwise, pull note text from database
-            else:
-                note_txt = note_info.iloc[i-1]['NOTE_TXT']
-            # Update text
-            self.note_labels[f'NOTE{i}'].configure(text=note_txt)
+        # If note exists, insert into textbox
+        if not note_info.empty:
+            self.note_textbox.configure(state='normal')   
+            self.note_textbox.insert('1.0', note_info['NOTE_TXT'])
+            self.note_textbox.configure(state='disabled')   
 
 
     # Show/hide student's payment info or notes

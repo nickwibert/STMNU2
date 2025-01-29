@@ -63,23 +63,22 @@ class ClassInfoFrame(ctk.CTkFrame):
                                                      command = self.create_move_student_dialog)
         self.buttons['MOVE_STUDENT'].grid(row=MAX_CLASS_SIZE+1, column=0, pady=10)
         # Button to edit waitlist
-        self.buttons['EDIT_WAIT'] = ctk.CTkButton(self.wait_frame,
+        self.buttons['EDIT_CLASS_WAIT'] = ctk.CTkButton(self.wait_frame,
                                                   text="Edit Waitlist",
-                                                  command = lambda frame=self.wait_frame, labels=self.wait_labels, type='WAIT':
+                                                  command = lambda frame=self.wait_frame, labels=self.wait_labels, type='CLASS_WAIT':
                                                                fn.edit_info(frame, labels, type))
-        self.buttons['EDIT_WAIT'].grid(row=self.wait_frame.grid_size()[1], column=0, pady=10)
+        self.buttons['EDIT_CLASS_WAIT'].grid(row=self.wait_frame.grid_size()[1], column=0, pady=10)
         # Button to edit trials
-        self.buttons['EDIT_TRIAL'] = ctk.CTkButton(self.trial_frame,
+        self.buttons['EDIT_CLASS_TRIAL'] = ctk.CTkButton(self.trial_frame,
                                                   text="Edit Trials",
-                                                  command = lambda frame=self.trial_frame, labels=self.trial_labels, type='TRIAL':
                                                                fn.edit_info(frame, labels, type))
-        self.buttons['EDIT_TRIAL'].grid(row=self.trial_frame.grid_size()[1], column=0, pady=10)
+        self.buttons['EDIT_CLASS_TRIAL'].grid(row=self.trial_frame.grid_size()[1], column=0, pady=10)
         # Button to edit notes
-        self.buttons['EDIT_NOTE_CLASS'] = ctk.CTkButton(self.note_frame,
+        self.buttons['EDIT_CLASS_NOTE'] = ctk.CTkButton(self.note_frame,
                                                   text="Edit Notes",
-                                                  command = lambda frame=self.note_frame, labels=self.note_labels, type='NOTE_CLASS':
+                                                  command = lambda frame=self.note_frame, labels=self.note_textbox, type='CLASS_NOTE':
                                                                fn.edit_info(frame, labels, type))
-        self.buttons['EDIT_NOTE_CLASS'].grid(row=self.note_frame.grid_size()[1], column=0, pady=10)
+        self.buttons['EDIT_CLASS_NOTE'].grid(row=self.note_frame.grid_size()[1], column=0, pady=10)
 
 
 
@@ -165,21 +164,47 @@ class ClassInfoFrame(ctk.CTkFrame):
 
 
         ### Notes Frame ###
+        # This is handled differently than the other frames, as there is one note field per class.
+        # This has no limit on length, so we want a scrollable textbox rather than a label.
         self.note_frame.columnconfigure(0, weight=1)
-        self.note_labels = {}
-        note_title = ctk.CTkLabel(self.note_frame, fg_color=self.note_frame.cget('border_color'),
-                                   text='Notes', font=title_font, text_color='white')
-        note_title.grid(row=self.note_frame.grid_size()[1], column=0, sticky='nsew')
-        note_font = ctk.CTkFont('Britannic',18)
-        # Up to 4 notes
-        for row in range(1,5):
-            label = ctk.CTkLabel(self.note_frame, text='', font=note_font, anchor='w', width=200)
-            label.grid(row=self.note_frame.grid_size()[1], column=0, sticky='nsew')
-            self.note_labels[f'NOTE{row}'] = label
+        self.note_frame.rowconfigure(2,weight=1)
+        note_header = ctk.CTkLabel(self.note_frame, text='Notes:', anchor='w')
+        note_header.grid(row=self.note_frame.grid_size()[1], column=0, sticky='nsew')
+
+        self.note_textbox = ctk.CTkTextbox(self.note_frame, height=200, width=400, wrap='word',
+                                           font=ctk.CTkFont('Britannic',24), fg_color=self.note_frame.cget('fg_color'))
+        self.note_textbox.grid(row=self.note_frame.grid_size()[1],column=0,sticky='nsew')
+        # Set to 'disabled' so the displayed text cannot be edited
+        self.note_textbox.configure(state='disabled')
+
+
+    def reset_labels(self):
+        for label in self.header_labels.values():
+            label.configure(text='')
+        for label in self.roll_labels.values():
+            label.configure(text='')
+
+        # Wipe all roll labels and remove from grid
+        for label in self.roll_labels.values():
+            label.configure(text='', text_color='black')
+            label.student_id = -1
+            for binding in ['<Button-1>', '<Enter>', '<Leave>']:
+                label.unbind(binding)
+            # Reset blinking
+            label.blink = False
+            # Hide entire row from view
+            label.lower()
+
+        # Delete text displayed in note textbox
+        self.note_textbox.configure(state='normal')
+        self.note_textbox.delete('1.0', ctk.END)
+        self.note_textbox.configure(state='disabled')
 
 
     def update_labels(self, class_id):
-        # SPECIAL CASE: If student_id == -1, disable buttons and reset all the labels to blank
+        # Wipe labels
+        self.reset_labels()
+        # SPECIAL CASE: If student_id == -1, exit function
         if class_id == -1:
             for label in self.header_labels.values():
                 label.configure(text='')
@@ -225,7 +250,9 @@ class ClassInfoFrame(ctk.CTkFrame):
         trial_info = self.database.trial[self.database.trial['CLASS_ID'] == class_id
                             ].reset_index(drop=True
                             ).fillna('')
-        note_info = self.database.note[self.database.note['CLASS_ID'] == class_id].reset_index()
+        
+        # This will either be empty, or contain exactly one note
+        note_info = self.database.note[self.database.note['CLASS_ID'] == class_id].squeeze()
 
         ### Class Header Frame ###
         for field in self.header_labels.keys():
@@ -233,17 +260,6 @@ class ClassInfoFrame(ctk.CTkFrame):
             label.configure(text=header_info[field])
 
         ### Class Roll Frame ###
-        # First, wipe all roll labels and remove from grid
-        for label in self.roll_labels.values():
-            label.configure(text='', text_color='black')
-            label.student_id = -1
-            for binding in ['<Button-1>', '<Enter>', '<Leave>']:
-                label.unbind(binding)
-            # Reset blinking
-            label.blink = False
-            # Hide entire row from view
-            label.lower()
-
         # Get max class size from `classes`
         max_class_size = header_info['MAX']
         # Get current class size as the number of students who have paid/been billed for the current month
@@ -274,7 +290,7 @@ class ClassInfoFrame(ctk.CTkFrame):
                     label.bind("<Leave>",    lambda event, c=label.master, r=label.grid_info().get('row'):
                                                      fn.unhighlight_label(c,r))
                     # Click student name in class roll to pull up student record
-                    label.bind("<Button-1>", lambda event, student_id=roll_info.loc[row-1,'STUDENT_ID']:
+                    label.bind("<Button-1>", lambda event, student_id=label.student_id:
                                                      self.open_student_record(student_id))
                     
                     # If this is a 'potential' student, their name should be blinking
@@ -327,16 +343,11 @@ class ClassInfoFrame(ctk.CTkFrame):
             trial_date_label.configure(text=trial_date_txt)
 
         ### Note Frame ###
-        # Up to 4 notes
-        for i in range(1,5):
-            # If note doesn't exist, make text blank
-            if i > note_info.shape[0]:
-                note_txt = ''
-            # Otherwise, pull note text from database
-            else:
-                note_txt = note_info.iloc[i-1]['NOTE_TXT']
-            # Update text
-            self.note_labels[f'NOTE{i}'].configure(text=note_txt)
+        if not note_info.empty:
+            self.note_textbox.configure(state='normal')   
+            self.note_textbox.insert('1.0', note_info['NOTE_TXT'])
+            self.note_textbox.configure(state='disabled')   
+
 
     # Blinking texts on labels which require it
     def blink_text(self):

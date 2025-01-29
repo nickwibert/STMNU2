@@ -147,9 +147,9 @@ class STMNU(ctk.CTk):
             self.bind('<Up>',     lambda event: frame.buttons['PREV_CLASS'].invoke())
             self.bind('<Next>',   lambda event: frame.buttons['NEXT_CLASS'].invoke())
             self.bind('<Down>',   lambda event: frame.buttons['NEXT_CLASS'].invoke())
-            self.bind('<F1>',     lambda event: frame.buttons['EDIT_TRIAL'].invoke())
-            self.bind('<F2>',     lambda event: frame.buttons['EDIT_WAIT'].invoke())
-            self.bind('<F3>',     lambda event: frame.buttons['EDIT_NOTE_CLASS'].invoke())
+            self.bind('<F1>',     lambda event: frame.buttons['EDIT_CLASS_TRIAL'].invoke())
+            self.bind('<F2>',     lambda event: frame.buttons['EDIT_CLASS_WAIT'].invoke())
+            self.bind('<F3>',     lambda event: frame.buttons['EDIT_CLASS_NOTE'].invoke())
 
 
     def prev_screen(self):
