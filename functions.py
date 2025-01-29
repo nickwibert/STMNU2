@@ -128,7 +128,9 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=['note'], update_activ
         bill = pd.DataFrame()
         payment_cols = ['STUDENTNO'] + [month.upper() + suffix for month in list(calendar.month_abbr[1:]) for suffix in ['PAY','DATE','BILL']]
         # Pivot payments for previous year and current year to create 'payment' table
-        for payment_df in [STUD99[payment_cols], STUD00[payment_cols]]:
+        year = CURRENT_SESSION.year - 1
+        for STUD in [STUD99, STUD00]:
+            payment_df = STUD[payment_cols]
             # 'Melt' dataframe so that all month column names are put into one column called 'COLUMN'
             df_long = payment_df.melt(id_vars=['STUDENTNO'], var_name='COLUMN', value_name='VALUE')
             df_long['MONTH'] = df_long['COLUMN'].str[:3].map({calendar.month_abbr[i].upper() : i for i in range(1,13)})
@@ -146,6 +148,12 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=['note'], update_activ
                              ].loc[:,['STUDENTNO', 'MONTH', 'YEAR']
                              ].reset_index(drop=True)
             bill = pd.concat([bill, bill_df], ignore_index=True)
+            # Also add REGFEE bills from STUD tables to `bill`
+            regfee_bills = STUD.loc[STUD['REGBILL'] == '*', ['STUDENTNO']].assign(MONTH=13, YEAR=year)
+            bill = pd.concat([bill, regfee_bills], ignore_index=True)
+            # move to current year before next loop
+            year += 1
+
             # All remaining records with non-zero payments are saved to 'payment'
             payment = pd.concat([payment, df_pivot[df_pivot['PAY'] != 0].reset_index(drop=True)], ignore_index=True)
 
@@ -261,41 +269,42 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=['note'], update_activ
 
 
         ### NOTES ###
-        # Extract student notes
-        note_list = STUD00[['STUDENT_ID'] + [f'NOTE{i}' for i in range(1,4)]]
-        notes = []
-        # In 'STUD00', there are 3 placeholder columns for notes.
-        # For each student, iterate through every note column
-        # and extract the text
-        for i in range(1,4):
-            notes.append(note_list[~pd.isna(note_list[f'NOTE{i}'])][['STUDENT_ID', f'NOTE{i}']
-                                                                ].rename(columns={f'NOTE{i}':'NOTE_TXT'}))
-        # Each row simply contains a STUDENT_ID and the contents of the note.
-        stud_note = pd.concat(notes)
+        note = pd.DataFrame()
+        if 'note' not in do_not_load:
+            # Column names for student notes (3 placeholder columns)
+            note_cols = [f'NOTE{i}' for i in range(1,4)]
+            # Extract student notes, dropping rows where all three note columns are blank
+            student_note = STUD00[['STUDENT_ID'] + note_cols].dropna(subset=note_cols, how='all')
+            # Combine all the non-blank notes into a single column, separating each note
+            # with a newline so they will display the same as the old program
+            student_note['NOTE_TXT'] = student_note[note_cols].apply(
+                lambda x: '\n'.join(x.dropna().astype(str)), axis=1
+            )
+            # Drop the old columns
+            student_note = student_note.drop(columns=note_cols)
 
-        # Extract class notes
-        note_list = clsbymon[['CLASS_ID'] + [f'NOTE{i}' for i in range(1,5)]]
-        notes = []
-        # In 'clsbymon', there are 4 placeholder columns for notes.
-        # For each class, iterate through every note column
-        # and extract the text
-        for i in range(1,5):
-            notes.append(note_list[~pd.isna(note_list[f'NOTE{i}'])][['CLASS_ID', f'NOTE{i}']
-                                                                ].rename(columns={f'NOTE{i}':'NOTE_TXT'}))
-        
-        # Create new table 'note' which stores notes for classes.
-        # Each row simply contains a CLASS_ID and the contents of the note.
-        class_note = pd.concat(notes)
-        # Add blank CLASS_ID to 'stud_note' and blank STUDENT_ID to 'class_note' so we can combine them
-        stud_note.insert(0, 'CLASS_ID', [pd.NA]*stud_note.shape[0])
-        class_note.insert(0, 'STUDENT_ID', [pd.NA]*class_note.shape[0])
+            # Column names for class notes (3 placeholder columns)
+            note_cols = [f'NOTE{i}' for i in range(1,5)]
+            # Extract student notes, dropping rows where all four note columns are blank
+            class_note = clsbymon[['CLASS_ID'] + note_cols].dropna(subset=note_cols, how='all')
+            # Combine all the non-blank notes into a single column, separating each note
+            # with a newline so they will display the same as the old program
+            class_note['NOTE_TXT'] = class_note[note_cols].apply(
+                lambda x: '\n'.join(x.dropna().astype(str)), axis=1
+            )
+            # Drop the old columns
+            class_note = class_note.drop(columns=note_cols)
 
-        # Create new table 'note' which contains both class and student notes
-        note = pd.concat([stud_note, class_note], axis=0).sort_values(by=['STUDENT_ID', 'CLASS_ID'])
-        note.insert(0, 'NOTE_ID', list(range(1, note.shape[0]+1)))
-        # Timestamp columns (placeholder)
-        note.insert(len(note.columns),'CREA_TMS',[datetime.now()]*note.shape[0])
-        note.insert(len(note.columns),'UPDT_TMS',[datetime.now()]*note.shape[0])
+            # Add blank CLASS_ID to 'stud_note' and blank STUDENT_ID to 'class_note' so we can combine them
+            student_note.insert(0, 'CLASS_ID', [pd.NA]*student_note.shape[0])
+            class_note.insert(0, 'STUDENT_ID', [pd.NA]*class_note.shape[0])
+
+            # Create final table `note` which contains both student and class notes
+            note = pd.concat([student_note, class_note], axis=0).sort_values(by=['STUDENT_ID', 'CLASS_ID'])
+            note.insert(0, 'NOTE_ID', list(range(1, note.shape[0]+1)))
+            # Timestamp columns (placeholder)
+            note.insert(len(note.columns),'CREA_TMS',[datetime.now()]*note.shape[0])
+            note.insert(len(note.columns),'UPDT_TMS',[datetime.now()]*note.shape[0])
         
         # Write to csv files if option chosen
         if write_to_csv:
@@ -349,6 +358,72 @@ def unhighlight_label(container, row):
             label.configure(fg_color='transparent')
 
 
+# Given a set of entry boxes, validate their input 
+# (used in `functions.edit_info`, `NewStudentDialog`)
+def validate_entryboxes(dbf_table, confirm_button, entry_boxes, error_frame, wait_var):
+    # String variable to wait for valid input
+    confirm_button.configure(command = lambda : wait_var.set('validate'))
+
+    # Initialize empty list for possible error messages
+    error_labels = []
+
+    # Leave entry boxes on screen until all fields have been validated
+    while wait_var.get() == 'validate':
+        # Get rid of any error labels, if they exist
+        if len(error_labels) > 0:
+            for _ in range(len(error_labels)):
+                label = error_labels.pop()
+                label.destroy()
+    
+        # Check if the user entry in each box is valid according to data type and DBF field restrictions
+        for field, entry in entry_boxes.items():
+            field_info = dbf_table.field_info(field)
+            proposed_value = entry.get()
+            dtype = entry.dtype
+            # Special handling for payments: if value is blank, replace with '0.00'
+            if dtype == 'float' and len(str(proposed_value)) == 0:
+                # Try to set textvariable
+                try:
+                    entry.cget('textvariable').set('0.00')
+                # If 'AttributeError' thrown, there is no textvariable. Instead, insert '0.00' directly
+                except AttributeError:
+                    entry.insert(0,'0.00')
+                    
+                proposed_value = '0.00'
+            
+            ## Data Validation ##
+            # If length of user entry is beyond max limit in dbf file, display error
+            if ((dtype == 'datetime.date' and not fn.validate_date(proposed_value))
+                or (dtype == 'float' and (len(str(proposed_value)) == 0 or float(proposed_value) > 999.99))
+                or ((dtype in ('string', 'int')) and (len(str(proposed_value)) > field_info.length))):
+
+                # Set error message for date fields
+                if dtype == 'datetime.date':
+                    error_txt = f'Error: {field} must be entered in standard date format (MM/DD/YYYY).'
+                elif dtype == 'float':
+                    error_txt = f'Error: {field} must be a number between 0 and 999.99'
+                # Set error message for string fields
+                else:
+                    error_txt = f'Error: {field} cannot be longer than {field_info.length} characters.'
+
+                error_labels.append(ctk.CTkLabel(error_frame,
+                                                    text=error_txt,
+                                                    text_color='red',
+                                                    wraplength=round(error_frame.winfo_width()*0.8)))
+                
+                error_labels[-1].grid(row=error_frame.grid_size()[1], column=0)
+
+        # If any error messages have been displayed, wait for confirm button to be clicked again
+        if len(error_labels) > 0:
+            confirm_button.wait_variable(wait_var)
+        # If no errors found, the data is valid, so we break out of the while loop to finalize edits
+        else:
+            break
+
+    # Change variable value so program continues
+    wait_var.set('confirmed')
+
+
 # Edit information for a particular frame currently displayed in the window.
 # The frame and relevant labels are passed as arguments, along with
 # the string 'edit_type' which identifies the type of information that is
@@ -374,149 +449,142 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
         password = dialog.get_input()
         if password != '***REMOVED***':
             return
-
+        
     # Disable relevant buttons and labels with click events
     for button in info_frame.buttons.values():
         button.configure(state='disabled')
+
+    for row in info_frame.search_results_frame.result_rows:
+        for label in row:
+            label.unbind('<Button-1>')
+    
     if 'STUDENT' in edit_type:
-        info_frame.search_results_frame.search_button.configure(state='disabled')
+        for widget in info_frame.search_results_frame.query_frame.winfo_children():
+            try:
+                widget.configure(state='disabled')
+            except ValueError:
+                continue
+            
         for row in info_frame.class_labels:
             for label in row:
                 label.configure(state='disabled')
+    elif 'CLASS' in edit_type:
+        for filter_frame in info_frame.search_results_frame.query_frame.winfo_children():
+            for widget in filter_frame.winfo_children():
+                widget.configure(state='disabled')
+        for label in info_frame.roll_labels.values():
+            label.unbind('<Button-1>')
     info_frame.window.tabs.configure(state='disabled')
-    # Replace info labels with entry boxes, and populate with the current info
-    entry_boxes = dict.fromkeys(labels)
 
-    for key in labels.keys():
-        # Ignore certain labels
-        if 'HEADER' in key or 'BILL' in key:
-            entry_boxes.pop(key)
-            continue
-        
-        label = labels[key]
-        default_text = ctk.StringVar()
-        default_text.set(label.cget('text'))
-        # Match text justification in entry box with the parent label's anchor
-        match label.cget('anchor'):
-            case 'e':
-                entry_justify = 'right'
-            case 'w':
-                entry_justify = 'left'
-            case _:
-                entry_justify = 'center'
-
-        entry_box = ctk.CTkEntry(label, textvariable=default_text, justify=entry_justify, font=label.cget("font"))
-
-        # Date fields
-        if any(substr in key for substr in ['DATE', 'BIRTHDAY']):
-            entry_box.dtype = 'datetime.date'
-        # If field is numeric, enable data validation
-        elif any(substr in key for substr in ['ZIP', 'MONTHLYFEE', 'BALANCE', 'PAY', 'REGFEE']):
-            vcmd = (info_frame.register(fn.validate_float), '%d', '%P', '%s', '%S')
-            entry_box.configure(validate = 'key', validatecommand=vcmd)
-            entry_box.dtype = 'int' if key == 'ZIP' else 'float'
-        # All other fields are plain strings
-        else:
-            entry_box.dtype = 'string'
-
-        # Place entry box and store
-        entry_box.place(x=0, y=0, relheight=1.0, relwidth=1.0)
-        entry_boxes[key] = entry_box
-        
-    confirm_button = ctk.CTkButton(info_frame.buttons[f'EDIT_{edit_type}'],
-                                   text="Confirm Changes")
-
-    # Button to confirm edits
-    var = ctk.StringVar()
-    confirm_button.configure(command = lambda : var.set('validate'))
+    # Place new 'confirm' button over the top of the original 'edit' button
+    confirm_button = ctk.CTkButton(info_frame.buttons[f'EDIT_{edit_type}'], text="Confirm Changes")
     confirm_button.place(x=0, y=0, relheight=1.0, relwidth=1.0)
-
-    # Change binding for Enter key to 'confirm' edit
-    info_frame.window.bind('<Return>', lambda event: confirm_button.invoke())
-    # Initialize empty list for possible error messages
-    error_labels = []
-    # Wait until confirm button is clicked before continuing
-    confirm_button.wait_variable(var)
-
-    # Leave entry boxes on screen until all fields have been validated
-    while var.get() == 'validate':
-        # Get rid of any error labels, if they exist
-        if len(error_labels) > 0:
-            for _ in range(len(error_labels)):
-                label = error_labels.pop()
-                label.destroy()
-            info_frame.update()
     
-        # Check if the user entry in each box is valid according to data type and DBF field restrictions
-        for field in entry_boxes.keys():
-            field_info = dbf_table.field_info(field)
-            proposed_value = entry_boxes[field].get()
-            dtype = entry_boxes[field].dtype
-            # If length of user entry is beyond max limit in dbf file, display error
-            if ((dtype == 'datetime.date' and not fn.validate_date(proposed_value))
-                or (dtype == 'float' and (len(str(proposed_value)) == 0 or float(proposed_value) > 999.99))
-                or ((dtype in ('string', 'int')) and (len(str(proposed_value)) > field_info.length))):
+    wait_var = ctk.StringVar()
+    wait_var.set('validate')
 
-                # Set error message for date fields
-                if dtype == 'datetime.date':
-                    error_txt = f'Error: {field} must be entered in standard date format (MM/DD/YYYY).'
-                elif dtype == 'float':
-                    error_txt = f'Error: {field} must be a number between 0 and 999.99'
-                # Set error message for string fields
-                else:
-                    error_txt = f'Error: {field} cannot be longer than {field_info.length} characters.'
+    # If a note is being edited, the `labels` object is actually a Textbox, and needs special handling.
+    if 'NOTE' in edit_type:
+        note_textbox = labels
+        # Enable textbox so user can modify
+        note_textbox.configure(state='normal', fg_color='white')
 
-                error_labels.append(ctk.CTkLabel(edit_frame,
-                                                 text=error_txt,
-                                                 text_color='red',
-                                                 wraplength=round(edit_frame.winfo_width()*0.8)))
-                
-                error_labels[-1].grid(row=edit_frame.grid_size()[1], column=0)
-
-        # If any error messages have been displayed, wait for confirm button to be clicked again
-        if len(error_labels) > 0:
-            confirm_button.wait_variable(var)
-        # If no errors found, the data is valid, so we break out of the while loop to finalize edits
-        else:
-            break
-    
-    # Re-bind Enter to 'search'
-    info_frame.window.bind('<Return>', lambda event: info_frame.search_results_frame.search_button.invoke())
-
-    # For payments entered with no date, replace missing date with today's date
-    if edit_type == 'STUDENT_PAYMENT':
-        for month in list(calendar.month_abbr[1:]) + ['REGFEE']:
-            # Month abbreviation + pay/date (i.e. 'JANPAY', 'JANDATE')
-            pay_field = month.upper() if month == 'REGFEE' else month.upper() + 'PAY'
-            date_field = month.upper() + 'DATE'
-            pay_value = entry_boxes[pay_field].get()
-            date_value = entry_boxes[date_field].get()
-            # If pay amount is blank, enter 0.00 as default
-            if len(pay_value) == 0:
-                pay_value = '0.00'
-                entry_boxes[pay_field].cget('textvariable').set(pay_value)
-            # If non-zero payment entered for this month AND no payment date provided,
-            # enter today's date as the payment date by default
-            if float(pay_value) != 0.0 and len(date_value) == 0:
-                entry_boxes[date_field].cget('textvariable').set(datetime.today().strftime('%m/%d/%Y'))
-
-    # Update dataframe and dbf file to reflect changes
-    if 'STUDENT' in edit_type:
-        info_frame.database.update_student_info(student_id=info_frame.id, entry_boxes=entry_boxes, edit_type=edit_type, year=year)
+        # For the note field, no validation is needed; the user can enter whatever they want.
+        # So, the confirm button will simply end edit mode without checking anything.
+        confirm_button.configure(command = lambda : wait_var.set('confirmed'))
+        # Wait for user to click confirm
+        confirm_button.wait_variable(wait_var)
+        # Make textbox read-only again
+        note_textbox.configure(state='disabled', fg_color=note_textbox.master.cget('fg_color'))
+        # Update relevant note field in database
+        info_frame.database.update_note_info(id=info_frame.id, edit_type=edit_type, note_textbox=note_textbox)
+    # Otherwise, replace relevant labels with entry boxes so user can modify them
     else:
-        info_frame.database.update_class_info(class_id=info_frame.id, entry_boxes=entry_boxes)
+        # Replace info labels with entry boxes, and populate with the current info
+        entry_boxes = dict.fromkeys(labels)
 
-    # Update labels with new data (where necessary) and destroy entry boxes
-    for field in entry_boxes.keys():
-        entry = entry_boxes[field]
-        if entry.dtype == 'float':
-            proposed_value = '{:.2f}'.format(float(entry.get()))
+        for key in labels.keys():
+            # Ignore certain labels
+            if 'HEADER' in key or 'BILL' in key:
+                entry_boxes.pop(key)
+                continue
+            
+            label = labels[key]
+            default_text = ctk.StringVar()
+            default_text.set(label.cget('text'))
+            # Match text justification in entry box with the parent label's anchor
+            match label.cget('anchor'):
+                case 'e':
+                    entry_justify = 'right'
+                case 'w':
+                    entry_justify = 'left'
+                case _:
+                    entry_justify = 'center'
+
+            entry_box = ctk.CTkEntry(label, textvariable=default_text, justify=entry_justify, font=label.cget("font"))
+
+            # Date fields
+            if any(substr in key for substr in ['DATE', 'BIRTHDAY']):
+                entry_box.dtype = 'datetime.date'
+            # If field is numeric, enable data validation
+            elif any(substr in key for substr in ['ZIP', 'MONTHLYFEE', 'BALANCE', 'PAY', 'REGFEE']):
+                vcmd = (info_frame.register(fn.validate_float), '%d', '%P', '%s', '%S')
+                entry_box.configure(validate = 'key', validatecommand=vcmd)
+                entry_box.dtype = 'int' if key == 'ZIP' else 'float'
+            # All other fields are plain strings
+            else:
+                entry_box.dtype = 'string'
+
+            # Place entry box and store
+            entry_box.place(x=0, y=0, relheight=1.0, relwidth=1.0)
+            entry_boxes[key] = entry_box
+            
+        confirm_button.configure(command=lambda d=dbf_table, c=confirm_button, eb=entry_boxes, ef=edit_frame, v=wait_var:
+                                            validate_entryboxes(d, c, eb, ef, v))
+        
+        # Change binding for Enter key to 'confirm' edit
+        info_frame.window.bind('<Return>', lambda event: confirm_button.invoke())
+
+        # Wait for variable to be changed to 'confirmed' to continue
+        confirm_button.wait_variable(wait_var)
+        
+        # Re-bind Enter to 'search'
+        info_frame.window.bind('<Return>', lambda event: info_frame.search_results_frame.search_button.invoke())
+
+        # For payments entered with no date, replace missing date with today's date
+        if edit_type == 'STUDENT_PAYMENT':
+            for month in list(calendar.month_abbr[1:]) + ['REGFEE']:
+                # Month abbreviation + pay/date (i.e. 'JANPAY', 'JANDATE')
+                pay_field = month.upper() if month == 'REGFEE' else month.upper() + 'PAY'
+                date_field = month.upper() + 'DATE'
+                pay_value = entry_boxes[pay_field].get()
+                date_value = entry_boxes[date_field].get()
+                # If pay amount is blank, enter 0.00 as default
+                if len(pay_value) == 0:
+                    pay_value = 0.00
+                    entry_boxes[pay_field].cget('textvariable').set(pay_value)
+                # If non-zero payment entered for this month AND no payment date provided,
+                # enter today's date as the payment date by default
+                if float(pay_value) != 0.0 and len(date_value) == 0:
+                    entry_boxes[date_field].cget('textvariable').set(datetime.today().strftime('%m/%d/%Y'))
+
+        # Update dataframe and dbf file to reflect changes
+        if 'STUDENT' in edit_type:
+            info_frame.database.update_student_info(student_id=info_frame.id, entry_boxes=entry_boxes, edit_type=edit_type, year=year)
         else:
-            proposed_value = entry.get()
+            info_frame.database.update_class_info(class_id=info_frame.id, entry_boxes=entry_boxes)
 
-        if proposed_value != labels[field].cget("text"):
-            labels[field].configure(text=proposed_value)
-        entry_boxes[field].destroy()
+        # Update labels with new data (where necessary) and destroy entry boxes
+        for field in entry_boxes.keys():
+            entry = entry_boxes[field]
+            if entry.dtype == 'float':
+                proposed_value = '{:.2f}'.format(float(entry.get()))
+            else:
+                proposed_value = entry.get()
+
+            if proposed_value != labels[field].cget("text"):
+                labels[field].configure(text=proposed_value)
+            entry_boxes[field].destroy()
 
     # Get rid of confirm edits button
     confirm_button.destroy()
@@ -524,16 +592,36 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
     # Re-enable the deactivated buttons
     for button in info_frame.buttons.values():
         button.configure(state='normal')
+
+    for row in info_frame.search_results_frame.result_rows:
+        for label in row:
+            label.bind("<Button-1>", lambda event, id=label.id:
+                                        info_frame.search_results_frame.select_result(id))
+
     if 'STUDENT' in edit_type:
-        info_frame.search_results_frame.search_button.configure(state='normal') 
+        for widget in info_frame.search_results_frame.query_frame.winfo_children():
+            try:
+                widget.configure(state='normal')
+            except ValueError:
+                continue
+
         for row in info_frame.class_labels:
             for label in row:
                 label.configure(state='normal')
+    elif 'CLASS' in edit_type:
+        for filter_frame in info_frame.search_results_frame.query_frame.winfo_children():
+            for widget in filter_frame.winfo_children():
+                widget.configure(state='normal')
+    
+        for label in info_frame.roll_labels.values():
+            # Click student name in class roll to pull up student record
+            label.bind("<Button-1>", lambda event, id=label.student_id:
+                                                info_frame.open_student_record(id))
     info_frame.window.tabs.configure(state='normal')
 
     # Finally, if we have made changes to payments, we should update the information displaying in the class info frame
     # (This step ensures that selected student is added/removed from their class if user added/deleted a payment for current month)
-    info_frame.window.screens['Classes'].search_results_frame.update_labels()
+    info_frame.window.screens['Classes'].search_results_frame.update_labels(select_first_result=False)
 
 
 
