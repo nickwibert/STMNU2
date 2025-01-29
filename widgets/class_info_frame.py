@@ -71,6 +71,7 @@ class ClassInfoFrame(ctk.CTkFrame):
         # Button to edit trials
         self.buttons['EDIT_CLASS_TRIAL'] = ctk.CTkButton(self.trial_frame,
                                                   text="Edit Trials",
+                                                  command = lambda frame=self.trial_frame, labels=self.trial_labels, type='CLASS_TRIAL':
                                                                fn.edit_info(frame, labels, type))
         self.buttons['EDIT_CLASS_TRIAL'].grid(row=self.trial_frame.grid_size()[1], column=0, pady=10)
         # Button to edit notes
@@ -206,11 +207,6 @@ class ClassInfoFrame(ctk.CTkFrame):
         self.reset_labels()
         # SPECIAL CASE: If student_id == -1, exit function
         if class_id == -1:
-            for label in self.header_labels.values():
-                label.configure(text='')
-            for label in self.roll_labels.values():
-                label.configure(text='')
-
             # Exit function
             return
 
