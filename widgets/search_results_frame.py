@@ -25,7 +25,7 @@ class SearchResultsFrame(ctk.CTkFrame):
         # Configure grid
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
-        self.rowconfigure(1, weight=4)
+        self.rowconfigure(1, weight=10)
 
         # Frame which contains results from search
         self.results_frame = ctk.CTkFrame(self)
@@ -65,39 +65,51 @@ class SearchResultsFrame(ctk.CTkFrame):
     def create_query_frame(self):
         # Container holding search boxes where user will enter their query
         self.query_frame = ctk.CTkFrame(self)
-        self.query_frame.columnconfigure(0,weight=1)
-        self.query_frame.rowconfigure((0,1,2,3),weight=1)
-        self.query_frame.grid(row=0,column=0)
+        self.query_frame.columnconfigure((0,1),weight=1)
+        self.query_frame.rowconfigure(0,weight=1)
+        self.query_frame.grid(row=0,column=0,)
 
         if self.type == 'student':
             # Button to create new student
             self.new_student_button = ctk.CTkButton(self.query_frame,
                                                     text='Create New Student',
                                                     command=self.master.create_student)
-            self.new_student_button.grid(row=0,column=0, columnspan=2, pady=20)
+            self.new_student_button.grid(row=0,column=0, columnspan=2)
 
-            ctk.CTkLabel(self.query_frame, text='STUDENT SEARCH', font=ctk.CTkFont('Britannic',18,'bold')).grid(row=1,column=0,columnspan=2)
+            ctk.CTkLabel(self.query_frame, text='STUDENT SEARCH', font=ctk.CTkFont('Britannic',18,'bold')
+                         ).grid(row=1,column=0,columnspan=2,sticky='nsew',padx=10)
+            search_help_text = 'Search for students by\nfirst name, last name, or both.\nSearch results are sorted by\nlast name then first name.'
+            ctk.CTkLabel(self.query_frame, text=search_help_text, wraplength=self.query_frame.winfo_reqwidth()
+                         ).grid(row=2,column=0,columnspan=2,sticky='nsew',)
 
             # Dictionary of entry boxes to stay organized. The keys will act as the labels
             # next to each entry box, and the values will hold the actual EntryBox objects
             self.entry_boxes = dict.fromkeys([hdr for hdr in self.headers if 'Name' in hdr])
 
             # Create and grid each entry box in a loop
-            for row, key in list(zip(range(2,len(self.entry_boxes.keys())+2), self.entry_boxes.keys())):
+            for row, key in list(zip(range(self.query_frame.grid_size()[1],len(self.entry_boxes.keys())+self.query_frame.grid_size()[1]), self.entry_boxes.keys())):
                 # Label to identify entry box
                 label = ctk.CTkLabel(self.query_frame, text=key + ':', anchor='w')
-                label.grid(row=row, column=0, sticky='nsew', pady=5, padx=5)
+                label.grid(row=row, column=0,sticky='e',pady=2)
                 self.entry_boxes[key] = (ctk.CTkEntry(self.query_frame, textvariable=ctk.StringVar()))
-                self.entry_boxes[key].grid(row=row, column=1, sticky='ew')
+                self.entry_boxes[key].grid(row=row, column=1, sticky='w',pady=2)
 
+            active_help_text = 'Only "active" students are shown by default. Click "Show Inactive"\nto search entire database.'
+            ctk.CTkLabel(self.query_frame, text=active_help_text, wraplength=self.query_frame.winfo_reqwidth()
+                        ).grid(row=self.query_frame.grid_size()[1],column=0,columnspan=2,sticky='ew',pady=2)
             # Checkbox to show active students
             self.active_checkbox = ctk.CTkCheckBox(self.query_frame, text='Show Inactive Students', command=self.update_labels)
-            self.active_checkbox.grid(row=self.query_frame.grid_size()[1], column=0, columnspan=2, pady=5)
+            self.active_checkbox.grid(row=self.query_frame.grid_size()[1], column=0, columnspan=2,)
             # Button to perform search when clicked 
             self.search_button = ctk.CTkButton(self.query_frame, text='Search', command=self.update_labels)
             self.search_button.grid(row=self.query_frame.grid_size()[1], column=0, columnspan=2)
 
         elif self.type == 'class':
+            ctk.CTkLabel(self.query_frame, text='CLASS SEARCH', font=ctk.CTkFont('Britannic',18,'bold')
+                         ).grid(row=1,column=0,columnspan=2,sticky='nsew',padx=10)
+            search_help_text = 'Click a checkbox to enable a filter, then choose a value.'
+            ctk.CTkLabel(self.query_frame, text=search_help_text, wraplength=self.query_frame.winfo_reqwidth()
+                         ).grid(row=2,column=0,columnspan=2,sticky='nsew',)
             # Dictionaries of values for different option menus.
             # The dictionary keys is what the user will see, and
             # the corresponding values will be the patterns used to 
