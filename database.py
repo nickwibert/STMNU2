@@ -35,6 +35,10 @@ class StudentDatabase:
                     dbf.write(record, CLASS_ID=class_id)
                     class_id += 1
 
+        # Variable to track whether the user has entered the payment password yet.
+        # Once the user has entered the password once, they should not be asked again
+        self.request_password = True
+
     def load_data(self):
         # Transform current versions of DBF files to CSV
         fn.dbf_to_csv('STUD00.dbf')

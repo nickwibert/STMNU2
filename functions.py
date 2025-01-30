@@ -445,10 +445,13 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
 
     # To edit payments, user needs to enter a password.
     if edit_type == 'STUDENT_PAYMENT':
-        dialog = PasswordDialog(window=info_frame.window, text="Enter password:", title="Edit Payments")
-        password = dialog.get_input()
-        if password != '***REMOVED***':
-            return
+        if info_frame.database.request_password:
+            dialog = PasswordDialog(window=info_frame.window, text="Enter password:", title="Edit Payments")
+            password = dialog.get_input()
+            if password != '***REMOVED***':
+                return
+            # Don't require the user to enter the password again until the program has been restarted
+            info_frame.database.request_password = False
         
     # Disable relevant buttons and labels with click events
     for button in info_frame.buttons.values():
