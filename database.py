@@ -10,8 +10,9 @@ from datetime import datetime
 from globals import CURRENT_SESSION
 
 class StudentDatabase:
-    def __init__(self, student_dbf_path, student_prev_year_dbf_path, clsbymon_dbf_path, update_active=False):
+    def __init__(self, student_dbf_path, student_prev_year_dbf_path, clsbymon_dbf_path, do_not_load=[], update_active=False):
         self.update_active = update_active
+        self.do_not_load = do_not_load
         # DBF Table object for STUD00
         self.student_dbf = dbf.Table(student_dbf_path)
          # Add or modify 'ACTIVE' in DBF
@@ -40,8 +41,8 @@ class StudentDatabase:
         fn.dbf_to_csv('STUD99.dbf')
         fn.dbf_to_csv('clsbymon.dbf')
         # Update files representing relational database structure
-        fn.transform_to_rdb(data_path='C:\\STMNU2\\data', save_to_path='C:\\STMNU2\\data\\rdb_format',
-                            write_to_csv=True, update_active=self.update_active)
+        fn.transform_to_rdb(data_path='C:\\STMNU2\\data', save_to_path='C:\\STMNU2\\data\\rdb_format', write_to_csv=True,
+                            do_not_load=self.do_not_load, update_active=self.update_active)
 
         # CSV paths
         rdb_folder_path = 'C:\\STMNU2\\data\\rdb_format'

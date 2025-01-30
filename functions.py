@@ -45,7 +45,7 @@ def dbf_to_csv(filename, save_to_path='C:\\STMNU2\\data\\dbf_format'):
 #       - STUD00.csv
 #       - STUD99.csv
 #       - clsbymon.csv
-def transform_to_rdb(data_path, save_to_path, do_not_load=['note'], update_active=False, write_to_csv=False):
+def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=False, write_to_csv=False):
     try:
         # If necessary files are not found, throw error
         if not os.path.isfile(data_path + '\\dbf_format\\STUD00.csv'): raise FileNotFoundError('STUD00.csv')
