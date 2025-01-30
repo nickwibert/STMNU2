@@ -33,16 +33,16 @@ class StudentInfoFrame(ctk.CTkFrame):
         # Frame which will contain student personal info
         self.personal_frame = ctk.CTkFrame(self)
         # Frame which will contain class information
-        self.class_frame = ctk.CTkFrame(self)
+        self.class_frame = ctk.CTkFrame(self,)
         # Frame which will contain payment information
-        self.payment_frame = ctk.CTkFrame(self)
+        self.payment_frame = ctk.CTkFrame(self,)
         # Frame which will contain notes
-        self.note_frame = ctk.CTkFrame(self)
+        self.note_frame = ctk.CTkFrame(self,)
 
         self.search_results_frame.grid(row=0,column=0,rowspan=2, sticky='nsew')
         self.personal_frame.grid(row=0, column=1, padx=5, pady=5, sticky='nsew')
         self.class_frame.grid(row=1, column=1, padx=5, pady=5, sticky='nsew')
-        self.payment_frame.grid(row=0, column=2, padx=(50,5), pady=5, sticky='nsew')
+        self.payment_frame.grid(row=0, column=2, padx=5, pady=5, sticky='nsew')
         self.note_frame.grid(row=1, column=2, padx=5, pady=5, sticky='nsew')
 
         # Buttons to scroll through students (not visible, mapped to keys)
@@ -63,9 +63,6 @@ class StudentInfoFrame(ctk.CTkFrame):
         self.buttons['ACTIVATE_STUDENT'].grid(row=0,column=1,sticky='w')
         self.active_frame.grid(row=0,column=0,sticky='nsew')
 
-        # Populate frame with labels containing student information
-        self.create_labels()
-
         # Create switch to show/hide payments
         self.payment_switch = ctk.CTkSwitch(self.payment_frame,
                                             text='Show/Hide Payments',
@@ -73,6 +70,18 @@ class StudentInfoFrame(ctk.CTkFrame):
                                             onvalue='show',offvalue='hide')
         self.payment_switch.configure(command = lambda switch=self.payment_switch: self.toggle_view(switch))
         self.payment_switch.grid(row=0, column=0)
+
+        # Create switch to show/hide notes
+        self.note_switch = ctk.CTkSwitch(self.note_frame,
+                                         text='Show/Hide Notes',
+                                         variable=ctk.StringVar(value='hide'),
+                                         onvalue='show',offvalue='hide')
+        self.note_switch.select()
+        self.note_switch.configure(command = lambda switch=self.note_switch: self.toggle_view(switch))
+        self.note_switch.grid(row=0, column=0)
+
+        # Populate frame with labels containing student information
+        self.create_labels()
 
         # Create button to switch between payments for current year and previous year
         self.year_frame = ctk.CTkFrame(self.payment_frame)
@@ -109,19 +118,6 @@ class StudentInfoFrame(ctk.CTkFrame):
                                                       fn.edit_info(frame, labels, type))
         self.buttons['EDIT_NOTE_STUDENT'].grid(row=self.note_frame.grid_size()[1], column=0)
 
-        # Create switch to show/hide notes
-        self.note_switch = ctk.CTkSwitch(self.note_frame,
-                                         text='Show/Hide Notes',
-                                         variable=ctk.StringVar(value='hide'),
-                                         onvalue='show',offvalue='hide')
-        self.note_switch.select()
-        self.note_switch.configure(command = lambda switch=self.note_switch: self.toggle_view(switch))
-        self.note_switch.grid(row=0, column=0)
-
-        # Note: payment_frame and note_frame start out hidden, until user requests to view
-        self.toggle_view(self.payment_switch)
-        # self.toggle_view(self.note_switch)
-
         # Button to add/remove student from class (to move between classes, see ClassInfoFrame)
         self.buttons['ENROLL_STUDENT'] = ctk.CTkButton(self.class_frame, text='Enroll in Class', command=self.create_move_student_dialog)
         self.buttons['ENROLL_STUDENT'].grid(row=self.class_frame.grid_size()[1], column=0, columnspan=3)
@@ -130,6 +126,10 @@ class StudentInfoFrame(ctk.CTkFrame):
         for button in self.buttons.values():
             button.configure(state='disabled')
 
+        # Note: payment_frame and note_frame start out hidden, until user requests to view
+        self.toggle_view(self.payment_switch)
+        # self.toggle_view(self.note_switch)
+
 
     # Create a label for each bit of student information and place into the frame
     def create_labels(self):
@@ -137,8 +137,8 @@ class StudentInfoFrame(ctk.CTkFrame):
         self.personal_frame.columnconfigure(0, weight=1)
         self.personal_labels = {}
         # Display student number above name (cannot be edited)
-        self.studentno_label = ctk.CTkLabel(self.personal_frame, text='', font=ctk.CTkFont('Britannic',18), width=400)
-        self.studentno_label.grid(row=self.personal_frame.grid_size()[1],column=0,sticky='nsew')
+        self.personal_labels['STUDENTNO_HEADER'] = ctk.CTkLabel(self.personal_frame, text='', font=ctk.CTkFont('Britannic',18), width=400)
+        self.personal_labels['STUDENTNO_HEADER'].grid(row=self.personal_frame.grid_size()[1],column=0,sticky='nsew')
 
         # Create frame for full student name
         self.name_frame = ctk.CTkFrame(self.personal_frame)
@@ -311,20 +311,20 @@ class StudentInfoFrame(ctk.CTkFrame):
         # This is handled differently than the other frames, as there is one note field per student.
         # This has no limit on length, so we want a scrollable textbox rather than a label.
         self.note_frame.columnconfigure(0, weight=1)
-        self.note_frame.rowconfigure(2,weight=1)
+        self.note_frame.rowconfigure((0,1,2,3),weight=1)
         note_header = ctk.CTkLabel(self.note_frame, text='Notes:', anchor='w')
-        note_header.grid(row=self.note_frame.grid_size()[1], column=0, sticky='nsew')
+        note_header.grid(row=1, column=0, sticky='nsew')
 
         self.note_textbox = ctk.CTkTextbox(self.note_frame, height=200, width=400, wrap='word',
                                            font=ctk.CTkFont('Britannic',24), fg_color=self.note_frame.cget('fg_color'))
-        self.note_textbox.grid(row=self.note_frame.grid_size()[1],column=0,sticky='nsew')
+        self.note_textbox.grid(row=2,column=0,sticky='nsew')
         # Set to 'disabled' so the displayed text cannot be edited
         self.note_textbox.configure(state='disabled')
 
 
     def reset_labels(self):
         # Wipe info from labels
-        self.studentno_label.configure(text='')
+        self.personal_labels['STUDENTNO_HEADER'].configure(text='')
 
         for label in self.personal_labels.values():
             if not label.is_header:
@@ -405,7 +405,7 @@ class StudentInfoFrame(ctk.CTkFrame):
             self.toggle_active(visual_only=True)
 
         # Student Number
-        self.studentno_label.configure(text=f'#{student_info['STUDENTNO']}')
+        self.personal_labels['STUDENTNO_HEADER'].configure(text=f'#{student_info['STUDENTNO']}')
         # Configure text for labels
         for field in self.personal_labels.keys():
             # Update non-headers and guardian fields        
