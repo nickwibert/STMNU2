@@ -87,13 +87,24 @@ class ClassInfoFrame(ctk.CTkFrame):
         title_font = ctk.CTkFont('Segoe UI Light', 18, 'bold')
         ### Class Header Frame ###
         self.header_frame.columnconfigure(0, weight=1)
+        # Current session only needs to be created once when the program starts up; store separately
+        session_label = ctk.CTkLabel(self.header_frame, width=300, wraplength=300, font=title_font, fg_color='black', text_color='white',
+                                          text=f'Current Session: {calendar.month_name[CURRENT_SESSION.month]} {CURRENT_SESSION.year}')
+        session_label.grid(row=self.header_frame.grid_size()[1], column=0, sticky='nsew', pady=(0,5))
+        # 'Selected Class' header
+        class_header = ctk.CTkLabel(self.header_frame, width=300, wraplength=300, anchor='w', justify='left', font=title_font,
+                                    text='Selected Class:')
+        class_header.grid(row=self.header_frame.grid_size()[1], column=0, sticky='nsew')
+
         self.header_labels = {}
-        for header in ['TEACH', 'CLASSTIME', 'CLASSNAME', 'SESSION']:
+        for header in ['TEACH', 'CLASSTIME', 'CLASSNAME']:
             # Create label and add to grid
-            label = ctk.CTkLabel(self.header_frame, text='', width=300, anchor='w')
+            label = ctk.CTkLabel(self.header_frame, text='', width=300,
+                                 wraplength=300, anchor='w', justify='left')
             label.grid(row=self.header_frame.grid_size()[1], column=0, sticky='nsew')
             # Store header label
             self.header_labels[header] = label
+
 
 
         ### Class Roll Frame ###
@@ -170,11 +181,11 @@ class ClassInfoFrame(ctk.CTkFrame):
         self.note_frame.columnconfigure(0, weight=1)
         self.note_frame.rowconfigure(2,weight=1)
         note_header = ctk.CTkLabel(self.note_frame, text='Notes:', anchor='w')
-        note_header.grid(row=self.note_frame.grid_size()[1], column=0, sticky='nsew')
+        note_header.grid(row=self.note_frame.grid_size()[1], column=0, sticky='nsew', padx=10)
 
         self.note_textbox = ctk.CTkTextbox(self.note_frame, height=200, width=400, wrap='word',
                                            font=ctk.CTkFont('Britannic',24), fg_color=self.note_frame.cget('fg_color'))
-        self.note_textbox.grid(row=self.note_frame.grid_size()[1],column=0,sticky='nsew')
+        self.note_textbox.grid(row=self.note_frame.grid_size()[1],column=0,sticky='nsew',padx=10)
         # Set to 'disabled' so the displayed text cannot be edited
         self.note_textbox.configure(state='disabled')
 
@@ -276,7 +287,7 @@ class ClassInfoFrame(ctk.CTkFrame):
                 # If student exists for this row, add their name
                 if row <= potential_class_size:
                     # Student name
-                    roll_txt += f"{roll_info.loc[row-1,'FNAME']} {roll_info.loc[row-1,'LNAME']}"
+                    roll_txt += f"{roll_info.loc[row-1,'FNAME'].title()} {roll_info.loc[row-1,'LNAME'].title()}"
                     # Store student ID as attribute as well (this will be necessary for moving students between classes)
                     label.student_id = roll_info.loc[row-1, 'STUDENT_ID']
 
