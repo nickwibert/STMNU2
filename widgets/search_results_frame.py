@@ -78,7 +78,8 @@ class SearchResultsFrame(ctk.CTkFrame):
 
             ctk.CTkLabel(self.query_frame, text='STUDENT SEARCH', font=ctk.CTkFont('Britannic',18,'bold')
                          ).grid(row=1,column=0,columnspan=2,sticky='nsew',padx=10)
-            search_help_text = 'Search for students by\nfirst name, last name, or both.\nSearch results are sorted by\nlast name then first name.'
+            search_help_text = 'Search for students by first name, last name, or both. '\
+                               'Search results are sorted by last name then first name.'
             ctk.CTkLabel(self.query_frame, text=search_help_text, wraplength=self.query_frame.winfo_reqwidth()
                          ).grid(row=2,column=0,columnspan=2,sticky='nsew',)
 
@@ -94,7 +95,7 @@ class SearchResultsFrame(ctk.CTkFrame):
                 self.entry_boxes[key] = (ctk.CTkEntry(self.query_frame, textvariable=ctk.StringVar()))
                 self.entry_boxes[key].grid(row=row, column=1, sticky='w',pady=2)
 
-            active_help_text = 'Only "active" students are shown by default. Click "Show Inactive"\nto search entire database.'
+            active_help_text = 'Only "active" students are shown by default.\nClick "Show Inactive" to search entire database.'
             ctk.CTkLabel(self.query_frame, text=active_help_text, wraplength=self.query_frame.winfo_reqwidth()
                         ).grid(row=self.query_frame.grid_size()[1],column=0,columnspan=2,sticky='ew',pady=2)
             # Checkbox to show active students
