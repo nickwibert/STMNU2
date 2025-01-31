@@ -52,13 +52,12 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=Fals
         if not os.path.isfile(data_path + '\\dbf_format\\clsbymon.csv'): raise FileNotFoundError('clsbymon.csv')
 
         # Load .dbf files for students and classes
-        STUD00 = pd.read_csv('data\\dbf_format\\STUD00.csv').dropna(subset=['FNAME','LNAME']).reset_index(drop=True)
+        STUD00 = pd.read_csv('C:\\STMNU2\\data\\dbf_format\\STUD00.csv').dropna(subset=['FNAME','LNAME']).reset_index(drop=True)
         STUD00.insert(0, 'STUDENT_ID', STUD00.index + 1)
-        STUD99 = pd.read_csv('data\\dbf_format\\STUD99.csv').dropna(subset=['FNAME','LNAME']).reset_index(drop=True)
+        STUD99 = pd.read_csv('C:\\STMNU2\\data\\dbf_format\\STUD99.csv').dropna(subset=['FNAME','LNAME']).reset_index(drop=True)
         STUD99.insert(0, 'STUDENT_ID', STUD99.index + 1)
 
-        clsbymon = pd.read_csv('data\\dbf_format\\clsbymon.csv')
-
+        clsbymon = pd.read_csv('C:\\STMNU2\\data\\dbf_format\\clsbymon.csv')
 
         ### GUARDIAN ###
         # Since we only have first names, and a lot of the data is inconsistent
@@ -115,7 +114,6 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=Fals
                                 'CREA_TMS'   : [datetime.now()]*STUD00.shape[0],
                                 'UPDT_TMS'   : [datetime.now()]*STUD00.shape[0],})
 
-
         # Insert FAMILY_ID into student
         student = student.merge(STUD00[['STUDENTNO','MOMNAME','DADNAME']].fillna(''), how='left', on='STUDENTNO'
                         ).merge(families[['MOMNAME','DADNAME','LNAME','FAMILY_ID']], how='left',
@@ -147,7 +145,7 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=Fals
 
             # When payment is 0 and BILL = '*', this indicates a payment is owed.
             # Create records in a new table 'bill' to represent owed payments
-            bill_df = df_pivot.loc[(df_pivot['PAY'] == 0) & (df_pivot['BILL'] == '*')
+            bill_df = df_pivot.loc[((df_pivot['PAY'] == 0) | (pd.isna(df_pivot['PAY']))) & (df_pivot['BILL'] == '*')
                              ].loc[:,['STUDENTNO', 'MONTH', 'YEAR']
                              ].reset_index(drop=True)
             bill = pd.concat([bill, bill_df], ignore_index=True)
@@ -158,7 +156,8 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=Fals
             year += 1
 
             # All remaining records with non-zero payments are saved to 'payment'
-            payment = pd.concat([payment, df_pivot[df_pivot['PAY'] != 0].reset_index(drop=True)], ignore_index=True)
+            payment = pd.concat([payment, df_pivot[((df_pivot['PAY'] != 0) & (~pd.isna(df_pivot['PAY'])))
+                       ].reset_index(drop=True)], ignore_index=True)
 
         # Get STUDENT_ID from 'student'
         payment = student[['STUDENT_ID','STUDENTNO']].merge(payment, how='right', on='STUDENTNO')
@@ -167,18 +166,22 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=Fals
         bill = bill.drop(columns='STUDENTNO')
 
         if update_active:
-            # Create column 'ACTIVE', which is True for students who have made a payment in the last MONTHS_SINCE_PAYMENT_LIMIT months
+            # Determine which students are 'inactive' by gathering all those who have not made
+            # a payment in the last MONTHS_SINCE_LAST_PAYMENT months (see globals.py)
             payment_session = pd.to_datetime(payment[['YEAR','MONTH']].assign(DAY=1))
-            active_students = student.loc[student['STUDENT_ID'].isin(payment.loc[payment_session >= CUTOFF_DATE,'STUDENT_ID']),'STUDENT_ID'].drop_duplicates()
+            inactive_students = student.loc[~student['STUDENT_ID'].isin(payment.loc[payment_session >= CUTOFF_DATE,'STUDENT_ID']),'STUDENT_ID'].drop_duplicates()
         # Otherwise, get active student status from current version of `student.csv`
         else:
-            active_students = pd.read_csv(os.path.join(save_to_path,'student.csv'))
-            active_students = active_students.loc[active_students['ACTIVE'],'STUDENT_ID'].drop_duplicates()
+            inactive_students = pd.read_csv(os.path.join(save_to_path,'student.csv'))
+            inactive_students = inactive_students.loc[~inactive_students['ACTIVE'],'STUDENT_ID'].drop_duplicates()
 
-        # Student's active status
-        student['ACTIVE'] = student['STUDENT_ID'].isin(active_students)
-
-
+        # Declare 'ACTIVE' students as those who are NOT present in the `inactive_students` list.
+        # We do it in this complicated way to handle the scenario where new students were added
+        # in the old program; for those new students that appear in STUD00 but not in `student`,
+        # we want their ACTIVE status to be TRUE. Therefore this method will catch all
+        # the existing 'ACTIVE' students as well as the newly enrolled students, and label them all as active.
+        student['ACTIVE'] = ~student['STUDENT_ID'].isin(inactive_students)
+        
         ### CLASSES ###
         # Keep the first 11 columns from 'clsbymon', and FINAL column (CLASS_ID)
         classes = clsbymon.iloc[:,list(range(11)) + [clsbymon.shape[1]-1]].copy()
