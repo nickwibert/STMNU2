@@ -465,6 +465,9 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
             label.unbind('<Button-1>')
     
     if 'STUDENT' in edit_type:
+        for switch in info_frame.switches.values():
+            switch.configure(state='disabled')
+
         for widget in info_frame.search_results_frame.query_frame.winfo_children():
             try:
                 widget.configure(state='disabled')
@@ -605,6 +608,9 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
                                         info_frame.search_results_frame.select_result(id))
 
     if 'STUDENT' in edit_type:
+        for switch in info_frame.switches.values():
+            switch.configure(state='normal')
+
         for widget in info_frame.search_results_frame.query_frame.winfo_children():
             try:
                 widget.configure(state='normal')

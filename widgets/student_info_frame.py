@@ -23,6 +23,7 @@ class StudentInfoFrame(ctk.CTkFrame):
         self.year = CURRENT_SESSION.year
 
         self.buttons = {}
+        self.switches = {}
 
         # Configure rows/columns
         self.columnconfigure((0,1,2), weight=1)
@@ -34,8 +35,9 @@ class StudentInfoFrame(ctk.CTkFrame):
         self.personal_frame = ctk.CTkFrame(self)
         # Frame which will contain class information
         self.class_frame = ctk.CTkFrame(self,)
-        # Frame which will contain payment information
+        # Outer and inner frames which will contain payment information
         self.payment_frame = ctk.CTkFrame(self,)
+        self.payment_hide_frame = ctk.CTkFrame(self.payment_frame)
         # Frame which will contain notes
         self.note_frame = ctk.CTkFrame(self,)
 
@@ -64,35 +66,40 @@ class StudentInfoFrame(ctk.CTkFrame):
         self.active_frame.grid(row=0,column=0,sticky='nsew')
 
         # Create switch to show/hide payments
-        self.payment_switch = ctk.CTkSwitch(self.payment_frame,
+        payment_switch = ctk.CTkSwitch(self.payment_frame,
                                             text='Show/Hide Payments',
                                             variable=ctk.StringVar(value='hide'),
                                             onvalue='show',offvalue='hide')
-        self.payment_switch.configure(command = lambda switch=self.payment_switch: self.toggle_view(switch))
-        self.payment_switch.grid(row=0, column=0)
-
-        # Create switch to show/hide notes
-        self.note_switch = ctk.CTkSwitch(self.note_frame,
-                                         text='Show/Hide Notes',
-                                         variable=ctk.StringVar(value='hide'),
-                                         onvalue='show',offvalue='hide')
-        self.note_switch.select()
-        self.note_switch.configure(command = lambda switch=self.note_switch: self.toggle_view(switch))
-        self.note_switch.grid(row=0, column=0)
+        payment_switch.configure(command = lambda switch=payment_switch, hide=self.payment_hide_frame:
+                                                    self.toggle_view(switch,hide))
+        payment_switch.grid(row=0, column=0)
+        self.payment_hide_frame.grid(row=1, column=0, sticky='ns',padx=0,pady=0)
+        self.switches['PAYMENT'] = payment_switch
 
         # Populate frame with labels containing student information
         self.create_labels()
 
+        # Create switch to show/hide notes
+        note_switch = ctk.CTkSwitch(self.note_frame,
+                                         text='Show/Hide Notes',
+                                         variable=ctk.StringVar(value='hide'),
+                                         onvalue='show',offvalue='hide')
+        note_switch.select()
+        note_switch.configure(command = lambda switch=note_switch, hide=self.note_textbox:
+                                                self.toggle_view(switch,hide))
+        note_switch.grid(row=0, column=0)
+        self.switches['NOTE'] = note_switch
+
         # Create button to switch between payments for current year and previous year
-        self.year_frame = ctk.CTkFrame(self.payment_frame)
+        self.year_frame = ctk.CTkFrame(self.payment_hide_frame)
         self.year_frame.columnconfigure((0,1),weight=1)
         ctk.CTkLabel(self.year_frame, text='Currently displaying payments for:',).grid(row=0,column=0,sticky='e')
         self.buttons['PAYMENT_YEAR'] = ctk.CTkButton(self.year_frame,
                                         text=self.year,
                                         font=ctk.CTkFont('Segoe UI Light', 14),
                                         command=self.toggle_year)
-        self.buttons['PAYMENT_YEAR'].grid(row=0, column=1,sticky='w')
-        self.year_frame.grid(row=1,column=0,sticky='nsew')
+        self.buttons['PAYMENT_YEAR'].grid(row=0, column=1,sticky='w',padx=5,pady=5)
+        self.year_frame.grid(row=0,column=0,sticky='nsew')
         
         student_buttons_frame = ctk.CTkFrame(self.personal_frame)
         student_buttons_frame.columnconfigure((0,1),weight=1)
@@ -127,8 +134,8 @@ class StudentInfoFrame(ctk.CTkFrame):
             button.configure(state='disabled')
 
         # Note: payment_frame and note_frame start out hidden, until user requests to view
-        self.toggle_view(self.payment_switch)
-        # self.toggle_view(self.note_switch)
+        self.toggle_view(payment_switch,self.payment_hide_frame)
+        # self.toggle_view(note_switch)
 
 
     # Create a label for each bit of student information and place into the frame
@@ -262,8 +269,9 @@ class StudentInfoFrame(ctk.CTkFrame):
 
         ### Payment Frame ###
         self.payment_frame.columnconfigure(0,weight=1)
-        self.payment_frame.rowconfigure(tuple(range(14)), weight=1)
-        self.month_frames = []
+        self.payment_hide_frame.columnconfigure(0,weight=1)
+        # self.payment_hide_frame.rowconfigure(tuple(range(14)), weight=1)
+
         self.payment_labels = {}
         # Values that will populate month column
         month_column = ['Month'] + list(calendar.month_name)[1:] + ['Reg. Fee']
@@ -277,15 +285,18 @@ class StudentInfoFrame(ctk.CTkFrame):
         for row in range(14):
             payment_font = ctk.CTkFont('Britannica',16,'bold') if row in (0,13) else ctk.CTkFont('Britannica',16,'normal')
             # Create a frame for this row
-            month_frame = ctk.CTkFrame(self.payment_frame, fg_color='grey70' if row % 2 == 0 else 'transparent')
+            month_frame = ctk.CTkFrame(self.payment_hide_frame, fg_color='grey70' if row % 2 == 0 else 'transparent')
+
             month_frame.columnconfigure((0,1,2), weight=1)
+            month_frame.grid(row=row+1, column=0, sticky='nsew')
+
             # Create labels for this row
             self.payment_labels[prefix[row] + suffix[row][0]] = ctk.CTkLabel(month_frame, text=month_column[row],
                                                                  font=payment_font,
                                                                  anchor='w', width=75)
             self.payment_labels[prefix[row] + suffix[row][1]] = ctk.CTkLabel(month_frame, text='',
-                                                               font=payment_font,
-                                                               anchor='e', width=50)
+                                                                 font=payment_font,
+                                                                 anchor='e', width=50)
             self.payment_labels[prefix[row] + suffix[row][2]] = ctk.CTkLabel(month_frame, text='',
                                                                 font=payment_font,
                                                                 anchor='e', width=75)
@@ -297,9 +308,7 @@ class StudentInfoFrame(ctk.CTkFrame):
             self.payment_labels[prefix[row] + suffix[row][1]].grid(row=0,column=1,padx=10,sticky='nsew')
             self.payment_labels[prefix[row] + suffix[row][2]].grid(row=0,column=2,padx=10,sticky='nsew')
             self.payment_labels[prefix[row] + suffix[row][3]].grid(row=0,column=3,padx=10,sticky='nsew')
-            # Grid and store month frame
-            month_frame.grid(row=row+2, column=0, sticky='nsew')
-            self.month_frames.append(month_frame)
+
 
         for field in self.payment_labels.keys():
             if 'HEADER' in field:
@@ -457,10 +466,10 @@ class StudentInfoFrame(ctk.CTkFrame):
 
         # Change color of payment_frame based on which year is displayed
         if self.year == CURRENT_SESSION.year:
-            self.payment_frame.configure(fg_color = 'transparent')
+            self.payment_hide_frame.configure(fg_color = 'transparent')
             self.year_frame.configure(fg_color = 'transparent')
         else:
-            self.payment_frame.configure(fg_color = 'indian red')
+            self.payment_hide_frame.configure(fg_color = 'indian red')
             self.year_frame.configure(fg_color = 'indian red')
             
 
@@ -519,19 +528,11 @@ class StudentInfoFrame(ctk.CTkFrame):
 
 
     # Show/hide student's payment info or notes
-    def toggle_view(self, switch):
+    def toggle_view(self, switch, widget_to_hide):
         if switch.get() == 'show':
-            # Show all widgets contained in parent frame by "lifting" them back into view
-            # (ignoring the switch itself)
-            for child in switch.master.winfo_children():
-                if child.winfo_name() != '!ctkswitch':
-                    child.lift()
+            widget_to_hide.lift()
         elif switch.get() == 'hide':
-            # Hide all widgets contained in parent frame by "lowering" them out of view
-            # (ignoring the switch itself)
-            for child in switch.master.winfo_children():
-                if child.winfo_name() != '!ctkswitch':
-                    child.lower()
+            widget_to_hide.lower()
 
     # Toggle student between active/inactive
     # If `visual_only`=True, we just change the button's appearance to match the data.
