@@ -337,8 +337,9 @@ class StudentDatabase:
     # Create/delete/modify payments for a given student in the `payment` table
     def update_payment_info(self, student_id, new_info, year):
         for field in new_info.index:
-            # For now, reg. fee is stored in `student`, so ignore it here
+            # For now, reg. fee is stored in `student`
             if 'REG' in field:
+                self.student.loc[self.student['STUDENT_ID']==student_id,field] = new_info[field]
                 continue
     
             # Integer corresponding to the month this payment applies to
