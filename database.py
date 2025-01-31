@@ -141,9 +141,11 @@ class StudentDatabase:
     def create_student(self, entry_boxes):
         # Extract all (non-blank) user entries
         new_student_info = {field : entry.get() for (field,entry) in entry_boxes.items() if entry.get()}
+        new_family_id = self.student['FAMILY_ID'].max()+1
         # Add other fields in `student` table
         new_student_info.update({'STUDENT_ID' : self.student.shape[0]+1,
                                  'ACTIVE'     : True,
+                                 'FAMILY_ID'  : new_family_id,
                                  'STUDENTNO'  : self.student['STUDENTNO'].max()+1,
                                  'ENROLLDATE' : datetime.today().strftime('%m/%d/%Y'),
                                  'REGFEE'     : 0,
@@ -155,6 +157,18 @@ class StudentDatabase:
         ## Step 1: Create new record for this student in Pandas DataFrame
         self.student.loc[len(self.student)] = new_student_info
         self.student.to_csv(self.csv_paths['student'], index=False)
+
+        # Create guardian records (if provided)
+        for guardian_type in ['MOM','DAD']:
+            if f'{guardian_type}NAME' in new_student_info.keys():
+                guardian_info = {'GUARDIAN_ID' : self.guardian.shape[0]+1,
+                                'FAMILY_ID'    : new_family_id,
+                                'RELATION'     : guardian_type,
+                                'FNAME'        : new_student_info[f'{guardian_type}NAME'],
+                                'LNAME'        : new_student_info['LNAME'],
+                                'CREA_TMS'     : datetime.now(),
+                                'UPDT_TMS'     : datetime.now()}
+                self.guardian.loc[len(self.guardian)] = guardian_info
 
         ## Step 2: Create new record for this student in original database (DBF file)
         # Special handling for dates
@@ -212,26 +226,23 @@ class StudentDatabase:
             # Loop through fields
             for field in entry_boxes.keys():
                 # For MOMNAME and DADNAME, we update `guardian`
-                if field == 'MOMNAME':
+                if field in ['MOMNAME','DADNAME']:
+                    relation = field[:3]
                     # Check that guardian exists
-                    if (len(guardian_idx) > 0) and ('MOM' in self.guardian.iloc[guardian_idx]['RELATION'].values):
+                    if (len(guardian_idx) > 0) and (relation in self.guardian.iloc[guardian_idx]['RELATION'].values):
                         self.guardian.loc[
                             ((self.guardian['FAMILY_ID'] == family_id)
-                            & (self.guardian['RELATION'] == 'MOM')), 'FNAME'] = new_student_info[field]
-                    # If mom doesn't exist, create new record in 'guardian'
+                            & (self.guardian['RELATION'] == relation)), 'FNAME'] = new_student_info[field]
+                    # If guardian doesn't exist, create new record in 'guardian'
                     else:
-                        # To be added later
-                        pass
-                elif field == 'DADNAME':
-                    # Check that guardian exists
-                    if (len(guardian_idx) > 0) and ('DAD' in self.guardian.iloc[guardian_idx]['RELATION'].values):
-                        self.guardian.loc[
-                            ((self.guardian['FAMILY_ID'] == family_id)
-                            & (self.guardian['RELATION'] == 'DAD')), 'FNAME'] = new_student_info[field]
-                    # If dad doesn't exist, create new record in 'guardian'
-                    else:
-                        # To be added later
-                        pass
+                        guardian_info = {'GUARDIAN_ID' : self.guardian.shape[0]+1,
+                                        'FAMILY_ID'    : family_id,
+                                        'RELATION'     : relation,
+                                        'FNAME'        : new_student_info[f'{relation}NAME'],
+                                        'LNAME'        : new_student_info['LNAME'],
+                                        'CREA_TMS'     : datetime.now(),
+                                        'UPDT_TMS'     : datetime.now()}
+                        self.guardian.loc[len(self.guardian)] = guardian_info
                 # Otherwise edit 'student' table
                 else:
                     self.student.loc[student_idx, field] = new_student_info[field] 

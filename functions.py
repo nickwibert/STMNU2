@@ -117,7 +117,10 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=Fals
 
 
         # Insert FAMILY_ID into student
-        student = student.merge(families[['STUDENT_ID','FAMILY_ID']], how='left', on='STUDENT_ID')
+        student = student.merge(STUD00[['STUDENTNO','MOMNAME','DADNAME']].fillna(''), how='left', on='STUDENTNO'
+                        ).merge(families[['MOMNAME','DADNAME','LNAME','FAMILY_ID']], how='left',
+                                on=['MOMNAME','DADNAME','LNAME']
+                        ).drop(columns=['MOMNAME','DADNAME'])
         # Move FAMILY_ID to second column
         family_id = student.pop('FAMILY_ID')
         student.insert(1, 'FAMILY_ID', family_id)
