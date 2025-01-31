@@ -512,12 +512,17 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
         # Replace info labels with entry boxes, and populate with the current info
         entry_boxes = dict.fromkeys(labels)
 
+        first_loop = True
         for key in labels.keys():
             # Ignore certain labels
             if 'HEADER' in key or 'BILL' in key:
                 entry_boxes.pop(key)
                 continue
-            
+            # Store key of first entry box so we can set the mouse to this entry when the loop is finished
+            if first_loop:
+                first_key = key
+                first_loop = False
+
             label = labels[key]
             default_text = ctk.StringVar()
             default_text.set(label.cget('text'))
@@ -547,18 +552,20 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
             # Place entry box and store
             entry_box.place(x=0, y=0, relheight=1.0, relwidth=1.0)
             entry_boxes[key] = entry_box
-            
+            # Bind Enter to 'entry_next' which will move to the next entry box
+            entry_box.bind('<Return>', entry_next)
+
+        # Put the mouse in the first entry box
+        entry_boxes[first_key].focus()
+
         confirm_button.configure(command=lambda d=dbf_table, c=confirm_button, eb=entry_boxes, ef=edit_frame, v=wait_var:
                                             validate_entryboxes(d, c, eb, ef, v))
         
         # Change binding for Enter key to 'confirm' edit
-        info_frame.window.bind('<Return>', lambda event: confirm_button.invoke())
+        #info_frame.window.bind('<Return>', lambda event: confirm_button.invoke())
 
         # Wait for variable to be changed to 'confirmed' to continue
         confirm_button.wait_variable(wait_var)
-        
-        # Re-bind Enter to 'search'
-        info_frame.window.bind('<Return>', lambda event: info_frame.search_results_frame.search_button.invoke())
 
         # For payments entered with no date, replace missing date with today's date
         if edit_type == 'STUDENT_PAYMENT':
@@ -608,6 +615,9 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
                                         info_frame.search_results_frame.select_result(id))
 
     if 'STUDENT' in edit_type:
+        # Re-bind Enter to 'search'
+        info_frame.window.bind('<Return>', lambda event: info_frame.search_results_frame.search_button.invoke())
+
         for switch in info_frame.switches.values():
             switch.configure(state='normal')
 
@@ -639,7 +649,9 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
     # (This step ensures that selected student is added/removed from their class if user added/deleted a payment for current month)
     info_frame.window.screens['Classes'].search_results_frame.update_labels(select_first_result=False)
 
-
+# Move to next entry box
+def entry_next(event):
+    event.widget.tk_focusNext().focus()
 
 
 def button_click():
