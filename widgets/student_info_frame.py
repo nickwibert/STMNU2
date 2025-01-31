@@ -420,7 +420,8 @@ class StudentInfoFrame(ctk.CTkFrame):
             # Update non-headers and guardian fields        
             if not any(x in field for x in ['HEADER', 'MOM', 'DAD']):
                 if field in ['BALANCE', 'MONTHLYFEE']:
-                    self.personal_labels[field].configure(text=f'{float(student_info[field]):.2f}')
+                    label_txt = '' if student_info[field]=='' else f'{float(student_info[field]):.2f}'
+                    self.personal_labels[field].configure(text=label_txt)
                 elif field == 'STATE':
                     self.personal_labels[field].configure(text=student_info[field].upper())
                 else:
@@ -489,7 +490,8 @@ class StudentInfoFrame(ctk.CTkFrame):
                 pay, date, bill = ('Amount', 'Date', 'Bill')
             # Reg. Fee row
             elif row == 13:
-                pay, date = (f'{float(student_info['REGFEE']):.2f}', student_info['REGFEEDATE'])
+                pay = '' if student_info['REGFEE']=='' else f'{float(student_info['REGFEE']):.2f}'
+                date = student_info['REGFEEDATE']
                 bill = '*' if row in bill_info['MONTH'].values else ''
             # Check if a payment exists for this month
             elif row not in payment_info['MONTH'].values:
