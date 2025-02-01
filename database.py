@@ -272,9 +272,15 @@ class StudentDatabase:
                     if str(field_info.py_type) == "<class 'datetime.date'>":
                         if new_student_info[field] is not None:
                             new_student_info[field] = datetime.strptime(new_student_info[field], "%m/%d/%Y")
+                    # Special case: for payment dates, if the payment value is blank or zero, delete date
+                    if 'DATE' in field and 'ENROLL' not in field:
+                        prefix = field[:-4]
+                        pay_field = prefix + 'PAY' if prefix!='REGFEE' else 'REGFEE'
+                        pay = new_student_info[pay_field]
+                        record[field] = new_student_info[field] if pay not in (None,'',0,'0.00') else None
                     # For this record, if the dbase field does not match the user-entered field,
                     # update that field in the dbf file (if the field is unchanged, ignore)
-                    if record[field] != new_student_info[field]:
+                    elif record[field] != new_student_info[field]:
                         record[field] = new_student_info[field]
 
     # Toggle 'ACTIVE' value for selected student between True/False
