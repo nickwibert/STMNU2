@@ -61,7 +61,7 @@ class ClassInfoFrame(ctk.CTkFrame):
         self.buttons['MOVE_STUDENT'] = ctk.CTkButton(self.roll_frame,
                                                      text='Move Student',
                                                      command = self.create_move_student_dialog)
-        self.buttons['MOVE_STUDENT'].grid(row=MAX_CLASS_SIZE+1, column=0, pady=10)
+        self.buttons['MOVE_STUDENT'].grid(row=MAX_CLASS_SIZE+1, column=0, columnspan=2, pady=(0,5))
         # Button to edit waitlist
         self.buttons['EDIT_CLASS_WAIT'] = ctk.CTkButton(self.wait_frame,
                                                   text="Edit Waitlist",
@@ -108,23 +108,36 @@ class ClassInfoFrame(ctk.CTkFrame):
 
 
         ### Class Roll Frame ###
-        self.roll_frame.columnconfigure(0,weight=1)
+        self.roll_frame.columnconfigure((0,1),weight=1)
         self.roll_labels = {}
+        self.bill_labels = {}
         roll_title = ctk.CTkLabel(self.roll_frame, fg_color=self.roll_frame.cget('border_color'),
                                    text='Class Roll', font=title_font, text_color='white')
-        roll_title.grid(row=self.roll_frame.grid_size()[1], column=0, sticky='nsew')
+        roll_title.grid(row=self.roll_frame.grid_size()[1], column=0, columnspan=2, sticky='nsew')
         # Create placeholder labels based on global variable for max class size
         for row in range(1,MAX_CLASS_SIZE+1):
             # Student name
-            name_label = ctk.CTkLabel(self.roll_frame, width=300, anchor='w',
+            name_label = ctk.CTkLabel(self.roll_frame, width=250, anchor='w',
+                                      font=ctk.CTkFont('Arial',18,'normal'),
                                       bg_color='gray70' if row % 2 == 0 else 'gray80',
                                       cursor='hand2')
-            name_label.grid(row=self.roll_frame.grid_size()[1], column=0, sticky='nsew', padx=5)
+            name_label.grid(row=self.roll_frame.grid_size()[1], column=0, sticky='nsew', padx=(5,0))
             # Placeholder attribute for student ID and blinking
             name_label.student_id = -1
             name_label.blink = False
             # Store labels using field names from DBF
             self.roll_labels[f'STUDENT{row}'] = name_label
+
+            # Label that will contain $ symbols to indicate # of payments owed
+            bill_label = ctk.CTkLabel(self.roll_frame, width=100, anchor='w',
+                                      font=ctk.CTkFont('Arial',18,'bold'),
+                                      text_color='red',
+                                      bg_color='gray70' if row % 2 == 0 else 'gray80',
+                                      cursor='hand2')
+            bill_label.grid(row=self.roll_frame.grid_size()[1]-1, column=1, sticky='nsew', padx=(0,5))
+            self.bill_labels[f'STUDENT{row}'] = bill_label
+
+
 
         
         ### Waitlist Frame ###
@@ -193,8 +206,6 @@ class ClassInfoFrame(ctk.CTkFrame):
     def reset_labels(self):
         for label in self.header_labels.values():
             label.configure(text='')
-        for label in self.roll_labels.values():
-            label.configure(text='')
 
         # Wipe all roll labels and remove from grid
         for label in self.roll_labels.values():
@@ -205,6 +216,10 @@ class ClassInfoFrame(ctk.CTkFrame):
             # Reset blinking
             label.blink = False
             # Hide entire row from view
+            label.lower()
+            
+        for label in self.bill_labels.values():
+            label.configure(text='')
             label.lower()
 
         # Delete text displayed in note textbox
@@ -248,6 +263,9 @@ class ClassInfoFrame(ctk.CTkFrame):
         roll_info = roll_info.merge(self.database.bill.groupby('STUDENT_ID').size().reset_index(name='BILL_COUNT'),
                                     how='left',
                                     on='STUDENT_ID'
+                            ).merge(self.database.bill[self.database.bill['MONTH']==13].groupby('STUDENT_ID').size().reset_index(name='REGFEE_COUNT'),
+                                    how='left',
+                                    on='STUDENT_ID'
                             ).fillna(0)
         roll_info = roll_info.sort_values(by=['PAID','BILLED','LNAME'], ascending=[False,False,True]
                             ).reset_index(drop=True)
@@ -277,11 +295,13 @@ class ClassInfoFrame(ctk.CTkFrame):
         # Populate roll labels
         for row in range(1,MAX_CLASS_SIZE+1):
             label = self.roll_labels[f'STUDENT{row}']
+            bill_label = self.bill_labels[f'STUDENT{row}']
             # Update roll label if we have not reached potential_class_size or max_class_size
             # (whichever is larger)
             if row <= max(potential_class_size, max_class_size):
                 # Lift row back into view
                 label.lift()
+                bill_label.lift()
                 # Create variable to store student name (if exists)
                 roll_txt = f"{row}. "
                 # If student exists for this row, add their name
@@ -307,9 +327,10 @@ class ClassInfoFrame(ctk.CTkFrame):
                     # Add dollar signs ($) after the student's name if they owe for previous months
                     # (i.e. if a student has 3 asterisks under 'BILL', 3 dollar signs should display here)
                     bill_count = int(roll_info.loc[row-1, 'BILL_COUNT'])
+                    regfee_count = int(roll_info.loc[row-1,'REGFEE_COUNT'])
                     if bill_count > 0:
-                        roll_txt += ' ' + '$'*bill_count
-
+                        bill_txt = '$'*(bill_count-regfee_count) + 'R'*regfee_count
+                        bill_label.configure(text=bill_txt)
                 # Update text in label
                 label.configure(text=roll_txt,)
 
