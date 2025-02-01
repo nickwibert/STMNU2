@@ -509,19 +509,6 @@ class StudentInfoFrame(ctk.CTkFrame):
             if row % 2 == 0:
                 pay_label.master.configure(fg_color='salmon' if self.year != CURRENT_SESSION.year else 'grey70')
 
-            # For all rows except header, make the row clickable to toggle bill (*) on/off
-            if row != 0:
-                for col in range(4):
-                    label = self.payment_labels[prefix[row] + suffix[row][col]]
-                    # Highlight/unhighlight when mouse hovers
-                    label.bind("<Enter>",    lambda event, c=label.master, r=label.grid_info().get('row'):
-                                                fn.highlight_label(c,r))
-                    label.bind("<Leave>",    lambda event, c=label.master, r=label.grid_info().get('row'):
-                                                fn.unhighlight_label(c,r))
-                    label.bind("<Button-1>", lambda event, month=prefix[row]:
-                                                self.toggle_bill(month))
-                    label.configure(cursor='hand2')
-
         # If note exists, insert into textbox
         if not note_info.empty:
             self.note_textbox.configure(state='normal')   
@@ -556,14 +543,19 @@ class StudentInfoFrame(ctk.CTkFrame):
     # Toggle bill status
     # In the payment_frame, under `bill` column, there will be an asterisk (*) if a payment
     # is owed for that month. This function toggles the asterisk on/off when the month is clicked.
-    def toggle_bill(self, month):
+    def toggle_bill(self, month_num):
+        if month_num == 13:
+            month = 'REG'
+        else:
+            # Integer corresponding to the month this payment applies to
+            month = calendar.month_abbr[month_num].upper()
         label = self.payment_labels[f'{month}BILL']
         label_txt = '' if label.cget('text') == '*' else '*'
         # Toggle (*) in view
         label.configure(text=label_txt)
 
         # Update 'bill' in database
-        self.database.bill_student(student_id=self.id, month=month, year=self.year)
+        self.database.bill_student(student_id=self.id, month_num=month_num, year=self.year)
 
         # Refresh class info frame 
         self.window.screens['Classes'].search_results_frame.update_labels(select_first_result=False)

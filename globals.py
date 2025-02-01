@@ -17,7 +17,7 @@ CURRENT_YEAR = datetime.now().year
 CURRENT_SESSION = datetime(year=CURRENT_YEAR, month=CURRENT_MONTH, day=1)
 
 ### Class size limits ###
-MAX_CLASS_SIZE = 20
+MAX_CLASS_SIZE = 19
 MAX_WAIT_SIZE = 4
 MAX_TRIAL_SIZE = 8
 

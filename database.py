@@ -291,12 +291,8 @@ class StudentDatabase:
         
 
     # Create/delete a `bill` record for the selected student, month, year
-    def bill_student(self, student_id, month, year):
-        if month == 'REG':
-            month_num = 13
-        else:
-            # Integer corresponding to the month this payment applies to
-            month_num = list(calendar.month_abbr).index(month.title())
+    def bill_student(self, student_id, month_num, year):
+        month = calendar.month_abbr[month_num].upper() if month_num < 13 else 'REG'
         # Step 1: Pandas DataFrame
         bill_record = self.bill.loc[((self.bill['STUDENT_ID'] == student_id)
                                      & (self.bill['MONTH'] == month_num)
@@ -354,10 +350,11 @@ class StudentDatabase:
                                                            'MONTH'      : month_num,
                                                            'PAY'        : new_info[field],
                                                            'YEAR'       : year}
-                # If this month/year appears in 'bill' for this student (meaning they owed),
-                # delete that bill record to indicate that the payment has been made
-                if not bill_record.empty:
-                    self.bill = self.bill.drop(bill_record.index).reset_index(drop=True)
+                    # If this month/year appears in 'bill' for this student (meaning they owed),
+                    # delete that bill record to indicate that the payment has been made
+                    if not bill_record.empty:
+                        self.bill = self.bill.drop(bill_record.index).reset_index(drop=True)
+
             # If record already exists, but the new amount entered is zero, delete the record
             # (therefore changing a payment amount to 0 is equivalent to deleting the payment)
             elif 'PAY' in field and new_info[field] in (None, 0.0, '0.00'):
