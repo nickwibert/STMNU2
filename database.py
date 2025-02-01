@@ -288,18 +288,7 @@ class StudentDatabase:
         # Step 1: Pandas DataFrame
         student_record = self.student[self.student['STUDENT_ID'] == student_id]
         self.student.loc[student_record.index, 'ACTIVE'] = not student_record['ACTIVE'].values[0]
-
-        # Step 2: DBF file
-        studentno = student_record['STUDENTNO'].values[0]
-        with self.student_dbf:
-            studentno_idx = self.student_dbf.create_index(lambda rec: rec.studentno)
-            # get a list of all matching records
-            match = studentno_idx.search(match=studentno)
-            # should only be one student with that studentno
-            record = match[0]
-            # Focus on this student's record
-            with record:
-                record['ACTIVE'] = not record['ACTIVE']
+        
 
     # Create/delete a `bill` record for the selected student, month, year
     def bill_student(self, student_id, month, year):
