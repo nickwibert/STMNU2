@@ -1,8 +1,8 @@
 import customtkinter as ctk
+from tktooltip import ToolTip
 import calendar
 from datetime import datetime
 import functions as fn
-
 from widgets.search_results_frame import SearchResultsFrame
 from widgets.dialog_boxes import MoveStudentDialog
 
@@ -23,6 +23,8 @@ class ClassInfoFrame(ctk.CTkFrame):
         self.id = None
         # Dictionary for buttons
         self.buttons = {}
+        # List of tooltips (messages that display on hover)
+        self.tooltips = []
 
         # Configure rows/columns
         self.columnconfigure((0,1,2), weight=1)
@@ -137,8 +139,6 @@ class ClassInfoFrame(ctk.CTkFrame):
             bill_label.grid(row=self.roll_frame.grid_size()[1]-1, column=1, sticky='nsew', padx=(0,5))
             self.bill_labels[f'STUDENT{row}'] = bill_label
 
-
-
         
         ### Waitlist Frame ###
         self.wait_frame.columnconfigure(0, weight=1)
@@ -219,8 +219,13 @@ class ClassInfoFrame(ctk.CTkFrame):
             label.lower()
             
         for label in self.bill_labels.values():
+            for binding in ['<Button-1>', '<Enter>', '<Leave>']:
+                label.unbind(binding)
             label.configure(text='')
             label.lower()
+
+        for tooltip in self.tooltips:
+            tooltip.destroy()
 
         # Delete text displayed in note textbox
         self.note_textbox.configure(state='normal')
@@ -252,21 +257,24 @@ class ClassInfoFrame(ctk.CTkFrame):
                             ).loc[:,['PAY','STUDENT_ID','FAMILY_ID','FNAME','LNAME','BIRTHDAY']]
         # Create 'PAID' which is true if student has a non-zero payment for the current month/year
         roll_info['PAID'] = roll_info['PAY'] > 0
+        # Get `bill_info` as all the bill records for students in `roll_info`
+        bill_info = self.database.bill.merge(roll_info, how='inner', on='STUDENT_ID'
+                                     ).loc[:,['STUDENT_ID','MONTH','YEAR']]
         # Create 'BILLED' which is true if student has been billed for the current month/year
         # (since they have a bill record, someone has confirmed that the student
         # is attending and plans to pay; therefore they will take up a spot in the class)
-        roll_info['BILLED'] = roll_info['STUDENT_ID'].isin(self.database.bill.loc[((self.database.bill['MONTH'] == CURRENT_SESSION.month)
-                                                                                 & (self.database.bill['YEAR'] == CURRENT_SESSION.year)),'STUDENT_ID'].values)
+        roll_info['BILLED'] = roll_info['STUDENT_ID'].isin(bill_info.loc[((bill_info['MONTH']==CURRENT_SESSION.month)
+                                                                          &(bill_info['YEAR']==CURRENT_SESSION.year)),'STUDENT_ID'].values)
         
-        # Create 'BILL_COUNT' which is the number of payments owed by each student in `roll_info`
-        # (this is simply determined by the number of records that student currently has in the `bill` table)
-        roll_info = roll_info.merge(self.database.bill.groupby('STUDENT_ID').size().reset_index(name='BILL_COUNT'),
-                                    how='left',
-                                    on='STUDENT_ID'
-                            ).merge(self.database.bill[self.database.bill['MONTH']==13].groupby('STUDENT_ID').size().reset_index(name='REGFEE_COUNT'),
-                                    how='left',
-                                    on='STUDENT_ID'
-                            ).fillna(0)
+        # # Create 'BILL_COUNT' which is the number of payments owed by each student in `roll_info`
+        # # (this is simply determined by the number of records that student currently has in the `bill` table)
+        # roll_info = roll_info.merge(self.database.bill.groupby('STUDENT_ID').size().reset_index(name='BILL_COUNT'),
+        #                             how='left',
+        #                             on='STUDENT_ID'
+        #                     ).merge(self.database.bill[self.database.bill['MONTH']==13].groupby('STUDENT_ID').size().reset_index(name='REGFEE_COUNT'),
+        #                             how='left',
+        #                             on='STUDENT_ID'
+        #                     ).fillna(0)
         roll_info = roll_info.sort_values(by=['PAID','BILLED','LNAME'], ascending=[False,False,True]
                             ).reset_index(drop=True)
         wait_info = self.database.wait[self.database.wait['CLASS_ID'] == class_id
@@ -304,35 +312,48 @@ class ClassInfoFrame(ctk.CTkFrame):
                 bill_label.lift()
                 # Create variable to store student name (if exists)
                 roll_txt = f"{row}. "
+                bill_txt = ''
                 # If student exists for this row, add their name
                 if row <= potential_class_size:
                     # Student name
                     roll_txt += f"{roll_info.loc[row-1,'FNAME'].title()} {roll_info.loc[row-1,'LNAME'].title()}"
                     # Store student ID as attribute as well (this will be necessary for moving students between classes)
                     label.student_id = roll_info.loc[row-1, 'STUDENT_ID']
-
-                    # Highlight label when mouse hovers over it
-                    label.bind("<Enter>",    lambda event, c=label.master, r=label.grid_info().get('row'):
-                                                     fn.highlight_label(c,r))
-                    label.bind("<Leave>",    lambda event, c=label.master, r=label.grid_info().get('row'):
-                                                     fn.unhighlight_label(c,r))
-                    # Click student name in class roll to pull up student record
-                    label.bind("<Button-1>", lambda event, student_id=label.student_id:
-                                                     self.open_student_record(student_id))
-                    
                     # If this is a 'potential' student, their name should be blinking
                     # (all rows up to `actual_class_size` are students who are paid for current month)
                     label.blink = row > actual_class_size
 
-                    # Add dollar signs ($) after the student's name if they owe for previous months
+                    # Add dollar signs ($) after the student's bill label if they owe for previous months
                     # (i.e. if a student has 3 asterisks under 'BILL', 3 dollar signs should display here)
-                    bill_count = int(roll_info.loc[row-1, 'BILL_COUNT'])
-                    regfee_count = int(roll_info.loc[row-1,'REGFEE_COUNT'])
-                    if bill_count > 0:
-                        bill_txt = '$'*(bill_count-regfee_count) + 'R'*regfee_count
-                        bill_label.configure(text=bill_txt)
+                    if label.student_id in bill_info['STUDENT_ID'].values:
+                        student_bills = bill_info.loc[bill_info['STUDENT_ID']==label.student_id]
+                        bill_count = student_bills.loc[student_bills['MONTH']!=13].shape[0]
+                        regfee_count = student_bills.loc[student_bills['MONTH']==13].shape[0]
+                        bill_txt += '$'*bill_count + 'R'*regfee_count
+                        tooltip_txt = 'Payments owed:'
+                        # Create tooltip showing which payments are owed
+                        for bill_idx in range(student_bills.shape[0]):
+                            bill = student_bills.iloc[bill_idx].squeeze()
+                            month = 'Reg Fee' if bill['MONTH']==13 else calendar.month_abbr[bill['MONTH']]
+                            tooltip_txt += f'\n{month} {bill['YEAR']}'
+
+                        self.tooltips.append(ToolTip(bill_label, msg=tooltip_txt, font=ctk.CTkFont('Segoe UI',16)))
+
+                    # Bind functions to both label and bill label
+                    for lab in [label, bill_label]:
+                        # Highlight label when mouse hovers over it
+                        lab.bind("<Enter>",    lambda event, c=lab.master, r=lab.grid_info().get('row'):
+                                                        fn.highlight_label(c,r))
+                        lab.bind("<Leave>",    lambda event, c=lab.master, r=lab.grid_info().get('row'):
+                                                        fn.unhighlight_label(c,r))
+                        # Click student name in class roll to pull up student record
+                        lab.bind("<Button-1>", lambda event, student_id=label.student_id:
+                                                self.open_student_record(student_id))
+
+
                 # Update text in label
-                label.configure(text=roll_txt,)
+                label.configure(text=roll_txt)
+                bill_label.configure(text=bill_txt)
 
         ### Waitlist Frame ###
         for row in range(MAX_WAIT_SIZE):
