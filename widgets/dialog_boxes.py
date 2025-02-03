@@ -237,6 +237,8 @@ class NewStudentDialog(DialogBox):
         super().__init__(*args, **kwargs)
         self.database = database
 
+        self.after(150, lambda : self.entry_boxes['FNAME'].focus())
+
         # Set location of window relative to the main window
         self.geometry('400x500')
         window_x, window_y = (self.window.winfo_x(), self.window.winfo_y())
@@ -282,6 +284,10 @@ class NewStudentDialog(DialogBox):
         for field, kwargs in personal_field_position.items():
             entry = ctk.CTkEntry(master=self.personal_frame, placeholder_text=field)
             entry.dtype = 'datetime.date' if field=='BIRTHDAY' else 'string'
+            # Bind keys to move to next/previous entry boxes
+            entry.bind('<Return>', lambda event, dir='next':     fn.jump_to_entry(event,dir))
+            entry.bind('<Down>',   lambda event, dir='next':     fn.jump_to_entry(event,dir))
+            entry.bind('<Up>',     lambda event, dir='previous': fn.jump_to_entry(event,dir))
             entry.grid(sticky='nsew', **kwargs)
             self.entry_boxes[field] = entry
 
@@ -297,13 +303,10 @@ class NewStudentDialog(DialogBox):
                                                      eb=self.entry_boxes, ef=self.error_frame, v=self.wait_var:
                                                         fn.validate_entryboxes(d, c, eb, ef, v))
         self.confirm_button.grid(row=3, column=0)
-        self.bind('<Return>', lambda event: self.confirm_button.invoke())
+        self.bind('<Control-End>', lambda event: self.confirm_button.invoke())
 
         # Wait for valid input before continuing
         self.confirm_button.wait_variable(self.wait_var)
-
-        self.window.bind('<Return>', lambda event: self.window.screens['Students'].search_results_frame.search_button.invoke())
-
         
         # If wait variable is set to 'exit', the user closed the window, so we do nothing
         # (even if all fields are filled out, we will not create a student if user closes window)

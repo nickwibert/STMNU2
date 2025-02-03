@@ -596,8 +596,10 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
                 # Place entry box and store
                 entry_box.place(x=0, y=0, relheight=1.0, relwidth=1.0)
                 entry_boxes[key] = entry_box
-                # Bind Enter to 'entry_next' which will move to the next entry box
-                entry_box.bind('<Return>', entry_next)
+                # Bind keys to move to next/previous entry boxes
+                entry_box.bind('<Return>', lambda event, dir='next': jump_to_entry(event,dir))
+                entry_box.bind('<Down>',   lambda event, dir='next': jump_to_entry(event,dir))
+                entry_box.bind('<Up>',     lambda event, dir='previous': jump_to_entry(event,dir))
 
             # Focus the first entry box by focusing the entry that comes after the final entry
             edit_frame.update()
@@ -702,18 +704,21 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
     info_frame.window.screens['Classes'].search_results_frame.update_labels(select_first_result=False)
 
 # Move to next entry box
-def entry_next(event):
+def jump_to_entry(event, direction):
     # Get next entry
-    next_entry = event.widget.tk_focusNext()
+    if direction=='next':
+        new_entry = event.widget.tk_focusNext()
+    elif direction=='previous':
+        new_entry = event.widget.tk_focusPrev()
     # Focus entry
-    next_entry.focus()
+    new_entry.focus()
     # If entry is a money field and contains "0.00" as its value, delete the text to start blank
-    if next_entry.get() == '0.00':
-        next_entry.delete(0,'end')
+    if new_entry.get() == '0.00':
+        new_entry.delete(0,'end')
     # Otherwise, if the entry is not blank, highlight the current value 
     # so the user can easily overwrite if desired
-    elif next_entry.get():
-        next_entry.selection_range(0,'end')
+    elif new_entry.get():
+        new_entry.selection_range(0,'end')
     
 
 
