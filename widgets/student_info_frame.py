@@ -125,9 +125,19 @@ class StudentInfoFrame(ctk.CTkFrame):
                                                       fn.edit_info(frame, labels, type))
         self.buttons['EDIT_NOTE_STUDENT'].grid(row=self.note_frame.grid_size()[1], column=0)
 
-        # Button to add/remove student from class (to move between classes, see ClassInfoFrame)
-        self.buttons['ENROLL_STUDENT'] = ctk.CTkButton(self.class_frame, text='Enroll in Class', command=self.create_move_student_dialog)
-        self.buttons['ENROLL_STUDENT'].grid(row=self.class_frame.grid_size()[1], column=0, columnspan=3)
+        class_buttons_frame = ctk.CTkFrame(self.class_frame)
+        class_buttons_frame.columnconfigure((0,1),weight=1)
+        class_buttons_frame.grid(row=self.class_frame.grid_size()[1], column=0, columnspan=3, sticky='nsew')
+        # Button to add student to class (to move between classes, see ClassInfoFrame)
+        self.buttons['ENROLL_STUDENT'] = ctk.CTkButton(class_buttons_frame, text='Enroll in Class', command=self.create_move_student_dialog)
+        self.buttons['ENROLL_STUDENT'].grid(row=0, column=0,)
+
+        # Button to REMOVE student from a class
+        self.buttons['UNENROLL_STUDENT'] = ctk.CTkButton(class_buttons_frame, text="Remove from Class",
+                                         command = lambda frame=self.class_frame, labels=self.class_labels, type='UNENROLL_STUDENT':
+                                                      fn.edit_info(frame, labels, type))
+        self.buttons['UNENROLL_STUDENT'].grid(row=0, column=1)
+
 
         # Disable all buttons at the start
         for button in self.buttons.values():
@@ -279,6 +289,7 @@ class StudentInfoFrame(ctk.CTkFrame):
                 # Create label and store
                 row_labels.append(ctk.CTkLabel(self.class_frame, text=class_txt))
                 row_labels[-1].is_header = is_header
+                row_labels[-1].class_id = None
                 row_labels[-1].grid(row=row, column=col, sticky='nsew', padx=5)
             
             self.class_labels.append(row_labels)
@@ -357,6 +368,7 @@ class StudentInfoFrame(ctk.CTkFrame):
 
         for row in self.class_labels:
             for label in row:
+                label.configure(fg_color='transparent')
                 if not label.is_header:
                     label.configure(text='')
                     for binding in ['<Button-1>', '<Enter>', '<Leave>']:
@@ -468,13 +480,15 @@ class StudentInfoFrame(ctk.CTkFrame):
                         label_txt = ''
                     else:
                         label_txt = class_info.iloc[row-1, col]
+                        # Store class ID as attribute of label
+                        label.class_id = class_info.loc[row-1,'CLASS_ID']
                         label.bind("<Enter>",    lambda event, c=label.master, r=label.grid_info().get('row'):
                                                     fn.highlight_label(c,r))
                         label.bind("<Leave>",    lambda event, c=label.master, r=label.grid_info().get('row'):
                                                     fn.unhighlight_label(c,r))
                         # Using class ID, bind function so that user can click
                         # class instructor/time to pull up class record
-                        label.bind("<Button-1>", lambda event, id=class_info.loc[row-1,'CLASS_ID']:
+                        label.bind("<Button-1>", lambda event, id=label.class_id:
                                                     self.open_class_record(id))
                         label.configure(cursor='hand2')
                         
