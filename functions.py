@@ -478,16 +478,18 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
     for row in info_frame.search_results_frame.result_rows:
         for label in row:
             label.unbind('<Button-1>')
+
+    # Regardless of edit type, disable student search boxes
+    student_query_frame = info_frame.window.screens['Students'].search_results_frame.query_frame
+    for widget in student_query_frame.winfo_children():
+        try:
+            widget.configure(state='disabled')
+        except ValueError:
+            continue
     
     if 'STUDENT' in edit_type:
         for switch in info_frame.switches.values():
             switch.configure(state='disabled')
-
-        for widget in info_frame.search_results_frame.query_frame.winfo_children():
-            try:
-                widget.configure(state='disabled')
-            except ValueError:
-                continue
             
         for row in info_frame.class_labels:
             for label in row:
@@ -527,18 +529,13 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
     # Otherwise, replace relevant labels with entry boxes so user can modify them
     else:
         # Replace info labels with entry boxes, and populate with the current info
-        entry_boxes = dict.fromkeys(labels)
+        entry_boxes = dict.fromkeys({key : label for key,label in labels.items() if 'HEADER' not in key and 'BILL' not in key})
 
-        first_loop = True
-        for key in labels.keys():
-            # Ignore certain labels
-            if 'HEADER' in key or 'BILL' in key:
-                entry_boxes.pop(key)
-                continue
-            # Store key of first entry box so we can set the mouse to this entry when the loop is finished
-            if first_loop:
-                first_key = key
-                first_loop = False
+        for key in entry_boxes.keys():
+            # # Ignore certain labels
+            # if 'HEADER' in key or 'BILL' in key:
+            #     entry_boxes.pop(key)
+            #     continue
 
             label = labels[key]
             default_text = ctk.StringVar()
@@ -572,8 +569,10 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
             # Bind Enter to 'entry_next' which will move to the next entry box
             entry_box.bind('<Return>', entry_next)
 
-        # Put the mouse in the first entry box
-        entry_boxes[first_key].focus()
+        # Focus the first entry box by focusing the entry that comes after the final entry
+        edit_frame.update()
+        entry_box.focus()
+        entry_box.event_generate('<Return>')
 
         confirm_button.configure(command=lambda d=dbf_table, c=confirm_button, eb=entry_boxes, ef=edit_frame, v=wait_var:
                                             validate_entryboxes(d, c, eb, ef, v))
@@ -629,6 +628,12 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
         for label in row:
             label.bind("<Button-1>", lambda event, id=label.id:
                                         info_frame.search_results_frame.select_result(id))
+            
+    for widget in student_query_frame.winfo_children():
+        try:
+            widget.configure(state='normal')
+        except ValueError:
+            continue
 
     if 'STUDENT' in edit_type:
         # Re-bind Enter to 'search'
@@ -667,7 +672,19 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
 
 # Move to next entry box
 def entry_next(event):
-    event.widget.tk_focusNext().focus()
+    # Get next entry
+    next_entry = event.widget.tk_focusNext()
+    # Focus entry
+    next_entry.focus()
+    # If entry is a money field and contains "0.00" as its value, delete the text to start blank
+    if next_entry.get() == '0.00':
+        next_entry.delete(0,'end')
+    # Otherwise, if the entry is not blank, highlight the current value 
+    # so the user can easily overwrite if desired
+    elif next_entry.get():
+        next_entry.selection_range(0,'end')
+    
+
 
 
 def button_click():
