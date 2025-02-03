@@ -610,24 +610,27 @@ class StudentInfoFrame(ctk.CTkFrame):
             return
         # Get reference to class search results frame
         class_search_frame = self.window.screens['Classes'].search_results_frame
-
-        # Populate class instructor / day of week filters
-        class_info = self.database.classes.loc[self.database.classes['CLASS_ID'] == class_id].squeeze()
-        class_search_frame.filter_dropdowns['INSTRUCTOR'].set(class_info['TEACH'].title())
-        class_search_frame.filter_dropdowns['DAY'].set(calendar.day_name[class_info['DAYOFWEEK']-1])
-        # Activate/disable filters as necessary
-        for filter_type, checkbox in class_search_frame.checkboxes.items():
-            # Activate instructor / day filters (if not already active)
-            if filter_type in ['INSTRUCTOR', 'DAY']:
-                if not checkbox.get():
-                    checkbox.toggle()
-            # Disable gender / level filters (if not already disabled)
-            if filter_type in ['GENDER', 'LEVEL']:
-                if checkbox.get():
-                    checkbox.toggle()
+        # If the class we want to open is not displayed in class search results,
+        # we need to modify the filters before we can select it
+        if class_id not in class_search_frame.df['CLASS_ID'].values:
+            # Populate class instructor / day of week filters
+            class_info = self.database.classes.loc[self.database.classes['CLASS_ID'] == class_id].squeeze()
+            class_search_frame.filter_dropdowns['INSTRUCTOR'].set(class_info['TEACH'].title())
+            class_search_frame.filter_dropdowns['DAY'].set(calendar.day_name[class_info['DAYOFWEEK']-1])
+            # Activate/disable filters as necessary
+            for filter_type, checkbox in class_search_frame.checkboxes.items():
+                # Activate instructor / day filters (if not already active)
+                if filter_type in ['INSTRUCTOR', 'DAY']:
+                    if not checkbox.get():
+                        checkbox.toggle()
+                # Disable gender / level filters (if not already disabled)
+                if filter_type in ['GENDER', 'LEVEL']:
+                    if checkbox.get():
+                        checkbox.toggle()
         
-        # Update search results using filters set above
-        class_search_frame.update_labels()
+            # Update search results using filters set above
+            class_search_frame.update_labels()
+            
         # Select class corresponding to class_id
         class_search_frame.select_result(class_id)
 
