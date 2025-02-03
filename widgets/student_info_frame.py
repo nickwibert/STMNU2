@@ -181,65 +181,81 @@ class StudentInfoFrame(ctk.CTkFrame):
         # Create frame for mother name
         self.mom_frame = ctk.CTkFrame(self.personal_frame)
         self.mom_frame.columnconfigure((0,1), weight=1)
-        self.mom_frame.grid(row=self.personal_frame.grid_size()[1],column=0, sticky='nsew')
-        self.personal_labels['MOM_HEADER'] = ctk.CTkLabel(self.mom_frame, text='Mom:')
+        self.mom_frame.grid(row=self.personal_frame.grid_size()[1],column=0, sticky='ns')
+        self.personal_labels['MOM_HEADER'] = ctk.CTkLabel(self.mom_frame, width=100,
+                                                          text='Mom:', anchor='w')
         self.personal_labels['MOM_HEADER'].grid(row=0, column=0, sticky='nse', padx=4)
-        self.personal_labels['MOMNAME'] = ctk.CTkLabel(self.mom_frame, text='', anchor='w')
-        self.personal_labels['MOMNAME'].grid(row=0, column=1, sticky='nsew')
+        self.personal_labels['MOMNAME'] = ctk.CTkLabel(self.mom_frame, width=200,
+                                                       text='', anchor='e')
+        self.personal_labels['MOMNAME'].grid(row=0, column=1, sticky='nsw')
 
         # Create frame for father name
         self.dad_frame = ctk.CTkFrame(self.personal_frame)
         self.dad_frame.columnconfigure((0,1), weight=1)
-        self.dad_frame.grid(row=self.personal_frame.grid_size()[1],column=0, sticky='nsew')
-        self.personal_labels['DAD_HEADER'] = ctk.CTkLabel(self.dad_frame, text='Dad:')
+        self.dad_frame.grid(row=self.personal_frame.grid_size()[1],column=0, sticky='ns')
+        self.personal_labels['DAD_HEADER'] = ctk.CTkLabel(self.dad_frame, width=100,
+                                                          text='Dad:', anchor='w')
         self.personal_labels['DAD_HEADER'].grid(row=0,column=0, padx=4, sticky='nse')
-        self.personal_labels['DADNAME'] = ctk.CTkLabel(self.dad_frame, text='', anchor='w')
-        self.personal_labels['DADNAME'].grid(row=0, column=1, sticky='nsew')
+        self.personal_labels['DADNAME'] = ctk.CTkLabel(self.dad_frame, width=200,
+                                                       text='', anchor='e')
+        self.personal_labels['DADNAME'].grid(row=0, column=1, sticky='nsw')
 
-        self.personal_labels['PHONE'] = ctk.CTkLabel(self.personal_frame, text='', width=400)
+        self.personal_labels['PHONE'] = ctk.CTkLabel(self.personal_frame, text='')
         self.personal_labels['PHONE'].grid(row=self.personal_frame.grid_size()[1], column=0, sticky='nsew')
 
         # Create frame for birthday
         self.bday_frame = ctk.CTkFrame(self.personal_frame)
         self.bday_frame.columnconfigure((0,1), weight=1)
-        self.bday_frame.grid(row=self.personal_frame.grid_size()[1],column=0, sticky='nsew')
-        self.personal_labels['BIRTHDAY_HEADER'] = ctk.CTkLabel(self.bday_frame, text='Birthday:', anchor='w')
-        self.personal_labels['BIRTHDAY_HEADER'].grid(row=0,column=0,padx=2, sticky='nsew')
-        self.personal_labels['BIRTHDAY'] = ctk.CTkLabel(self.bday_frame, text='', anchor='e')
-        self.personal_labels['BIRTHDAY'].grid(row=0, column=1, sticky='nsew')
+        self.bday_frame.grid(row=self.personal_frame.grid_size()[1],column=0, sticky='ns')
+        self.personal_labels['BIRTHDAY_HEADER'] = ctk.CTkLabel(self.bday_frame, width=150,
+                                                               text='Birthday:', anchor='w')
+        self.personal_labels['BIRTHDAY_HEADER'].grid(row=0,column=0,padx=2, sticky='nse')
+        self.personal_labels['BIRTHDAY'] = ctk.CTkLabel(self.bday_frame, width=125,
+                                                        text='', anchor='e')
+        self.personal_labels['BIRTHDAY'].grid(row=0, column=1, sticky='nsw')
 
         # Create frame for enroll date
         self.enrolldate_frame = ctk.CTkFrame(self.personal_frame)
         self.enrolldate_frame.columnconfigure((0,1), weight=1)
-        self.enrolldate_frame.grid(row=self.personal_frame.grid_size()[1],column=0, sticky='nsew')
-        self.personal_labels['ENROLLDATE_HEADER'] = ctk.CTkLabel(self.enrolldate_frame, text='Enroll Date:', anchor='w')
-        self.personal_labels['ENROLLDATE_HEADER'].grid(row=0,column=0,padx=2, sticky='nsew')
-        self.personal_labels['ENROLLDATE'] = ctk.CTkLabel(self.enrolldate_frame, text='', anchor='e')
-        self.personal_labels['ENROLLDATE'].grid(row=0, column=1, sticky='nsew')
+        self.enrolldate_frame.grid(row=self.personal_frame.grid_size()[1],column=0, sticky='ns')
+        self.personal_labels['ENROLLDATE_HEADER'] = ctk.CTkLabel(self.enrolldate_frame, width=150,
+                                                                 text='Enroll Date:', anchor='w')
+        self.personal_labels['ENROLLDATE_HEADER'].grid(row=0,column=0,padx=2, sticky='nse')
+        self.personal_labels['ENROLLDATE'] = ctk.CTkLabel(self.enrolldate_frame, width=125,
+                                                          text='', anchor='e')
+        self.personal_labels['ENROLLDATE'].grid(row=0, column=1, sticky='nsw')
 
         # Create frame for monthly fee
         self.monthlyfee_frame = ctk.CTkFrame(self.personal_frame)
         self.monthlyfee_frame.columnconfigure((0,1), weight=1)
-        self.monthlyfee_frame.grid(row=self.personal_frame.grid_size()[1],column=0, sticky='nsew')
-        self.personal_labels['MONTHLYFEE_HEADER'] = ctk.CTkLabel(self.monthlyfee_frame, text='Monthly Fee:', anchor='w')
-        self.personal_labels['MONTHLYFEE_HEADER'].grid(row=0,column=0,padx=2, sticky='nsew')
-        self.personal_labels['MONTHLYFEE'] = ctk.CTkLabel(self.monthlyfee_frame, text='', anchor='e')
-        self.personal_labels['MONTHLYFEE'].grid(row=0, column=1, sticky='nsew')
+        self.monthlyfee_frame.grid(row=self.personal_frame.grid_size()[1],column=0, sticky='ns')
+        self.personal_labels['MONTHLYFEE_HEADER'] = ctk.CTkLabel(self.monthlyfee_frame, width=150,
+                                                                 text='Monthly Fee:', anchor='w')
+        self.personal_labels['MONTHLYFEE_HEADER'].grid(row=0,column=0,padx=2, sticky='nse')
+        self.personal_labels['MONTHLYFEE'] = ctk.CTkLabel(self.monthlyfee_frame, width=125,
+                                                          text='', anchor='e')
+        self.personal_labels['MONTHLYFEE'].grid(row=0, column=1, sticky='nsw')
 
         # Create frame for balance
         self.balance_frame = ctk.CTkFrame(self.personal_frame)
         self.balance_frame.columnconfigure((0,1), weight=1)
-        self.balance_frame.grid(row=self.personal_frame.grid_size()[1],column=0, sticky='nsew')
-        self.personal_labels['BALANCE_HEADER'] = ctk.CTkLabel(self.balance_frame, text='Balance:', anchor='w')
-        self.personal_labels['BALANCE_HEADER'].grid(row=0,column=0,padx=2, sticky='nsew')
-        self.personal_labels['BALANCE'] = ctk.CTkLabel(self.balance_frame, text='', anchor='e')
-        self.personal_labels['BALANCE'].grid(row=0, column=1, sticky='nsew')
+        self.balance_frame.grid(row=self.personal_frame.grid_size()[1],column=0, sticky='ns')
+        self.personal_labels['BALANCE_HEADER'] = ctk.CTkLabel(self.balance_frame, width=150,
+                                                              text='Balance:', anchor='w')
+        self.personal_labels['BALANCE_HEADER'].grid(row=0,column=0,padx=2, sticky='nse')
+        self.personal_labels['BALANCE'] = ctk.CTkLabel(self.balance_frame, width=125,
+                                                       text='', anchor='e')
+        self.personal_labels['BALANCE'].grid(row=0, column=1, sticky='nsw')
 
-        for field in self.personal_labels.keys():
+        header_font = ctk.CTkFont('Segoe UI', 20, 'bold')
+        body_font = ctk.CTkFont('Segoe UI', 20)
+        for field, label in self.personal_labels.items():
             if 'HEADER' in field:
-                self.personal_labels[field].is_header = True
+                label.is_header = True
+                label.configure(font=header_font)
             else:
-                self.personal_labels[field].is_header = False
+                label.is_header = False
+                label.configure(font=body_font)
 
         ### Class Frame ###
         self.class_frame.columnconfigure((0,1,2), weight=1)
@@ -299,7 +315,7 @@ class StudentInfoFrame(ctk.CTkFrame):
                                                                  anchor='e', width=50)
             self.payment_labels[prefix[row] + suffix[row][2]] = ctk.CTkLabel(month_frame, text='',
                                                                 font=payment_font,
-                                                                anchor='e', width=75)
+                                                                anchor='e', width=90)
             self.payment_labels[prefix[row] + suffix[row][3]] = ctk.CTkLabel(month_frame, text='',
                                                                 font=payment_font,
                                                                 anchor='e', width=10)
@@ -622,12 +638,23 @@ class StudentInfoFrame(ctk.CTkFrame):
                                         student_labels=student_labels)
         # Wait for the move student dialog window to be closed
         self.wait_window(move_window)
-        # Update the displayed classes
-        self.update_labels(self.id)
+        # Update the displayed student
+        self.update_labels(label.student_id)
 
 
     def create_student(self):
+        # Get the # of student records at the moment
+        student_count = self.database.student.shape[0]
         new_window = NewStudentDialog(window=self.window,
                                       title='New Student',
                                       database=self.database)
-    
+        # Wait for the new student dialog window to be closed
+        self.wait_window(new_window)
+        # If the a student has indeed been added to the database, open the new student's record
+        if self.database.student.shape[0] != student_count:
+            new_student_id = self.database.student['STUDENT_ID'].max()
+            new_student_record = self.database.student.loc[self.database.student['STUDENT_ID']==new_student_id].squeeze()
+            self.search_results_frame.entry_boxes['First Name'].cget('textvariable').set(new_student_record['FNAME'])
+            self.search_results_frame.entry_boxes['Last Name'].cget('textvariable').set(new_student_record['LNAME'])
+            self.search_results_frame.search_button.invoke()
+            self.search_results_frame.select_result(new_student_id)
