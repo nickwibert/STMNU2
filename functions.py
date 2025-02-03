@@ -89,7 +89,6 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=Fals
         guardian.insert(len(guardian.columns),'CREA_TMS',[datetime.now()]*guardian.shape[0])
         guardian.insert(len(guardian.columns),'UPDT_TMS',[datetime.now()]*guardian.shape[0])
 
-
         ### STUDENT ###
         # New table 'student' which is very similar to 'STUD00', just with
         # parent and payment info extracted
@@ -118,11 +117,11 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=Fals
         student = student.merge(STUD00[['STUDENTNO','MOMNAME','DADNAME']].fillna(''), how='left', on='STUDENTNO'
                         ).merge(families[['MOMNAME','DADNAME','LNAME','FAMILY_ID']], how='left',
                                 on=['MOMNAME','DADNAME','LNAME']
-                        ).drop(columns=['MOMNAME','DADNAME'])
+                        ).drop(columns=['MOMNAME','DADNAME']
+                        ).drop_duplicates()
         # Move FAMILY_ID to second column
         family_id = student.pop('FAMILY_ID')
         student.insert(1, 'FAMILY_ID', family_id)
-
 
         ### PAYMENT and BILL ###
         payment = pd.DataFrame()

@@ -407,7 +407,7 @@ class StudentInfoFrame(ctk.CTkFrame):
         # Series containing all info for a single student (capitalize all strings for visual appeal)
         student_info = self.database.student[self.database.student['STUDENT_ID'] == student_id
                                                  ].squeeze(
-                                                  ).astype('string'
+                                                 ).astype('string'
                                                  ).fillna(''
                                                  ).str.title()
         # Get family ID
