@@ -503,6 +503,8 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
     # Place new 'confirm' button over the top of the original 'edit' button
     confirm_button = ctk.CTkButton(info_frame.buttons[f'EDIT_{edit_type}'], text="Confirm Changes")
     confirm_button.place(x=0, y=0, relheight=1.0, relwidth=1.0)
+    # Bind "Control+End" to 'confirm' edit
+    info_frame.window.bind('<Control-End>', lambda event: confirm_button.invoke())
     
     wait_var = ctk.StringVar()
     wait_var.set('validate')
@@ -576,9 +578,6 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
         confirm_button.configure(command=lambda d=dbf_table, c=confirm_button, eb=entry_boxes, ef=edit_frame, v=wait_var:
                                             validate_entryboxes(d, c, eb, ef, v))
         
-        # Change binding for Enter key to 'confirm' edit
-        #info_frame.window.bind('<Return>', lambda event: confirm_button.invoke())
-
         # Wait for variable to be changed to 'confirmed' to continue
         confirm_button.wait_variable(wait_var)
 
@@ -619,6 +618,8 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
 
     # Get rid of confirm edits button
     confirm_button.destroy()
+    # Unbind "Control+End"
+    info_frame.window.unbind('<Control-End>')
 
     # Re-enable the deactivated buttons
     for button in info_frame.buttons.values():
