@@ -98,18 +98,16 @@ class MoveStudentDialog(DialogBox):
 
     def _create_widgets(self):
         self.columnconfigure((0,1), weight=1)
-        self.rowconfigure(0, weight=1)
-
-        student_label = ctk.CTkLabel(self, text='Which student would you like to move?')
-        student_label.grid(row=0, column=0, columnspan=2, sticky='nsew')
+        #self.rowconfigure(0, weight=1)
 
         self.student_dropdown = ctk.CTkOptionMenu(self, values=[label.cget('text') for label in self.student_labels], width=150)
-        self.student_dropdown.grid(row=1, column=0, columnspan=2)
 
-        # If `new_enrollment` == True, we are looking at a specific student's record and attempting to move them into a class.
-        # Therefore, lock the `student_dropdown` on this student's name so it cannot be changed.
-        if self.new_enrollment:
-            self.student_dropdown.configure(state='disabled')
+        # Only create these widgets if we are NOT dealing with a new enrollment
+        if not self.new_enrollment:
+            student_label = ctk.CTkLabel(self, text='Which student would you like to move?')
+            student_label.grid(row=self.grid_size()[1], column=0, columnspan=2, sticky='nsew')
+            # For new enrollments, the student dropdown will be hidden
+            self.student_dropdown.grid(row=self.grid_size()[1], column=0, columnspan=2)
 
         self.time_dropdown = ctk.CTkOptionMenu(self, command=lambda _: self.update_time_dropdown(-1))
         self.day_dropdown = ctk.CTkOptionMenu(self, command=self.update_time_dropdown)
@@ -118,22 +116,22 @@ class MoveStudentDialog(DialogBox):
         self.instructor_dropdown = ctk.CTkOptionMenu(self, values=instructor_names, width=150,
                                                 command=self.update_day_dropdown)
         instructor_label = ctk.CTkLabel(self, text='Select instructor:')
-        instructor_label.grid(row=2, column=0, columnspan=2, sticky='nsew')
-        self.instructor_dropdown.grid(row=3, column=0, columnspan=2)
+        instructor_label.grid(row=self.grid_size()[1], column=0, columnspan=2, sticky='nsew')
+        self.instructor_dropdown.grid(row=self.grid_size()[1], column=0, columnspan=2)
         day_time_label = ctk.CTkLabel(self, wraplength=200,
                                       text="Select day/time from available options for instructor above:")
-        day_time_label.grid(row=4, column=0, columnspan=2, sticky='nsew')
-        self.day_dropdown.grid(row=5, column=0, sticky='nse')
-        self.time_dropdown.grid(row=5, column=1, sticky='nsw')
+        day_time_label.grid(row=self.grid_size()[1], column=0, columnspan=2, sticky='nsew')
+        self.day_dropdown.grid(row=self.grid_size()[1], column=0, sticky='nse')
+        self.time_dropdown.grid(row=self.grid_size()[1]-1, column=1, sticky='nsw')
 
         # Placeholder label for warning
         self.warning_label = ctk.CTkLabel(self, wraplength=200, text_color='red')
-        self.warning_label.grid(row=6, column=0, columnspan=2)
+        self.warning_label.grid(row=self.grid_size()[1], column=0, columnspan=2)
 
         # Button to confirm selected options
         self.confirm_button = ctk.CTkButton(self, text='Confirm Enroll' if self.new_enrollment else 'Confirm Move',
                                             command=self.validate_move_student)
-        self.confirm_button.grid(row=7, column=0, columnspan=2)
+        self.confirm_button.grid(row=self.grid_size()[1], column=0, columnspan=2)
 
         # Populate dropdowns
         self.update_day_dropdown(self.instructor_dropdown.get())
@@ -314,7 +312,7 @@ class NewStudentDialog(DialogBox):
         # If data is validated AND both a first name and last name were provided, create student. Otherwise, do nothing
         elif self.entry_boxes['FNAME'].get() and self.entry_boxes['LNAME'].get():
             self.database.create_student(self.entry_boxes)
-        
+
         # Destroy pop-up window
         self.destroy()
 
