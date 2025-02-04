@@ -198,7 +198,7 @@ class StudentDatabase:
         family_id = self.student.iloc[student_idx]['FAMILY_ID']
 
         # Guardian index
-        guardian_idx = self.guardian.loc[self.guardian['FAMILY_ID'] == family_id].index
+        guardian_info = self.guardian.loc[self.guardian['FAMILY_ID'] == family_id]
 
         new_values = [entry.get() for entry in entry_boxes.values()]
         new_student_info = pd.Series({k:v for (k,v) in zip(entry_boxes.keys(), new_values)})
@@ -228,21 +228,33 @@ class StudentDatabase:
                 # For MOMNAME and DADNAME, we update `guardian`
                 if field in ['MOMNAME','DADNAME']:
                     relation = field[:3]
-                    # Check that guardian exists
-                    if (len(guardian_idx) > 0) and (relation in self.guardian.iloc[guardian_idx]['RELATION'].values):
-                        self.guardian.loc[
-                            ((self.guardian['FAMILY_ID'] == family_id)
-                            & (self.guardian['RELATION'] == relation)), 'FNAME'] = new_student_info[field]
-                    # If guardian doesn't exist, create new record in 'guardian'
+                    is_blank = new_student_info[f'{relation}NAME'] is None or new_student_info[f'{relation}NAME'].strip()==''
+                    guardian_record = guardian_info.loc[guardian_info['RELATION']==relation]
+                    # Check that guardian record exists
+                    if not guardian_record.empty:
+                        # If new value is blank, delete guardian record
+                        if is_blank:
+                            self.guardian = self.guardian.drop(guardian_record.index).reset_index(drop=True)
+                        # Otherwise, modify existing guardian record
+                        else:
+                            self.guardian.loc[
+                                ((self.guardian['FAMILY_ID'] == family_id)
+                                & (self.guardian['RELATION'] == relation)), 'FNAME'] = new_student_info[field]
+                    # If guardian record does not exist...
                     else:
-                        guardian_info = {'GUARDIAN_ID' : self.guardian.shape[0]+1,
-                                        'FAMILY_ID'    : family_id,
-                                        'RELATION'     : relation,
-                                        'FNAME'        : new_student_info[f'{relation}NAME'],
-                                        'LNAME'        : new_student_info['LNAME'],
-                                        'CREA_TMS'     : datetime.now(),
-                                        'UPDT_TMS'     : datetime.now()}
-                        self.guardian.loc[len(self.guardian)] = guardian_info
+                        # ... and new value is not blank...
+                        if not is_blank:
+                            # ...create new guardian record
+                            family_id = family_id if not pd.isna(family_id) else self.guardian['FAMILY_ID'].max(skipna=True)+1
+                            self.student.loc[student_idx,'FAMILY_ID'] = family_id
+                            guardian_record = {'GUARDIAN_ID' : self.guardian.shape[0]+1,
+                                            'FAMILY_ID'    : family_id,
+                                            'RELATION'     : relation,
+                                            'FNAME'        : new_student_info[f'{relation}NAME'],
+                                            'LNAME'        : new_student_info['LNAME'],
+                                            'CREA_TMS'     : datetime.now(),
+                                            'UPDT_TMS'     : datetime.now()}
+                            self.guardian.loc[len(self.guardian)] = guardian_record
                 # Otherwise edit 'student' table
                 else:
                     self.student.loc[student_idx, field] = new_student_info[field] 
