@@ -421,12 +421,13 @@ def validate_entryboxes(dbf_table, confirm_button, entry_boxes, error_frame, wai
         # If any error messages have been displayed, wait for confirm button to be clicked again
         if len(error_labels) > 0:
             confirm_button.wait_variable(wait_var)
+        elif wait_var.get() == 'exit':
+            break
         # If no errors found, the data is valid, so we break out of the while loop to finalize edits
         else:
-            break
+            # Change variable value so program continues
+            wait_var.set('confirmed')
 
-    # Change variable value so program continues
-    wait_var.set('confirmed')
 
 
 # Edit information for a particular frame currently displayed in the window.
