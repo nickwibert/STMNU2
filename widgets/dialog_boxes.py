@@ -287,9 +287,10 @@ class NewStudentDialog(DialogBox):
             entry = ctk.CTkEntry(master=self.personal_frame, placeholder_text=field, font=ctk.CTkFont('Segoe UI',20))
             entry.dtype = 'datetime.date' if field=='BIRTHDAY' else 'string'
             # Bind keys to move to next/previous entry boxes
-            entry.bind('<Return>', lambda event, dir='next':     fn.jump_to_entry(event,dir))
-            entry.bind('<Down>',   lambda event, dir='next':     fn.jump_to_entry(event,dir))
-            entry.bind('<Up>',     lambda event, dir='previous': fn.jump_to_entry(event,dir))
+            entry.bind('<Return>',   lambda event, dir='next':     fn.jump_to_entry(event,dir))
+            entry.bind('<Down>',     lambda event, dir='next':     fn.jump_to_entry(event,dir))
+            entry.bind('<Up>',       lambda event, dir='previous': fn.jump_to_entry(event,dir))
+            entry.bind('<Button-1>', fn.focus_and_clear)
             entry.grid(sticky='nsew', **kwargs)
             self.entry_boxes[field] = entry
 
@@ -307,7 +308,6 @@ class NewStudentDialog(DialogBox):
                                                         fn.validate_entryboxes(d, c, eb, ef, v))
         # Store confirm command to re-assign it to button later
         confirm_command = self.confirm_button.cget('command')
-        print(confirm_command)
         self.confirm_button.grid(row=3, column=0)
         self.bind('<Control-End>', lambda event: self.confirm_button.invoke())
 
@@ -348,9 +348,7 @@ class NewStudentDialog(DialogBox):
             self.wait_var.set('validate')
 
     def _exit_event(self):
-        print('Exit event triggered')
         self.wait_var.set('close')
-        print(self.wait_var.get())
         # Destroy pop-up window
         self.destroy()
 
