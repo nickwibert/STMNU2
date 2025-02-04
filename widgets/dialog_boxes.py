@@ -237,13 +237,14 @@ class NewStudentDialog(DialogBox):
         super().__init__(*args, **kwargs)
         self.database = database
 
-        self.after(150, lambda : self.entry_boxes['FNAME'].focus())
+        self.after(200, lambda : self.entry_boxes['FNAME'].focus())
 
         # Set location of window relative to the main window
-        self.geometry('400x500')
-        window_x, window_y = (self.window.winfo_x(), self.window.winfo_y())
-        x, y = (window_x + ((self.window.winfo_width() - self.winfo_reqwidth())// 2), window_y + ((self.window.winfo_height() - self.winfo_reqheight()) // 2))
-        self.geometry(f'+{round(x)}+{round(y)}')
+        popup_width = 500
+        popup_height = 650
+        x = self.window.winfo_x() + self.window.winfo_width()//2 - popup_width//2
+        y = self.window.winfo_y() + self.window.winfo_height()//2 - popup_height//2
+        self.geometry(f'{popup_width}x{popup_height}+{x}+{y}')
 
         # If window is closed, change the wait variable so the program does not get stuck
         self.protocol("WM_DELETE_WINDOW", lambda : self.wait_var.set('exit'))
@@ -252,7 +253,7 @@ class NewStudentDialog(DialogBox):
     def _create_widgets(self):
         self.columnconfigure(0, weight=1)
 
-        self.grid_propagate(False)
+        #self.grid_propagate(False)
 
         self.header_frame = ctk.CTkFrame(self)
         self.header_frame.grid(row=0,column=0,)
@@ -264,11 +265,12 @@ class NewStudentDialog(DialogBox):
 
         ## Personal Information ##
         self.personal_frame = ctk.CTkFrame(self)
+        self.personal_frame.columnconfigure(0,weight=1)
         self.personal_frame.grid(row=1,column=0,sticky='nsew')
 
         personal_field_position = {
             'FNAME'    : {'row' : 0, 'column' : 0, 'columnspan' : 1},
-            'LNAME'    : {'row' : 0, 'column' : 1, 'columnspan' : 1},
+            'LNAME'    : {'row' : 0, 'column' : 1, 'columnspan' : 2},
             'ADDRESS'  : {'row' : 1, 'column' : 0, 'columnspan' : 3},
             'CITY'     : {'row' : 2, 'column' : 0, 'columnspan' : 1},
             'STATE'    : {'row' : 2, 'column' : 1, 'columnspan' : 1},
@@ -282,7 +284,7 @@ class NewStudentDialog(DialogBox):
 
         self.entry_boxes = {}
         for field, kwargs in personal_field_position.items():
-            entry = ctk.CTkEntry(master=self.personal_frame, placeholder_text=field)
+            entry = ctk.CTkEntry(master=self.personal_frame, placeholder_text=field, font=ctk.CTkFont('Segoe UI',20))
             entry.dtype = 'datetime.date' if field=='BIRTHDAY' else 'string'
             # Bind keys to move to next/previous entry boxes
             entry.bind('<Return>', lambda event, dir='next':     fn.jump_to_entry(event,dir))
@@ -293,6 +295,7 @@ class NewStudentDialog(DialogBox):
 
         # Frame to contain error messages (if needed)
         self.error_frame = ctk.CTkFrame(self, height=100)
+        self.error_frame.columnconfigure(0,weight=1)
         self.error_frame.grid(row=2, column=0, sticky='nsew')
         # Wait variable
         self.wait_var = ctk.StringVar()
@@ -302,20 +305,52 @@ class NewStudentDialog(DialogBox):
         self.confirm_button.configure(command=lambda d=self.database.student_dbf, c=self.confirm_button,
                                                      eb=self.entry_boxes, ef=self.error_frame, v=self.wait_var:
                                                         fn.validate_entryboxes(d, c, eb, ef, v))
+        # Store confirm command to re-assign it to button later
+        confirm_command = self.confirm_button.cget('command')
+        print(confirm_command)
         self.confirm_button.grid(row=3, column=0)
         self.bind('<Control-End>', lambda event: self.confirm_button.invoke())
 
         # Wait for valid input before continuing
         self.confirm_button.wait_variable(self.wait_var)
         
-        # If wait variable is set to 'exit', the user closed the window, so we do nothing
-        # (even if all fields are filled out, we will not create a student if user closes window)
-        if self.wait_var.get() == 'exit':
-            pass
-        # If data is validated AND both a first name and last name were provided, create student. Otherwise, do nothing
-        elif self.entry_boxes['FNAME'].get() and self.entry_boxes['LNAME'].get():
-            self.database.create_student(self.entry_boxes)
+        while self.wait_var.get() != 'close':
+            if self.wait_var.get() == 'exit':
+                self._wait_event()
+                ctk.CTkLabel(self.error_frame, width=100,
+                             text='Exit without creating student?',
+                             text_color='red').grid(row=0,column=0)
+                ctk.CTkButton(self.error_frame, text='Yes', command=self._exit_event).grid(row=1,column=0)
+                ctk.CTkButton(self.error_frame, text='No', command=self._wait_event).grid(row=2,column=0)
+                self.confirm_button.configure(state='disabled')
+            # If data is validated but missing a name, tell user
+            elif not self.entry_boxes['FNAME'].get() or not self.entry_boxes['LNAME'].get():
+                ctk.CTkLabel(self.error_frame, width=100, text='You must enter a first and last name to create a student.').grid(row=0,column=0)
+                ctk.CTkButton(self.error_frame, text='OK', command=self._wait_event).grid(row=1,column=0)
+                self.confirm_button.configure(state='disabled')
+            else:
+            # If we get here, the data entry has finally been validated and confirmed, so we create the student
+                self.database.create_student(self.entry_boxes)
+                break
 
+            self.confirm_button.configure(command=confirm_command)
+            self.confirm_button.wait_variable(self.wait_var)
+
+
+        self._exit_event()
+            
+    def _wait_event(self):
+        for widget in self.error_frame.winfo_children():
+            widget.destroy()
+
+        self.confirm_button.configure(state='normal')
+        if self.wait_var.get() != 'validate':
+            self.wait_var.set('validate')
+
+    def _exit_event(self):
+        print('Exit event triggered')
+        self.wait_var.set('close')
+        print(self.wait_var.get())
         # Destroy pop-up window
         self.destroy()
 
