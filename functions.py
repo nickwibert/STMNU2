@@ -211,19 +211,39 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=Fals
 
         ### WAITLIST ###
         # Extract waitlist 
-        waitlist = clsbymon[['CLASS_ID'] + [col for i in range(1, 5) for col in (f'WAIT{i}', f'W{i}PHONE')]]
-        waits = []
-        # In 'clsbymon' there are 4 placeholder columns for waitlist.
-        # For each class, iterate through every waitlist column
-        # and extract their individual info
-        for i in range(1,5):
-            waits.append(waitlist[~pd.isna(waitlist[f'WAIT{i}'])][['CLASS_ID', f'WAIT{i}', f'W{i}PHONE']
-                                                                ].rename(columns={f'WAIT{i}':'NAME',
-                                                                                  f'W{i}PHONE' : 'PHONE'}))
-        # Create new table 'wait' which stores info for those on waitlist.
-        # Each row simply contains a CLASS_ID, Name, and Phone Number
-        wait = pd.concat(waits).sort_values(by='CLASS_ID')
-        wait.insert(0, 'WAIT_ID', list(range(1, wait.shape[0]+1)))
+        columns = ['CLASS_ID'] + [col for i in range(1, 5) for col in (f'WAIT{i}', f'W{i}PHONE')]
+        wait_df = clsbymon[columns]
+
+        # Step 1: Reshape the DataFrame using melt
+        df_long = wait_df.melt(id_vars=['CLASS_ID'], var_name='variable', value_name='value')
+
+        # Add ranking column to ensure rows are sorted properly within each class
+        col_name_to_rank = {**{f'WAIT{i}'   : (2*(i-1)+1) for i in range(1,5)},
+                            **{f'W{i}PHONE' : (2*i)       for i in range(1,5)}}
+        df_long['COL_RANK'] = df_long['variable'].map(col_name_to_rank)
+        df_long = df_long.sort_values(by=['CLASS_ID', 'COL_RANK'])
+
+        # Add column to remember which waitlist each row corresponds to
+        # (this is necessary for compatibility with DBF files)
+        df_long['WAIT_NO'] = df_long['variable'].str.extract('(\\d+)')
+
+        # Step 2: Extract TYPE from the column names
+        df_long['TYPE'] = np.where(df_long['variable'].str.contains('WAIT'), 'NAME', 'PHONE')
+
+        # Step 3: Group data by CLASS_ID and column type for alignment
+        df_long['row'] = df_long.groupby(['CLASS_ID','TYPE']).cumcount()
+
+        # Step 4: Pivot the table to align DATE, NAME, and PHONE
+        df_pivot = df_long.pivot(index=['CLASS_ID', 'WAIT_NO', 'row'], columns='TYPE', values='value')
+        df_pivot.columns.name = None
+        df_pivot = df_pivot.reset_index()
+
+        # Step 5: Drop the helper index, reorder columns, and create 'TRIAL_ID'
+        wait = df_pivot[['CLASS_ID', 'WAIT_NO', 'NAME', 'PHONE']]
+
+        # Finally, keep only the rows which have some data
+        wait = wait.dropna(how='all', subset=['NAME','PHONE']).reset_index(drop=True)
+        wait.insert(0, 'WAIT_ID', wait.index + 1)
         # Timestamp columns (placeholder)
         wait.insert(len(wait.columns),'CREA_TMS',[datetime.now()]*wait.shape[0])
         wait.insert(len(wait.columns),'UPDT_TMS',[datetime.now()]*wait.shape[0])
@@ -635,7 +655,7 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
             if 'STUDENT' in edit_type:
                 info_frame.database.update_student_info(student_id=info_frame.id, entry_boxes=entry_boxes, edit_type=edit_type, year=year)
             else:
-                info_frame.database.update_class_info(class_id=info_frame.id, entry_boxes=entry_boxes)
+                info_frame.database.update_class_info(class_id=info_frame.id, entry_boxes=entry_boxes, edit_type=edit_type)
 
             # Update labels with new data (where necessary) and destroy entry boxes
             for field in entry_boxes.keys():

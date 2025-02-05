@@ -1,5 +1,6 @@
 import os
 import shutil
+import re
 import pandas as pd
 import functions as fn
 import dbf
@@ -218,9 +219,6 @@ class StudentDatabase:
         # Update payments
         if 'PAYMENT' in edit_type:
             self.update_payment_info(student_id, new_student_info, year)
-        # Update student notes
-        elif 'NOTE' in edit_type:
-            self.update_note_info(student_id, new_student_info)
         # Otherwise, update student and guardian tables
         else:
             # Loop through fields
@@ -453,15 +451,9 @@ class StudentDatabase:
                     record[col] = note_txt[:max_length].strip()
                     # Delete first `max_length` characters and continue
                     note_txt = note_txt[max_length:].strip()
-                
+                        
 
-
-        
-
-    def update_class_info(self, class_id, entry_boxes):
-        # Get dataframe index associated with 'class_id'
-        class_idx = self.classes[self.classes['CLASS_ID'] == class_id].index[0]
-
+    def update_class_info(self, class_id, entry_boxes, edit_type):
         new_values = [entry.get() for entry in entry_boxes.values()]
         new_info = pd.Series({k:v for (k,v) in zip(entry_boxes.keys(), new_values)})
         for field in entry_boxes.keys():
@@ -475,9 +467,13 @@ class StudentDatabase:
                 new_info[field] = new_info[field].upper()
 
 
-        ## Step 1: Update student info in the Pandas dataframe
-        for field in entry_boxes.keys():
-            self.classes.loc[class_idx, field] = new_info[field]
+        ## Step 1: Update student info in the Pandas dataframes
+        if 'WAIT' in edit_type:
+            self.update_wait_info(class_id, new_info)
+        elif 'TRIAL' in edit_type:
+            self.update_trial_info(class_id, new_info)
+
+
 
         ## Step 2: Update student info in original database (DBF file)
         with self.classes_dbf:
@@ -500,6 +496,68 @@ class StudentDatabase:
                     # update that field in the dbf file (if the field is unchanged, ignore)
                     if record[field] != new_info[field]:
                         record[field] = new_info[field]
+
+
+    def update_wait_info(self, class_id, new_info):
+        for field in [col_name for col_name in new_info.index if 'WAIT' in col_name]:
+            # Extract wait number from field name
+            wait_no = int(field[-1])
+            # Get existing record for this waitlist entry (if exists)
+            wait_record = self.wait.loc[((self.wait['CLASS_ID']==class_id)
+                                        & (self.wait['WAIT_NO']==wait_no))]
+
+            # If waitlist entry doesn't exist...
+            if wait_record.empty:
+                # If both name and phone fields are blank, do nothing
+                if ((new_info[f'WAIT{wait_no}'] is None or len(new_info[f'WAIT{wait_no}'])==0)
+                    and (new_info[f'W{wait_no}PHONE'] is None or len(new_info[f'W{wait_no}PHONE'])==0)):
+                    continue
+                else:
+                    self.wait.loc[len(self.wait)] = {'WAIT_ID'  : self.wait.shape[0]+1,
+                                                     'CLASS_ID' : class_id,
+                                                     'WAIT_NO'  : wait_no,
+                                                     'NAME'     : new_info[f'WAIT{wait_no}'],
+                                                     'PHONE'    : new_info[f'W{wait_no}PHONE'],
+                                                     'CREA_TMS' : datetime.now(),
+                                                     'UPDT_TMS' : datetime.now()}
+            # If record already exists, modify
+            else:
+                self.wait.loc[wait_record.index, 'NAME'] = new_info[f'WAIT{wait_no}']
+                self.wait.loc[wait_record.index, 'PHONE'] = new_info[f'W{wait_no}PHONE']
+                self.wait.loc[wait_record.index, 'UPDT_TMS'] = datetime.now()
+
+
+    def update_trial_info(self, class_id, new_info):
+        for field in [col_name for col_name in new_info.index if 'TRIAL' in col_name]:
+            # Extract wait number from field name
+            trial_no = int(field[-1])
+            # Get existing record for this trial entry (if exists)
+            trial_record = self.trial.loc[((self.trial['CLASS_ID']==class_id)
+                                         & (self.trial['TRIAL_NO']==trial_no))]
+
+            # If waitlist entry doesn't exist...
+            if trial_record.empty:
+                # If all fields are blank, do nothing
+                if ((new_info[f'TRIAL{trial_no}'] is None or len(new_info[f'TRIAL{trial_no}'])==0)
+                    and (new_info[f'T{trial_no}PHONE'] is None or len(new_info[f'T{trial_no}PHONE'])==0)
+                    and (new_info[f'T{trial_no}DATE'] is None or len(new_info[f'T{trial_no}DATE'])==0)):
+                    continue
+                else:
+                    self.trial.loc[len(self.trial)] = {'TRIAL_ID'  : self.trial.shape[0]+1,
+                                                     'CLASS_ID' : class_id,
+                                                     'TRIAL_NO' : trial_no,
+                                                     'NAME'     : new_info[f'TRIAL{trial_no}'],
+                                                     'PHONE'    : new_info[f'T{trial_no}PHONE'],
+                                                     'DATE'     : new_info[f'T{trial_no}DATE'],
+                                                     'CREA_TMS' : datetime.now(),
+                                                     'UPDT_TMS' : datetime.now()}
+            # If record already exists, modify
+            else:
+                self.trial.loc[trial_record.index, 'NAME'] = new_info[f'TRIAL{trial_no}']
+                self.trial.loc[trial_record.index, 'PHONE'] = new_info[f'T{trial_no}PHONE']
+                self.trial.loc[trial_record.index, 'DATE'] = new_info[f'T{trial_no}DATE']
+                self.trial.loc[trial_record.index, 'UPDT_TMS'] = datetime.now()
+
 
 
     # The dataframe is sorted chronologically by default. This function will sort the dataframe alphabetically,

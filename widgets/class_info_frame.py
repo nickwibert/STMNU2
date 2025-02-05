@@ -358,13 +358,13 @@ class ClassInfoFrame(ctk.CTkFrame):
         ### Waitlist Frame ###
         for row in range(MAX_WAIT_SIZE):
             wait_name_label = self.wait_labels[f'WAIT{row+1}']
-            wait_name_txt = ''
+            wait_name_txt=''
             wait_phone_label = self.wait_labels[f'W{row+1}PHONE']
-            wait_phone_txt = ''
-            # If student exists for this row, add their name and phone
-            if row < wait_info.shape[0]:
-                wait_name_txt += wait_info.iloc[row]['NAME']
-                wait_phone_txt += str(wait_info.loc[row,'PHONE'])
+            wait_phone_txt=''
+            wait_record = wait_info.loc[wait_info['WAIT_NO']==row+1].squeeze()
+            if not wait_record.empty:
+                wait_name_txt += wait_record['NAME']
+                wait_phone_txt += str(wait_record['PHONE'])
 
             # Update wait labels
             wait_name_label.configure(text=wait_name_txt)
@@ -379,12 +379,12 @@ class ClassInfoFrame(ctk.CTkFrame):
             trial_phone_txt = ''
             trial_date_label = self.trial_labels[f'T{row+1}DATE']
             trial_date_txt = ''
-            trial_row = trial_info.loc[trial_info['TRIAL_NO'] == row+1].squeeze()
+            trial_record = trial_info.loc[trial_info['TRIAL_NO'] == row+1].squeeze()
             # If trial exists for this row, add their name, phone, date
-            if not trial_row.empty:
-                trial_name_txt += trial_row['NAME']
-                trial_phone_txt += str(trial_row['PHONE'])
-                trial_date_txt += str(trial_row['DATE'])
+            if not trial_record.empty:
+                trial_name_txt += trial_record['NAME']
+                trial_phone_txt += str(trial_record['PHONE'])
+                trial_date_txt += str(trial_record['DATE'])
 
             # Update wait labels
             trial_name_label.configure(text=trial_name_txt)
