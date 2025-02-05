@@ -126,7 +126,7 @@ class STMNU(ctk.CTk):
         self.set_binds(new_screen)
 
     def set_binds(self, new_screen):
-        keys = ['<Return>', '<F1>', '<F2>', '<F3>', '<F4>', '<Prior>', '<Next>', '<Up>', '<Down>']
+        keys = ['<Return>', '<F1>', '<F2>', '<F3>', '<F4>', '<Prior>', '<Next>', '<Up>', '<Down>', '<Control-Home>']
         for key in keys:
             self.unbind(key)
 
@@ -181,15 +181,15 @@ class STMNU(ctk.CTk):
 
     # Function called when the user closes the main program window
     def exit_program(self):
-        # Ask user if they want to backup files
-        wait_var = ctk.StringVar()
+        # # Ask user if they want to backup files
+        # wait_var = ctk.StringVar()
 
-        backup_dialog = BackupDialog(window=self, title='Backup Data?', wait_var=wait_var)
-        self.wait_variable(wait_var)
-        backup_dialog.update()
-        backup = True if wait_var.get() == 'backup' else False
+        # backup_dialog = BackupDialog(window=self, title='Backup Data?', wait_var=wait_var)
+        # self.wait_variable(wait_var)
+        # backup_dialog.update()
+        # backup = True if wait_var.get() == 'backup' else False
         # Export database tables to csv files (in new RDB format)
-        self.database.save_data(backup)
+        self.database.save_data(backup=False)
 
         # Destroy window/program
         self.destroy()
