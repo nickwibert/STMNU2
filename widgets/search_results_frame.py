@@ -159,12 +159,8 @@ class SearchResultsFrame(ctk.CTkFrame):
                 checkbox = ctk.CTkCheckBox(filter_frame,
                                            text=f'{filter_type.title()}:',
                                            command = lambda f=filter_dropdown: self.toggle_filter(f))
-                # Disable instructor filter at outset
-                if filter_type == 'INSTRUCTOR':
-                    filter_dropdown.configure(state='disabled')
-                # Otherwise leave filter active and ensure checkbox is turned on
-                else:
-                    checkbox.select()
+                # Disable filters at outset
+                filter_dropdown.configure(state='disabled')
 
                 # Grid checkbox + option menu
                 checkbox.grid(row=0, column=0)
@@ -177,12 +173,12 @@ class SearchResultsFrame(ctk.CTkFrame):
 
             # Set default starting filters:
             # Gender = Girl
-            self.filter_dropdowns['GENDER'].set("Girl's")
-            # Day = Current Weekday (unless today is Sunday, then set to Monday)
-            current_day = datetime.now().weekday()
-            self.filter_dropdowns['DAY'].set(calendar.day_name[current_day] if current_day < 6 else "Monday")
-            # Level = Beginner
-            self.filter_dropdowns['LEVEL'].set("Beginner")
+            # self.filter_dropdowns['GENDER'].set("Girl's")
+            # # Day = Current Weekday (unless today is Sunday, then set to Monday)
+            # current_day = datetime.now().weekday()
+            # self.filter_dropdowns['DAY'].set(calendar.day_name[current_day] if current_day < 6 else "Monday")
+            # # Level = Beginner
+            # self.filter_dropdowns['LEVEL'].set("Beginner")
 
     def create_labels(self):
         # 2D list to store each row in search results
