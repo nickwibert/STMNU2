@@ -366,7 +366,9 @@ class StudentDatabase:
                         self.bill = self.bill.drop(bill_record.index).reset_index(drop=True)
 
                     # If payment record has been created for CURRENT MONTH, place student in class roll
+                    # and make sure they are marked as active
                     if month_num == CURRENT_SESSION.month:
+                        self.student.loc[self.student['STUDENT_ID']==student_id,'ACTIVE'] = True
                         for class_id in self.class_student.loc[self.class_student['STUDENT_ID']==student_id,'CLASS_ID'].values:
                             self.enroll_student(student_id, class_id)
 
