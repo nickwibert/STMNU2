@@ -196,13 +196,13 @@ class ClassInfoFrame(ctk.CTkFrame):
             row_frame.columnconfigure((0,1), weight=1)
             row_frame.grid(row=self.trial_frame.grid_size()[1], column=0, padx=10, sticky='nsew')
             # Trial name
-            name_label = ctk.CTkLabel(row_frame, width=250, text=f'{row}. ', anchor='w')
+            name_label = ctk.CTkLabel(row_frame, width=250, wraplength=250, text=f'{row}. ', anchor='w')
             name_label.grid(row=0, column=0, pady=(5,0), sticky='nsew')
             # Trial phone number
-            phone_label = ctk.CTkLabel(row_frame, width=100, text='', anchor='w')
+            phone_label = ctk.CTkLabel(row_frame, width=100, wraplength=100, text='', anchor='w')
             phone_label.grid(row=0, column=1, sticky='nsew')
             # Trial date
-            date_label = ctk.CTkLabel(row_frame, width=100, text='', anchor='w')
+            date_label = ctk.CTkLabel(row_frame, width=100, wraplength=100, text='', anchor='w')
             date_label.grid(row=0, column=2, sticky='nsew')
             # Store labels using field names from DBF
             self.trial_labels[f'TRIAL{row}']  = name_label
