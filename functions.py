@@ -418,7 +418,8 @@ def validate_entryboxes(dbf_table, confirm_button, entry_boxes, error_frame, wai
         # Check if the user entry in each box is valid according to data type and DBF field restrictions
         for field, entry in entry_boxes.items():
             field_info = dbf_table.field_info(field)
-            proposed_value = entry.get()
+            # Get user-entered value, ignoring whitespace at start and end
+            proposed_value = entry.get().strip()
             dtype = entry.dtype
             # Special handling for payments: if value is blank, replace with '0.00'
             if dtype == 'float' and len(str(proposed_value)) == 0:

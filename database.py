@@ -201,7 +201,7 @@ class StudentDatabase:
         # Guardian index
         guardian_info = self.guardian.loc[self.guardian['FAMILY_ID'] == family_id]
 
-        new_values = [entry.get() for entry in entry_boxes.values()]
+        new_values = [entry.get().strip() for entry in entry_boxes.values()]
         new_student_info = pd.Series({k:v for (k,v) in zip(entry_boxes.keys(), new_values)})
         for field in new_student_info.index:
             if len(new_student_info[field]) == 0:
@@ -456,7 +456,7 @@ class StudentDatabase:
                         
 
     def update_class_info(self, class_id, entry_boxes, edit_type):
-        new_values = [entry.get() for entry in entry_boxes.values()]
+        new_values = [entry.get().strip() for entry in entry_boxes.values()]
         new_info = pd.Series({k:v for (k,v) in zip(entry_boxes.keys(), new_values)})
         for field in entry_boxes.keys():
             if len(new_info[field]) == 0:
@@ -492,7 +492,7 @@ class StudentDatabase:
                     field_info = self.classes_dbf.field_info(field)
                     # Convert date fields to proper format
                     if str(field_info.py_type) == "<class 'datetime.date'>":
-                        if new_info[field] is not None:
+                        if new_info[field] is not None and len(new_info[field])>0:
                             new_info[field] = datetime.strptime(new_info[field], "%m/%d/%Y")
                     # Special case: there may be fields which have no restrictions in the new program,
                     # but still must be truncated to fit in the old program.
