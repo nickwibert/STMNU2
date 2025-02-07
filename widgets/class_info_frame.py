@@ -1,4 +1,5 @@
 import customtkinter as ctk
+import pandas as pd
 from tktooltip import ToolTip
 import calendar
 from datetime import datetime
@@ -23,6 +24,8 @@ class ClassInfoFrame(ctk.CTkFrame):
         self.id = None
         # Dictionary for buttons
         self.buttons = {}
+        # Dictionary for switches
+        self.switches = {}
         # List of tooltips (messages that display on hover)
         self.tooltips = []
 
@@ -37,6 +40,15 @@ class ClassInfoFrame(ctk.CTkFrame):
         self.wait_frame = ctk.CTkFrame(self, border_width=5, border_color='red4')
         self.trial_frame = ctk.CTkFrame(self, border_width=5, border_color='darkolivegreen')
         self.note_frame = ctk.CTkFrame(self, border_width=5, border_color='goldenrod')
+
+        ### SWITCHES ###
+        age_switch = ctk.CTkSwitch(self.roll_frame,
+                                    text='Show/Hide Age',
+                                    command=lambda : self.update_labels(self.id),
+                                    variable=ctk.StringVar(value='hide'),
+                                    onvalue='show',offvalue='hide')
+        self.switches['AGE'] = age_switch
+
         # Create labels for frames created above
         self.create_labels()
         # Blink text
@@ -63,7 +75,9 @@ class ClassInfoFrame(ctk.CTkFrame):
         self.buttons['MOVE_STUDENT'] = ctk.CTkButton(self.roll_frame,
                                                      text='Move Student',
                                                      command = self.create_move_student_dialog)
-        self.buttons['MOVE_STUDENT'].grid(row=MAX_CLASS_SIZE+1, column=0, columnspan=2, pady=(0,5))
+        self.buttons['MOVE_STUDENT'].grid(row=MAX_CLASS_SIZE+1, column=0, padx=(5,0), pady=(0,5))
+        age_switch.grid(row=MAX_CLASS_SIZE+1, column=1, columnspan=2, pady=(0,5), padx=(0,5))
+
         # Button to edit waitlist
         self.buttons['EDIT_CLASS_WAIT'] = ctk.CTkButton(self.wait_frame,
                                                   text="Edit Waitlist",
@@ -82,7 +96,6 @@ class ClassInfoFrame(ctk.CTkFrame):
                                                   command = lambda frame=self.note_frame, labels=self.note_textbox, type='CLASS_NOTE':
                                                                fn.edit_info(frame, labels, type))
         self.buttons['EDIT_CLASS_NOTE'].grid(row=self.note_frame.grid_size()[1], column=0, pady=10)
-
 
 
     def create_labels(self):
@@ -113,9 +126,10 @@ class ClassInfoFrame(ctk.CTkFrame):
         self.roll_frame.columnconfigure((0,1),weight=1)
         self.roll_labels = {}
         self.bill_labels = {}
+        self.age_labels = {}
         roll_title = ctk.CTkLabel(self.roll_frame, fg_color=self.roll_frame.cget('border_color'),
                                    text='Class Roll', font=title_font, text_color='white')
-        roll_title.grid(row=self.roll_frame.grid_size()[1], column=0, columnspan=2, sticky='nsew')
+        roll_title.grid(row=self.roll_frame.grid_size()[1], column=0, columnspan=3, sticky='nsew')
         # Create placeholder labels based on global variable for max class size
         for row in range(1,MAX_CLASS_SIZE+1):
             # Student name
@@ -130,13 +144,21 @@ class ClassInfoFrame(ctk.CTkFrame):
             # Store labels using field names from DBF
             self.roll_labels[f'STUDENT{row}'] = name_label
 
+            # Label that will contain the student's age
+            age_label = ctk.CTkLabel(self.roll_frame, width=50, justify='right',
+                                      font=ctk.CTkFont('Arial',16,'normal'),
+                                      bg_color='gray70' if row % 2 == 0 else 'gray80',
+                                      cursor='hand2')
+            age_label.grid(row=name_label.grid_info().get('row'), column=1, sticky='nsew', ipadx=5)
+            self.age_labels[f'STUDENT{row}'] = age_label
+
             # Label that will contain $ symbols to indicate # of payments owed
             bill_label = ctk.CTkLabel(self.roll_frame, width=100, anchor='w',
                                       font=ctk.CTkFont('Arial',18,'bold'),
                                       text_color='red',
                                       bg_color='gray70' if row % 2 == 0 else 'gray80',
                                       cursor='hand2')
-            bill_label.grid(row=self.roll_frame.grid_size()[1]-1, column=1, sticky='nsew', padx=(0,5))
+            bill_label.grid(row=name_label.grid_info().get('row'), column=2, sticky='nsew', padx=(0,5))
             self.bill_labels[f'STUDENT{row}'] = bill_label
 
         
@@ -224,6 +246,12 @@ class ClassInfoFrame(ctk.CTkFrame):
             label.configure(text='')
             label.lower()
 
+        for label in self.age_labels.values():
+            for binding in ['<Button-1>', '<Enter>', '<Leave>']:
+                label.unbind(binding)
+            label.configure(text='')
+            label.lower()
+
         for tooltip in self.tooltips:
             tooltip.destroy()
 
@@ -303,16 +331,19 @@ class ClassInfoFrame(ctk.CTkFrame):
         # Populate roll labels
         for row in range(1,MAX_CLASS_SIZE+1):
             label = self.roll_labels[f'STUDENT{row}']
+            age_label = self.age_labels[f'STUDENT{row}']
             bill_label = self.bill_labels[f'STUDENT{row}']
             # Update roll label if we have not reached potential_class_size or max_class_size
             # (whichever is larger)
             if row <= max(potential_class_size, max_class_size):
                 # Lift row back into view
                 label.lift()
+                age_label.lift()
                 bill_label.lift()
                 # Create variable to store student name (if exists)
                 roll_txt = f"{row}. "
                 bill_txt = ''
+                age_txt = ''
                 # If student exists for this row, add their name
                 if row <= potential_class_size:
                     # Student name
@@ -322,6 +353,17 @@ class ClassInfoFrame(ctk.CTkFrame):
                     # If this is a 'potential' student, their name should be blinking
                     # (all rows up to `actual_class_size` are students who are paid for current month)
                     label.blink = row > actual_class_size
+
+                    # Determine age of student and add to label
+                    if self.switches['AGE'].get() == 'show':
+                        birthday = roll_info.loc[row-1,'BIRTHDAY']
+                        if pd.isna(birthday) or len(birthday)==0:
+                            age_txt += 'N/A'
+                        else:
+                            today = datetime.today()
+                            birthday = datetime.strptime(birthday, "%m/%d/%Y")
+                            age_txt += str(today.year - birthday.year - ((today.month, today.day) < (birthday.month, birthday.day)))
+                            age_txt += ' yrs'
 
                     # Add dollar signs ($) after the student's bill label if they owe for previous months
                     # (i.e. if a student has 3 asterisks under 'BILL', 3 dollar signs should display here)
@@ -340,7 +382,7 @@ class ClassInfoFrame(ctk.CTkFrame):
                         self.tooltips.append(ToolTip(bill_label, msg=tooltip_txt, font=ctk.CTkFont('Segoe UI',16)))
 
                     # Bind functions to both label and bill label
-                    for lab in [label, bill_label]:
+                    for lab in [label, bill_label, age_label]:
                         # Highlight label when mouse hovers over it
                         lab.bind("<Enter>",    lambda event, c=lab.master, r=lab.grid_info().get('row'):
                                                         fn.highlight_label(c,r))
@@ -353,6 +395,7 @@ class ClassInfoFrame(ctk.CTkFrame):
 
                 # Update text in label
                 label.configure(text=roll_txt)
+                age_label.configure(text=age_txt)
                 bill_label.configure(text=bill_txt)
 
         ### Waitlist Frame ###
