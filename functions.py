@@ -256,52 +256,58 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=Fals
 
 
         ### TRIAL ###
-        columns = ['CLASS_ID'] + [col for i in range(1, 9) for col in (f'TRIAL{i}', f'T{i}PHONE', f'T{i}DATE')]
-        trial_df = clsbymon[columns]
+        trial = pd.DataFrame()
+        if 'trial' in do_not_load:
+            trial = pd.read_csv(os.path.join(save_to_path,'trial.csv'))
+        else:
+            columns = ['CLASS_ID'] + [col for i in range(1, 9) for col in (f'TRIAL{i}', f'T{i}PHONE', f'T{i}DATE')]
+            trial_df = clsbymon[columns]
 
-        # Step 1: Reshape the DataFrame using melt
-        df_long = trial_df.melt(id_vars=['CLASS_ID'], var_name='variable', value_name='value')
+            # Step 1: Reshape the DataFrame using melt
+            df_long = trial_df.melt(id_vars=['CLASS_ID'], var_name='variable', value_name='value')
 
-        # Add ranking column to ensure rows are sorted properly within each class
-        col_name_to_rank = {**{f'TRIAL{i}'  : (i + (2*i - 2)) for i in range(1,9)},
-                            **{f'T{i}PHONE' : (i + (2*i - 1)) for i in range(1,9)},
-                            **{f'T{i}DATE'  : (i + (2*i - 0)) for i in range(1,9)}}
-        df_long['COL_RANK'] = df_long['variable'].map(col_name_to_rank)
-        df_long = df_long.sort_values(by=['CLASS_ID', 'COL_RANK'])
+            # Add ranking column to ensure rows are sorted properly within each class
+            col_name_to_rank = {**{f'TRIAL{i}'  : (i + (2*i - 2)) for i in range(1,9)},
+                                **{f'T{i}PHONE' : (i + (2*i - 1)) for i in range(1,9)},
+                                **{f'T{i}DATE'  : (i + (2*i - 0)) for i in range(1,9)}}
+            df_long['COL_RANK'] = df_long['variable'].map(col_name_to_rank)
+            df_long = df_long.sort_values(by=['CLASS_ID', 'COL_RANK'])
 
-        # Add column to remember which trial each row corresponds to
-        # (this is necessary for compatibility with DBF files, where the trials
-        # do not necessarily need to be edited in order, i.e. it is common for trials 7/8
-        # to have data while all the other trials are blank, and we need to preserve this ordering)
-        df_long['TRIAL_NO'] = df_long['variable'].str.extract('(\\d+)')
+            # Add column to remember which trial each row corresponds to
+            # (this is necessary for compatibility with DBF files, where the trials
+            # do not necessarily need to be edited in order, i.e. it is common for trials 7/8
+            # to have data while all the other trials are blank, and we need to preserve this ordering)
+            df_long['TRIAL_NO'] = df_long['variable'].str.extract('(\\d+)')
 
-        # Step 2: Extract TYPE from the column names
-        df_long['TYPE'] = np.where(df_long['variable'].str.contains('TRIAL'), 'NAME', np.where(
-                                df_long['variable'].str.contains('PHONE'), 'PHONE', 'DATE'
-                                ))
+            # Step 2: Extract TYPE from the column names
+            df_long['TYPE'] = np.where(df_long['variable'].str.contains('TRIAL'), 'NAME', np.where(
+                                    df_long['variable'].str.contains('PHONE'), 'PHONE', 'DATE'
+                                    ))
 
-        # Step 3: Group data by CLASS_ID and column type for alignment
-        df_long['row'] = df_long.groupby(['CLASS_ID','TYPE']).cumcount()
+            # Step 3: Group data by CLASS_ID and column type for alignment
+            df_long['row'] = df_long.groupby(['CLASS_ID','TYPE']).cumcount()
 
-        # Step 4: Pivot the table to align DATE, NAME, and PHONE
-        df_pivot = df_long.pivot(index=['CLASS_ID', 'TRIAL_NO', 'row'], columns='TYPE', values='value')
-        df_pivot.columns.name = None
-        df_pivot = df_pivot.reset_index()
+            # Step 4: Pivot the table to align DATE, NAME, and PHONE
+            df_pivot = df_long.pivot(index=['CLASS_ID', 'TRIAL_NO', 'row'], columns='TYPE', values='value')
+            df_pivot.columns.name = None
+            df_pivot = df_pivot.reset_index()
 
-        # Step 5: Drop the helper index, reorder columns, and create 'TRIAL_ID'
-        trial = df_pivot[['CLASS_ID', 'TRIAL_NO', 'NAME', 'PHONE', 'DATE']]
+            # Step 5: Drop the helper index, reorder columns, and create 'TRIAL_ID'
+            trial = df_pivot[['CLASS_ID', 'TRIAL_NO', 'NAME', 'PHONE', 'DATE']]
 
-        # Finally, keep only the rows which have some data
-        trial = trial.dropna(how='all', subset=['NAME','PHONE','DATE']).reset_index(drop=True)
-        trial.insert(0, 'TRIAL_ID', trial.index + 1)
-        # Timestamp columns (placeholder)
-        trial.insert(len(trial.columns),'CREA_TMS',[datetime.now()]*trial.shape[0])
-        trial.insert(len(trial.columns),'UPDT_TMS',[datetime.now()]*trial.shape[0])
+            # Finally, keep only the rows which have some data
+            trial = trial.dropna(how='all', subset=['NAME','PHONE','DATE']).reset_index(drop=True)
+            trial.insert(0, 'TRIAL_ID', trial.index + 1)
+            # Timestamp columns (placeholder)
+            trial.insert(len(trial.columns),'CREA_TMS',[datetime.now()]*trial.shape[0])
+            trial.insert(len(trial.columns),'UPDT_TMS',[datetime.now()]*trial.shape[0])
 
 
         ### NOTES ###
         note = pd.DataFrame()
-        if 'note' not in do_not_load:
+        if 'note' in do_not_load:
+            note = pd.read_csv(os.path.join(save_to_path,'note.csv'))
+        else:
             # Column names for student notes (3 placeholder columns)
             note_cols = [f'NOTE{i}' for i in range(1,4)]
             # Extract student notes, dropping rows where all three note columns are blank
