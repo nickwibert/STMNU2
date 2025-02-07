@@ -115,6 +115,7 @@ class ClassInfoFrame(ctk.CTkFrame):
         for header in ['TEACH', 'CLASSTIME', 'CLASSNAME']:
             # Create label and add to grid
             label = ctk.CTkLabel(self.header_frame, text='', width=300,
+                                 font=title_font,
                                  wraplength=300, anchor='w', justify='left')
             label.grid(row=self.header_frame.grid_size()[1], column=0, sticky='nsew')
             # Store header label
