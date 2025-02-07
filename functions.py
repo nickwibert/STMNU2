@@ -753,21 +753,15 @@ def jump_to_entry(event, direction):
     # Focus entry and select or clear text
     new_entry.master.update()
     new_entry.event_generate('<Button-1>')
+    new_entry.selection_range(0,'end')
 
 def focus_and_clear(event):
     entry_box = event.widget
     # Focus entry
-    entry_box.focus()
+    entry_box.focus_set()
     # If entry is a money field and contains "0.00" as its value, delete the text to start blank
     if entry_box.get() == '0.00':
         entry_box.delete(0,'end')
-    # Otherwise, if the entry is not blank, highlight the current value 
-    # so the user can easily overwrite if desired
-    elif entry_box.get():
-        entry_box.selection_range(0,'end')   
-    
-
-
 
 def button_click():
     print("button clicked")
