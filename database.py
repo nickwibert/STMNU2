@@ -476,7 +476,6 @@ class StudentDatabase:
             self.update_trial_info(class_id, new_info)
 
 
-
         ## Step 2: Update student info in original database (DBF file)
         with self.classes_dbf:
             class_id_idx = self.classes_dbf.create_index(lambda rec: rec.class_id)
@@ -492,7 +491,7 @@ class StudentDatabase:
                     field_info = self.classes_dbf.field_info(field)
                     # Convert date fields to proper format
                     if str(field_info.py_type) == "<class 'datetime.date'>":
-                        if new_info[field] is not None and len(new_info[field])>0:
+                        if new_info[field] is not None and len(new_info[field]) > 0:
                             new_info[field] = datetime.strptime(new_info[field], "%m/%d/%Y")
                     # Special case: there may be fields which have no restrictions in the new program,
                     # but still must be truncated to fit in the old program.

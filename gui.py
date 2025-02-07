@@ -112,15 +112,11 @@ class STMNU(ctk.CTk):
 
     # Change the current view to `new_screen`
     def change_view(self, new_screen):
-        # Lower active screen
-        self.screens[self.active_screen].lower()
-        # Set active_screen to new screen, and lift
+        # Change active screen and lift into view
         self.active_screen = new_screen
         self.screens[self.active_screen].lift()
         # Ensure that the menu button reflects this change
         self.tabs.set(self.active_screen)
-
-        self.main_frame.update_idletasks()
 
         # Update key bindings
         self.set_binds(new_screen)
