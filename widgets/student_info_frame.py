@@ -290,7 +290,7 @@ class StudentInfoFrame(ctk.CTkFrame):
                 row_labels.append(ctk.CTkLabel(self.class_frame, text=class_txt))
                 row_labels[-1].is_header = is_header
                 row_labels[-1].class_id = None
-                row_labels[-1].grid(row=row, column=col, sticky='nsew', padx=5)
+                row_labels[-1].grid(row=row, column=col, sticky='nsew')
             
             self.class_labels.append(row_labels)
 
