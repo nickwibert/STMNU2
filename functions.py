@@ -392,6 +392,9 @@ def validate_entryboxes(dbf_table, confirm_button, entry_boxes, error_frame, wai
     # Initialize empty list for possible error messages
     error_labels = []
 
+    # SPECIAL CASE: Ignore data validation for certain columns
+    cols_to_ignore = [col for i in range(1, 9) for col in (f'TRIAL{i}', f'T{i}PHONE')]
+
     # Leave entry boxes on screen until all fields have been validated
     while wait_var.get() == 'validate':
         # Get rid of any error labels, if they exist
@@ -417,6 +420,9 @@ def validate_entryboxes(dbf_table, confirm_button, entry_boxes, error_frame, wai
                 proposed_value = '0.00'
             
             ## Data Validation ##
+            # SPECIAL CASE: Columns to ignore 
+            if field in cols_to_ignore:
+                continue
             # If length of user entry is beyond max limit in dbf file, display error
             if ((dtype == 'datetime.date' and not fn.validate_date(proposed_value))
                 or (dtype == 'float' and (len(str(proposed_value)) == 0 or float(proposed_value) > 999.99))
