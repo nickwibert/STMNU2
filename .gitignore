@@ -1,0 +1,4 @@
+__pycache__/
+# Ignore changes to CSV files; these don't need to be consistent across machines
+data/dbf_format/
+data/rdb_format/
