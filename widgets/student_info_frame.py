@@ -121,7 +121,7 @@ class StudentInfoFrame(ctk.CTkFrame):
         # Button to edit payment info
         self.buttons['EDIT_NOTE_STUDENT'] = ctk.CTkButton(self.note_frame,
                                          text="Edit Notes",
-                                         command = lambda frame=self.note_frame, labels=self.note_textbox, type='NOTE_STUDENT':
+                                         command = lambda frame=self.note_frame, labels=self.note_textbox, type='STUDENT_NOTE':
                                                       fn.edit_info(frame, labels, type))
         self.buttons['EDIT_NOTE_STUDENT'].grid(row=self.note_frame.grid_size()[1], column=0)
 
