@@ -393,7 +393,7 @@ class StudentDatabase:
         # Get all text from the textbox
         note_txt = note_textbox.get('1.0', 'end-1c')
         # Determine name of ID column we will use
-        id_field = edit_type.split('_')[1] + '_ID'
+        id_field = edit_type.split('_')[0] + '_ID'
         # Pull note record for this ID (if exists)
         note_record = self.note[self.note[id_field] == id]
 
