@@ -5,6 +5,8 @@ from datetime import datetime
 import calendar
 import customtkinter as ctk
 from dbfread import DBF
+import csv
+import sqlite3
 
 import functions as fn
 from widgets.dialog_boxes import PasswordDialog
@@ -45,7 +47,11 @@ def dbf_to_csv(filename, save_to_path='C:\\STMNU2\\data\\dbf_format'):
 #       - STUD00.csv
 #       - STUD99.csv
 #       - clsbymon.csv
-def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=False, write_to_csv=False):
+# The argument `save_as` is looking for either '.csv' or '.db'. If '.csv', the new dataframes will
+# simply be exported as CSV files. If '.db', the dataframes will be saved to a SQLite database.
+def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=False, save_as='.db'):
+    # List of Pandas dataframes. We will add the tables (dataframes) to the list one by one as they are created
+    dataframes = []
     try:
         # If necessary files are not found, throw error
         if not os.path.isfile(data_path + '\\dbf_format\\STUD00.csv'): raise FileNotFoundError('STUD00.csv')
@@ -89,6 +95,7 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=Fals
         guardian.insert(len(guardian.columns),'CREA_TMS',[datetime.now()]*guardian.shape[0])
         guardian.insert(len(guardian.columns),'UPDT_TMS',[datetime.now()]*guardian.shape[0])
 
+
         ### STUDENT ###
         # New table 'student' which is very similar to 'STUD00', just with
         # parent and payment info extracted
@@ -122,6 +129,7 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=Fals
         # Move FAMILY_ID to second column
         family_id = student.pop('FAMILY_ID')
         student.insert(1, 'FAMILY_ID', family_id)
+
 
         ### PAYMENT and BILL ###
         payment = pd.DataFrame()
@@ -164,6 +172,8 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=Fals
         payment = payment.drop(columns='STUDENTNO')
         bill = bill.drop(columns='STUDENTNO')
 
+
+        ### Active column in `STUDENT` needs to be calculated based on payments, or loaded from existing data ###
         if update_active:
             # Determine which students are 'inactive' by gathering all those who have not made
             # a payment in the last MONTHS_SINCE_LAST_PAYMENT months (see globals.py)
@@ -343,18 +353,62 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=Fals
             note.insert(len(note.columns),'CREA_TMS',[datetime.now()]*note.shape[0])
             note.insert(len(note.columns),'UPDT_TMS',[datetime.now()]*note.shape[0])
         
-        # Write to csv files if option chosen
-        if write_to_csv:
-            for df, csv_name in zip([guardian, student, payment, bill, classes, class_student, wait, trial, note],
-                                    ['guardian.csv','student.csv','payment.csv', 'bill.csv', 'classes.csv','class_student.csv','wait.csv','trial.csv','note.csv']):
-                # Override: if table name is in list `do_not_load`, we did not create a new version of that table and thus do not save anything
-                if csv_name.split('.')[0] in do_not_load:
-                    continue
-                else:
-                    df.to_csv(save_to_path + '\\' + csv_name, index=False)
+
+        # Put all the dataframes into a list
+        df_list = [guardian, student, payment, bill, classes, class_student, wait, trial, note]
+        df_names = ['guardian', 'student', 'payment', 'bill', 'classes', 'class_student', 'wait', 'trial', 'note']
+        conn = sqlite3.connect(data_path + '\\database.db')
+
+        for df, df_name in zip(df_list, df_names):
+            # Override: if table name is in list `do_not_load`, we did not create a new version of that table and thus do not save anything
+            if df_name.split('.')[0] in do_not_load:
+                continue
+            else:
+                # Write to csv files if option chosen
+                if save_as=='.csv':
+                    df.to_csv(f'{save_to_path}\\{df_name}.csv', index=False)
+                # Write to SQLite database if option chosen
+                elif save_as=='.db':
+                    df.to_sql(df_name, conn, if_exists='replace', index=False)
+
+        # Close database connection
+        conn.close()
 
     except FileNotFoundError as err:
         print(f"File '{err.args[0]}' not found at {data_path}.")
+
+
+# Function to create SQLite database from a set of CSV files
+# (specifically, the set of CSV files that will result from running `transform_to_rdb()` above)
+def create_sqlite_db(data_dir, csv_dir):
+    # Connect to sqlite database (or create if it does not exist)
+    conn = sqlite3.connect(data_dir + "\\database.db", timeout=10)
+    # Cursor to navigate database
+    cur = conn.cursor()    
+
+    # Table names
+    tables = ['guardian','student','payment', 'bill', 'classes','class_student','wait','trial','note']
+    # Loop through tables 
+    for table in tables:
+        # Path to CSV file containing this table
+        table_csv_path  = f'{csv_dir}\\{table}.csv'
+        # Get field names for table
+        columns = list(pd.read_csv(table_csv_path).columns)
+        # Create table in SQLite database using table name and field names
+        cur.execute(f"CREATE TABLE IF NOT EXISTS {table} ({', '.join(columns)});")
+        # Open the CSV file we wish to import
+        with open(table_csv_path,'r') as fin:
+            # Read records from csv file
+            dr = csv.DictReader(fin)
+            to_db = [tuple(i[col] for col in columns) for i in dr]
+
+        # Insert all records into SQLite table
+        cur.executemany(f"INSERT OR REPLACE INTO {table} ({', '.join(columns)}) VALUES ({', '.join(['?']*len(columns))});", to_db)
+        # Save changes
+        conn.commit()
+
+    # Close connection when done
+    conn.close()
 
 # Validate if the user entry is a number (used for numeric fields)
 # This will run every time a key is pressed, so that if the user tries to enter

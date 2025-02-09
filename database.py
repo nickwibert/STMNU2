@@ -4,6 +4,7 @@ import re
 import pandas as pd
 import functions as fn
 import dbf
+import sqlite3
 import calendar
 from datetime import datetime
 
@@ -39,6 +40,11 @@ class StudentDatabase:
         # Variable to track whether the user has entered the payment password yet.
         # Once the user has entered the password once, they should not be asked again
         self.request_password = True
+        
+        # SQLite database connection
+        self.rdb_conn = sqlite3.connect('C:\\STMNU2\\data\\database.db')
+        self.cursor = self.rdb_conn.cursor()
+
 
     def load_data(self):
         # Transform current versions of DBF files to CSV
@@ -46,7 +52,7 @@ class StudentDatabase:
         fn.dbf_to_csv('STUD99.dbf')
         fn.dbf_to_csv('clsbymon.dbf')
         # Update files representing relational database structure
-        fn.transform_to_rdb(data_path='C:\\STMNU2\\data', save_to_path='C:\\STMNU2\\data\\rdb_format', write_to_csv=True,
+        fn.transform_to_rdb(data_path='C:\\STMNU2\\data', save_to_path='C:\\STMNU2\\data\\rdb_format', save_as='.csv',
                             do_not_load=self.do_not_load, update_active=self.update_active)
 
         # CSV paths

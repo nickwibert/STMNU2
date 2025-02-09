@@ -188,6 +188,9 @@ class STMNU(ctk.CTk):
         # Export database tables to csv files (in new RDB format)
         self.database.save_data(backup=False)
 
+        # Disconnect from SQLite database
+        self.database.rdb_conn.close()
+
         # Destroy window/program
         self.destroy()
             
