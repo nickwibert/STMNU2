@@ -148,6 +148,7 @@ class StudentDatabase:
             WHERE (FNAME LIKE '{query['First Name']}%')
                    AND (LNAME LIKE '{query['Last Name']}%')
                    AND (ACTIVE OR {show_inactive})
+            ORDER BY LNAME, FNAME
             COLLATE NOCASE
         """
 
@@ -592,14 +593,28 @@ class StudentDatabase:
     # Similar to `search_students`, but for classes. User selects options to filter down
     # list of classes (i.e. gender, class level, day of week)
     def filter_classes(self, filters):
-        # `filters` is a dictionary where the key is the filter type (GENDER, DAY, LEVEL)
-        # and the corresponding value is some pattern to match on ('GIRL', 2, 'ADV')
-        matches = self.classes[(((self.classes['TEACH'] == filters['INSTRUCTOR']) | (len(filters['INSTRUCTOR']) == 0))
-                                & ((self.classes['CLASSNAME'].str.contains(filters['GENDER'])) | (len(filters['GENDER']) == 0))
-                                & ((self.classes['DAYOFWEEK'] == filters['DAY']) | (len(str(filters['DAY'])) == 0))
-                                & ((self.classes['CLASSNAME'].str.contains(filters['LEVEL'])) | (self.classes['CLASSTIME'].str.contains(filters['LEVEL'])) | (len(filters['LEVEL']) == 0)))
-                              ].sort_values(by=['DAYOFWEEK', 'TIMEOFDAY']
-                              ).loc[:, ['CLASS_ID', 'TEACH', 'CLASSTIME', 'CLASSNAME', 'MAX']]
+        # # `filters` is a dictionary where the key is the filter type (GENDER, DAY, LEVEL)
+        # # and the corresponding value is some pattern to match on ('GIRL', 2, 'ADV')
+        # matches = self.classes[(((self.classes['TEACH'] == filters['INSTRUCTOR']) | (len(filters['INSTRUCTOR']) == 0))
+        #                         & ((self.classes['CLASSNAME'].str.contains(filters['GENDER'])) | (len(filters['GENDER']) == 0))
+        #                         & ((self.classes['DAYOFWEEK'] == filters['DAY']) | (len(str(filters['DAY'])) == 0))
+        #                         & ((self.classes['CLASSNAME'].str.contains(filters['LEVEL'])) | (self.classes['CLASSTIME'].str.contains(filters['LEVEL'])) | (len(filters['LEVEL']) == 0)))
+        #                       ].sort_values(by=['DAYOFWEEK', 'TIMEOFDAY']
+        #                       ).loc[:, ['CLASS_ID', 'TEACH', 'CLASSTIME', 'CLASSNAME', 'MAX']]
+
+        # Create SQL query from user input
+        sql_query = f"""
+            SELECT CLASS_ID, TEACH, CLASSTIME, CLASSNAME, MAX
+            FROM classes AS C
+            WHERE (TEACH LIKE '%{filters['INSTRUCTOR']}%')
+                AND (CLASSNAME LIKE '%{filters['GENDER']}%')
+                AND (DAYOFWEEK LIKE '%{filters['DAY']}%')
+                AND (CLASSNAME LIKE '%{filters['LEVEL']}%' OR CLASSTIME LIKE '%{filters['LEVEL']}%')
+            ORDER BY DAYOFWEEK, TIMEOFDAY
+            COLLATE NOCASE
+        """
+        print(sql_query)
+        matches = pd.read_sql(sql_query, self.rdb_conn)
         
         return matches
     
