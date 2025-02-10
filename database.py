@@ -132,14 +132,26 @@ class StudentDatabase:
         # Force all uppercase
         for key in query.keys(): query[key] = query[key].upper()
         
-        # Perform search using name fields
-        matches = self.student[(((self.student['FNAME'].str.upper().str.startswith(query['First Name'], na=False)) | (len(query['First Name']) == 0))
-                            & ((self.student['LNAME'].str.upper().str.startswith(query['Last Name'], na=False)) | (len(query['Last Name']) == 0))
-                            & (self.student['ACTIVE'] | show_inactive))
-                            ].sort_values(by=['LNAME','FNAME'], key=lambda x: x.str.upper()
-                            ).loc[:, ['STUDENT_ID', 'FNAME','LNAME']
-                            ].fillna(''
-                            ).reset_index(drop=True)
+        # # Perform search using name fields
+        # matches = self.student[(((self.student['FNAME'].str.upper().str.startswith(query['First Name'], na=False)) | (len(query['First Name']) == 0))
+        #                     & ((self.student['LNAME'].str.upper().str.startswith(query['Last Name'], na=False)) | (len(query['Last Name']) == 0))
+        #                     & (self.student['ACTIVE'] | show_inactive))
+        #                     ].sort_values(by=['LNAME','FNAME'], key=lambda x: x.str.upper()
+        #                     ).loc[:, ['STUDENT_ID', 'FNAME','LNAME']
+        #                     ].fillna(''
+        #                     ).reset_index(drop=True)
+
+        # Create SQL query from user input
+        sql_query = f"""
+            SELECT STUDENT_ID, FNAME, LNAME
+            FROM student AS S
+            WHERE (FNAME LIKE '{query['First Name']}%')
+                   AND (LNAME LIKE '{query['Last Name']}%')
+                   AND (ACTIVE OR {show_inactive})
+            COLLATE NOCASE
+        """
+
+        matches = pd.read_sql(sql_query, self.rdb_conn)
         
         return matches
     
