@@ -25,7 +25,7 @@ class StudentInfoFrame(ctk.CTkFrame):
 
         self.buttons = {}
         self.switches = {}
-        self.tooltips = []
+        self.tooltips = {}
 
         # Configure rows/columns
         self.columnconfigure((0,1,2), weight=1)
@@ -391,8 +391,9 @@ class StudentInfoFrame(ctk.CTkFrame):
             if not label.is_header:
                 label.configure(text='')
 
-        for tooltip in self.tooltips:
+        for tooltip in self.tooltips.values():
             tooltip.destroy()
+
                 
         # Delete text displayed in note textbox
         self.note_textbox.configure(state='normal')   
@@ -529,6 +530,7 @@ class StudentInfoFrame(ctk.CTkFrame):
             pay_label = self.payment_labels[prefix[row] + suffix[row][1]]
             date_label = self.payment_labels[prefix[row] + suffix[row][2]]
             bill_label = self.payment_labels[prefix[row] + suffix[row][3]]
+            
             # Header row
             if row == 0:
                 pay, date, bill = ('Amount', 'Date', 'Bill')
@@ -545,14 +547,18 @@ class StudentInfoFrame(ctk.CTkFrame):
                 pay = f'{payment_info[payment_info['MONTH']==row]['PAY'].values[0]:.2f}'
                 date = payment_info[payment_info['MONTH']==row]['DATE'].values[0]
                 bill = '*' if row in bill_info['MONTH'].values else ''
+
+            month = 'Reg Fee' if row==13 else calendar.month_abbr[row]
+            tooltip_txt = 'Remove bill' if bill=='*' else 'Bill'
+            tooltip_txt += f' for {month} {self.year}'
             # Update pay/date text for this month
             pay_label.configure(text=pay)
             date_label.configure(text=date)
             bill_label.configure(text=bill)
-            # Create tooltip for bill
-            month = 'Reg Fee' if row==13 else calendar.month_abbr[row]
-            self.tooltips.append(ToolTip(bill_label, msg=f'Bill student for {month} {self.year}',
-                                         font=ctk.CTkFont('Segoe UI',16)))
+            if prefix[row] != 'HEADER':
+                self.tooltips[prefix[row] + suffix[row][3]] = (ToolTip(bill_label, msg=tooltip_txt,
+                                                                font=ctk.CTkFont('Segoe UI',16)))
+
             # Change color of alternating rows based on which year is displayed
             if row % 2 == 0:
                 pay_label.master.configure(fg_color='salmon' if self.year != CURRENT_SESSION.year else 'grey70')
@@ -592,7 +598,6 @@ class StudentInfoFrame(ctk.CTkFrame):
     # In the payment_frame, under `bill` column, there will be an asterisk (*) if a payment
     # is owed for that month. This function toggles the asterisk on/off when the month is clicked.
     def toggle_bill(self, month_num):
-        print(f'Billing student {self.id} for {month_num}')
         if month_num == 13:
             month = 'REG'
         else:
@@ -602,6 +607,12 @@ class StudentInfoFrame(ctk.CTkFrame):
         label_txt = '' if label.cget('text') == '*' else '*'
         # Toggle (*) in view
         label.configure(text=label_txt)
+        # Change bill tooltip
+        tooltip_txt = 'Remove bill' if label_txt=='*' else 'Bill'
+        tooltip_txt += f' for\n{month.title()} {self.year}'
+        self.tooltips[f'{month}BILL'].destroy()
+        self.tooltips[f'{month}BILL'] = (ToolTip(label, msg=tooltip_txt,
+                                        font=ctk.CTkFont('Segoe UI',16)))
 
         # Update 'bill' in database
         self.database.bill_student(student_id=self.id, month_num=month_num, year=self.year)
