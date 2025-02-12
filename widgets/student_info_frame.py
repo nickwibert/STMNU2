@@ -1,4 +1,5 @@
 import customtkinter as ctk
+from tktooltip import ToolTip
 import pandas as pd
 import calendar
 from datetime import datetime
@@ -24,6 +25,7 @@ class StudentInfoFrame(ctk.CTkFrame):
 
         self.buttons = {}
         self.switches = {}
+        self.tooltips = []
 
         # Configure rows/columns
         self.columnconfigure((0,1,2), weight=1)
@@ -318,24 +320,35 @@ class StudentInfoFrame(ctk.CTkFrame):
             month_frame.grid(row=row+1, column=0, sticky='nsew')
 
             # Create labels for this row
-            self.payment_labels[prefix[row] + suffix[row][0]] = ctk.CTkLabel(month_frame, text=month_column[row],
-                                                                 font=payment_font,
-                                                                 anchor='w', width=75)
-            self.payment_labels[prefix[row] + suffix[row][1]] = ctk.CTkLabel(month_frame, text='',
-                                                                 font=payment_font,
-                                                                 anchor='e', width=50)
-            self.payment_labels[prefix[row] + suffix[row][2]] = ctk.CTkLabel(month_frame, text='',
-                                                                font=payment_font,
-                                                                anchor='e', width=90)
-            self.payment_labels[prefix[row] + suffix[row][3]] = ctk.CTkLabel(month_frame, text='',
-                                                                font=payment_font,
-                                                                anchor='e', width=10)
+            header_label = ctk.CTkLabel(month_frame, text=month_column[row],
+                                        font=payment_font,
+                                        anchor='w', width=75)
+            pay_label = ctk.CTkLabel(month_frame, text='',
+                                    font=payment_font,
+                                    anchor='e', width=50)
+            date_label = ctk.CTkLabel(month_frame, text='',
+                                    font=payment_font,
+                                    anchor='e', width=90)
+            bill_label = ctk.CTkLabel(month_frame, text='',
+                                    font=payment_font,
+                                    anchor='e', width=25)
             # Put labels into grid
-            self.payment_labels[prefix[row] + suffix[row][0]].grid(row=0,column=0,padx=10,sticky='nsew')
-            self.payment_labels[prefix[row] + suffix[row][1]].grid(row=0,column=1,padx=10,sticky='nsew')
-            self.payment_labels[prefix[row] + suffix[row][2]].grid(row=0,column=2,padx=10,sticky='nsew')
-            self.payment_labels[prefix[row] + suffix[row][3]].grid(row=0,column=3,padx=10,sticky='nsew')
+            header_label.grid(row=0,column=0,padx=10,sticky='nsew')
+            pay_label.grid(row=0,column=1,padx=10,sticky='nsew')
+            date_label.grid(row=0,column=2,padx=10,sticky='nsew')
+            bill_label.grid(row=0,column=3,padx=10,sticky='nsew')
 
+            # Bind functions to bill label
+            if row != 0:
+                bill_label.bind("<Button-1>", lambda event, month=row:
+                                                self.toggle_bill(month))
+                bill_label.configure(cursor='hand2')
+                
+            # Store labels
+            self.payment_labels[prefix[row] + suffix[row][0]] = header_label
+            self.payment_labels[prefix[row] + suffix[row][1]] = pay_label
+            self.payment_labels[prefix[row] + suffix[row][2]] = date_label
+            self.payment_labels[prefix[row] + suffix[row][3]] = bill_label
 
         for field in self.payment_labels.keys():
             if 'HEADER' in field:
@@ -377,9 +390,10 @@ class StudentInfoFrame(ctk.CTkFrame):
         for label in self.payment_labels.values():
             if not label.is_header:
                 label.configure(text='')
-            for binding in ['<Button-1>', '<Enter>', '<Leave>']:
-                label.unbind(binding)
 
+        for tooltip in self.tooltips:
+            tooltip.destroy()
+                
         # Delete text displayed in note textbox
         self.note_textbox.configure(state='normal')   
         self.note_textbox.delete('1.0', ctk.END)
@@ -535,6 +549,10 @@ class StudentInfoFrame(ctk.CTkFrame):
             pay_label.configure(text=pay)
             date_label.configure(text=date)
             bill_label.configure(text=bill)
+            # Create tooltip for bill
+            month = 'Reg Fee' if row==13 else calendar.month_abbr[row]
+            self.tooltips.append(ToolTip(bill_label, msg=f'Bill student for {month} {self.year}',
+                                         font=ctk.CTkFont('Segoe UI',16)))
             # Change color of alternating rows based on which year is displayed
             if row % 2 == 0:
                 pay_label.master.configure(fg_color='salmon' if self.year != CURRENT_SESSION.year else 'grey70')
@@ -574,6 +592,7 @@ class StudentInfoFrame(ctk.CTkFrame):
     # In the payment_frame, under `bill` column, there will be an asterisk (*) if a payment
     # is owed for that month. This function toggles the asterisk on/off when the month is clicked.
     def toggle_bill(self, month_num):
+        print(f'Billing student {self.id} for {month_num}')
         if month_num == 13:
             month = 'REG'
         else:

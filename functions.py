@@ -501,18 +501,6 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
                 return
             # Don't require the user to enter the password again until the program has been restarted
             info_frame.database.request_password = False
-
-        # For all payment rows except header, make the 'BILL' column clickable to toggle bill (*) on/off
-        for field, label in labels.items():
-            if 'BILL' in field and 'HEADER' not in field:
-                # Highlight/unhighlight when mouse hovers
-                label.bind("<Enter>",    lambda event, c=label.master, r=label.grid_info().get('row'):
-                                            highlight_label(c,r))
-                label.bind("<Leave>",    lambda event, c=label.master, r=label.grid_info().get('row'):
-                                            unhighlight_label(c,r))
-                label.bind("<Button-1>", lambda event, month=label.master.grid_info().get('row')-1:
-                                            info_frame.toggle_bill(month))
-                label.configure(cursor='hand2')
         
     # Disable relevant buttons and labels with click events
     for button in info_frame.buttons.values():
