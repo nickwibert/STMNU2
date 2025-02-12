@@ -550,7 +550,7 @@ class StudentInfoFrame(ctk.CTkFrame):
 
             month = 'Reg Fee' if row==13 else calendar.month_abbr[row]
             tooltip_txt = 'Remove bill' if bill=='*' else 'Bill'
-            tooltip_txt += f' for {month} {self.year}'
+            tooltip_txt += f' for\n{month} {self.year}'
             # Update pay/date text for this month
             pay_label.configure(text=pay)
             date_label.configure(text=date)
