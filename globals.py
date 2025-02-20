@@ -20,6 +20,7 @@ CURRENT_SESSION = datetime(year=CURRENT_YEAR, month=CURRENT_MONTH, day=1)
 MAX_CLASS_SIZE = 19
 MAX_WAIT_SIZE = 4
 MAX_TRIAL_SIZE = 8
+MAX_MAKEUP_SIZE = 4
 
 # Cutoff date for students to be excluded
 MONTHS_SINCE_PAYMENT_LIMIT = 8

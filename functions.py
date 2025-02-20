@@ -5,6 +5,8 @@ from datetime import datetime
 import calendar
 import customtkinter as ctk
 from dbfread import DBF
+import dbf
+import re
 
 import functions as fn
 from widgets.dialog_boxes import PasswordDialog
@@ -406,7 +408,8 @@ def validate_entryboxes(dbf_table, confirm_button, entry_boxes, error_frame, wai
 
     # SPECIAL CASE: Ignore data validation for certain columns
     cols_to_ignore = [col for i in range(1, 9) for col in (f'TRIAL{i}', f'T{i}PHONE')] \
-                     + [col for i in range(1,5) for col in (f'WAIT{i}', f'W{i}PHONE')]
+                     + [col for i in range(1,5) for col in (f'WAIT{i}', f'W{i}PHONE')] \
+                     + [f'MAKEUP{i}' for i in range(1,5)]
 
     # Leave entry boxes on screen until all fields have been validated
     while wait_var.get() == 'validate':
@@ -418,7 +421,16 @@ def validate_entryboxes(dbf_table, confirm_button, entry_boxes, error_frame, wai
     
         # Check if the user entry in each box is valid according to data type and DBF field restrictions
         for field, entry in entry_boxes.items():
-            field_info = dbf_table.field_info(field)
+            # SPECIAL CASE: Columns to ignore 
+            if field in cols_to_ignore:
+                continue
+
+            try:
+                field_info = dbf_table.field_info(field)
+            except dbf.exceptions.FieldMissingError:
+                print(f'{field} not found in DBF')
+                field_info = dbf_table.field_info('T1DATE')
+
             # Get user-entered value, ignoring whitespace at start and end
             proposed_value = entry.get().strip()
             dtype = entry.dtype
@@ -434,9 +446,7 @@ def validate_entryboxes(dbf_table, confirm_button, entry_boxes, error_frame, wai
                 proposed_value = '0.00'
             
             ## Data Validation ##
-            # SPECIAL CASE: Columns to ignore 
-            if field in cols_to_ignore:
-                continue
+
             # If length of user entry is beyond max limit in dbf file, display error
             if ((dtype == 'datetime.date' and not fn.validate_date(proposed_value))
                 or (dtype == 'float' and (len(str(proposed_value)) == 0 or float(proposed_value) > 999.99))
@@ -562,6 +572,60 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
 
         # Regardless of if user removed a class or cancelled, destroy widgets and reset
         choose_class_label.destroy()
+        cancel_button.destroy()
+    # Special handling for removing trial/waitlist/makeup from a class.
+    elif 'REMOVE' in edit_type:
+        buttons_frame = info_frame.buttons[edit_type].master
+        # Create a label instructing user to choose a record to delete
+        which_label = ctk.CTkLabel(buttons_frame, text='Which record would you like to delete?',
+                                          text_color='red') 
+        which_label.grid(row=0, column=0, columnspan=2, sticky='nsew')
+
+        # Create dummy entry boxes that will not be displayed to the user, but still contain the existing data.
+        # This is necessary to use the existing `database.update_class_info` function.
+        entry_boxes = dict.fromkeys(labels.keys())
+
+        for key in entry_boxes.keys():
+            label = labels[key]
+            default_text = ctk.StringVar()
+            default_text.set(label.cget('text'))
+            entry_boxes[key] = ctk.CTkEntry(label, textvariable=default_text)
+
+        # Bind function to the trial/wait labels
+        for key, lab in labels.items():
+            record_no = re.search('[0-9]+', key).group()
+            # Highlight label when mouse hovers over it
+            lab.bind("<Enter>",    lambda event, c=lab.master, r=0:
+                                            fn.highlight_label(c,r))
+            lab.bind("<Leave>",    lambda event, c=lab.master, r=0:
+                                            fn.unhighlight_label(c,r))
+            # When user clicks on the record associated with `record_no`,
+            # call `database.update_class_info` using a custom dictionary of entry boxes
+            # where the entry boxes corresponding to `record_no` are all forced to be blank,
+            # while all other entry boxes contain the pre-existing values
+            # (this is essentially the same as the user editing the wait/trial info, and then
+            # manually backspacking/deleting all of the data for a single record)
+            custom_entry_boxes = {k : ctk.CTkEntry(lab) for k in entry_boxes.keys() if record_no in k} \
+                                 | {k:e for k,e in entry_boxes.items() if record_no not in k}
+            for field, entry in custom_entry_boxes.items():
+                entry.dtype = 'datetime.date' if 'DATE' in field else 'string'
+
+            lab.bind("<Button-1>", lambda event,
+                                          class_id=info_frame.id,
+                                          eb=custom_entry_boxes,
+                                          et=edit_type,
+                                          wv=wait_var:
+                                    info_frame.database.update_class_info(class_id, eb, et, wv))
+                        
+        # Place new 'cancel' button over the top of the original 'remove student' button
+        cancel_button = ctk.CTkButton(info_frame.buttons[edit_type], text="Cancel",
+                                       command = lambda : wait_var.set('cancel'))
+        cancel_button.place(x=0, y=0, relheight=1.0, relwidth=1.0)
+
+        cancel_button.wait_variable(wait_var)
+
+        # Regardless of if user removed a class or cancelled, destroy widgets and reset
+        which_label.destroy()
         cancel_button.destroy()
     else:
         # Place new 'confirm' button over the top of the original 'edit' button
@@ -726,6 +790,11 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
             # Click student name in class roll to pull up student record
             label.bind("<Button-1>", lambda event, id=label.student_id:
                                                 info_frame.open_student_record(id))
+            
+        # Unbind functions from trial and wait labels
+        for label in (info_frame.wait_labels | info_frame.trial_labels).values():
+            label.unbind('<Enter>'); label.unbind('<Leave>'); label.unbind('<Button-1>')
+
             
     info_frame.window.tabs.configure(state='normal')
     info_frame.update_labels(info_frame.id)

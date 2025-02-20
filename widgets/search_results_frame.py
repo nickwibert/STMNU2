@@ -35,8 +35,8 @@ class SearchResultsFrame(ctk.CTkFrame):
             self.headers = ['First Name', 'Last Name']
             self.column_widths = [150, 150]
         elif self.type == 'class':
-            self.headers = ['Instructor', 'Time', 'Name', 'Available', 'Max']
-            self.column_widths = [75, 75, 125, 75, 75]
+            self.headers = ['Instructor', 'Time', 'Name', 'Available', 'Trials', 'Waitlist']
+            self.column_widths = [75, 75, 125, 75, 75, 75]
         elif self.type == 'family':
             self.headers = ['Last Name', 'Number of Children']
             self.column_widths = [150, 150]
@@ -44,8 +44,8 @@ class SearchResultsFrame(ctk.CTkFrame):
             ctk.CTkLabel(self.results_frame,
                          text=self.headers[i],
                          width=self.column_widths[i],
-                         anchor='w'
-                        ).grid(row=0, column=i, sticky='nsew')
+                         anchor = 'center' if self.headers[i] in ('Available', 'Max', 'Trials', 'Waitlist') else 'w'
+                        ).grid(row=0, column=i, padx=0, sticky='nsew')
             
         self.create_query_frame()
         
@@ -194,7 +194,7 @@ class SearchResultsFrame(ctk.CTkFrame):
             row_labels = []
             for col in range(len(self.headers)):
                 # If the data displayed is a number, center; otherwise left-align
-                anchor = 'center' if self.headers[col] in ('Available', 'Max') else 'w'
+                anchor = 'center' if self.headers[col] in ('Available', 'Max', 'Trials', 'Waitlist') else 'w'
                 # Create blank label
                 label = ctk.CTkLabel(self.results_list,
                                      text='', anchor=anchor,
@@ -272,13 +272,27 @@ class SearchResultsFrame(ctk.CTkFrame):
                                  ).size(
                                  ).rename('COUNT'
                                  ).reset_index()
+            trial_counts = self.df.merge(self.database.trial[['CLASS_ID','TRIAL_NO']], how='inner', on='CLASS_ID'
+                                 ).groupby('CLASS_ID'
+                                 ).size(
+                                 ).rename('TRIAL_COUNT'
+                                 ).reset_index()
+            wait_counts = self.df.merge(self.database.wait[['CLASS_ID','WAIT_NO']], how='inner', on='CLASS_ID'
+                                 ).groupby('CLASS_ID'
+                                 ).size(
+                                 ).rename('WAIT_COUNT'
+                                 ).reset_index()
+
             self.df = self.df.merge(class_counts, how='left', on='CLASS_ID')
-            # Make sure empty classes have count entered as 0
-            self.df['COUNT'] = self.df['COUNT'].fillna(0).astype('int')
             # Calculate number of spots available and drop 'count' column
             available = self.df['MAX'] - self.df['COUNT']
             self.df.insert(self.df.shape[1]-2, 'AVAILABLE', available)
-            self.df.drop(columns='COUNT', inplace=True)
+            self.df.drop(columns=['COUNT','MAX'], inplace=True)
+            # Add trial/waitlist counts
+            self.df = self.df.merge(trial_counts, how='left', on='CLASS_ID'
+                            ).merge(wait_counts, how='left', on='CLASS_ID')
+            # Make sure NA values are replaced with 0, and there are no decimals
+            self.df[['AVAILABLE','TRIAL_COUNT','WAIT_COUNT']] = self.df[['AVAILABLE','TRIAL_COUNT','WAIT_COUNT']].fillna(0).astype('int')
             # Truncate class name
             self.df['CLASSNAME'] = self.df['CLASSNAME'].str[:16] + '...'
 
@@ -321,7 +335,12 @@ class SearchResultsFrame(ctk.CTkFrame):
                 label = self.result_rows[row][col]
                 # Store relevant ID column as attribute in label
                 label.id = id
-                label.configure(text=label_txt, bg_color='transparent')
+                label.flag = False
+                # SPECIAL CASE: make 'trial count' cell RED if there are any past/blank trial dates
+                if self.headers[col] == 'Trials':
+                    if not (pd.to_datetime(self.database.trial.loc[self.database.trial['CLASS_ID']==id,'DATE']) >= datetime.now()).all():
+                        label.flag = True
+                label.configure(text=label_txt, bg_color='indian red' if label.flag else 'transparent')
                 # Bind functions to highlight row when mouse hovers over it
                 label.bind("<Enter>", lambda event, c=label.master, r=row:
                                             fn.highlight_label(c,r))
@@ -358,14 +377,14 @@ class SearchResultsFrame(ctk.CTkFrame):
         if prev_id is not None and prev_id in id_column.values:
             prev_selection_idx = self.df.loc[id_column == prev_id].index[0]
             for label in self.results_list.grid_slaves(row=prev_selection_idx):
-                label.configure(bg_color='transparent')
+                label.configure(bg_color='indian red' if label.flag else 'transparent')
 
         # Update index to current selection
         self.selection_idx = self.df.loc[id_column == id].index[0]
         # Change color of search result containing selected student to indicate that they are the current selection
         for label in self.results_list.grid_slaves(row=self.selection_idx):
-            label.configure(bg_color='royalblue')
-
+            label.configure(bg_color='indian red' if label.flag else 'royalblue')
+    
         # Finally, update the relevant info frame based on `id`
         self.master.update_labels(id)
 
