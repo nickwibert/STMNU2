@@ -104,18 +104,18 @@ class ClassInfoFrame(ctk.CTkFrame):
         wait_buttons_frame.grid(row=self.wait_frame.grid_size()[1], column=0, sticky='nsew', padx=5, pady=5)
         # Button to edit waitlist
         self.buttons['EDIT_CLASS_WAIT'] = ctk.CTkButton(wait_buttons_frame,
-                                                  text="Edit Waitlist",
+                                                  text="Edit",
                                                   command = lambda frame=self.wait_frame, labels=self.wait_labels, type='CLASS_WAIT':
                                                                fn.edit_info(frame, labels, type))
         self.buttons['EDIT_CLASS_WAIT'].grid(row=0, column=0, pady=10)
 
         self.buttons['ADD_WAIT'] = ctk.CTkButton(wait_buttons_frame,
-                                                  text='Create Waitlist',
+                                                  text='Create',
                                                   command=self.add_wait)
         self.buttons['ADD_WAIT'].grid(row=0,column=1)
 
         self.buttons['CLASS_REMOVE_WAIT'] = ctk.CTkButton(wait_buttons_frame,
-                                                  text='Delete Waitlist',
+                                                  text='Remove',
                                                   command = lambda frame=self.wait_frame, labels=self.wait_labels, type='CLASS_REMOVE_WAIT':
                                                       fn.edit_info(frame, labels, type))
         self.buttons['CLASS_REMOVE_WAIT'].grid(row=0,column=2)
@@ -127,18 +127,18 @@ class ClassInfoFrame(ctk.CTkFrame):
 
         # Button to edit trials
         self.buttons['EDIT_CLASS_TRIAL'] = ctk.CTkButton(trial_buttons_frame,
-                                                  text="Edit Trials",
+                                                  text="Edit",
                                                   command = lambda frame=self.trial_frame, labels=self.trial_labels, type='CLASS_TRIAL':
                                                                fn.edit_info(frame, labels, type))
         self.buttons['EDIT_CLASS_TRIAL'].grid(row=0, column=0, pady=10)
 
         self.buttons['CLASS_ADD_TRIAL'] = ctk.CTkButton(trial_buttons_frame,
-                                                  text='Create Trial',
+                                                  text='Create',
                                                   command=self.add_trial)
         self.buttons['CLASS_ADD_TRIAL'].grid(row=0,column=1)
 
         self.buttons['CLASS_REMOVE_TRIAL'] = ctk.CTkButton(trial_buttons_frame,
-                                                  text='Remove Trial',
+                                                  text='Remove',
                                                   command = lambda frame=self.trial_frame, labels=self.trial_labels, type='CLASS_REMOVE_TRIAL':
                                                       fn.edit_info(frame, labels, type))
         self.buttons['CLASS_REMOVE_TRIAL'].grid(row=0,column=2)
@@ -149,18 +149,18 @@ class ClassInfoFrame(ctk.CTkFrame):
         makeup_buttons_frame.grid(row=self.makeup_frame.grid_size()[1], column=0, sticky='nsew', padx=5, pady=5)
         # Button to edit makeups
         self.buttons['EDIT_CLASS_MAKEUP'] = ctk.CTkButton(makeup_buttons_frame,
-                                                  text="Edit Makeup",
+                                                  text="Edit",
                                                   command = lambda frame=self.makeup_frame, labels=self.makeup_labels, type='CLASS_MAKEUP':
                                                                fn.edit_info(frame, labels, type))
         self.buttons['EDIT_CLASS_MAKEUP'].grid(row=0, column=0, pady=10)
 
         self.buttons['CLASS_ADD_MAKEUP'] = ctk.CTkButton(makeup_buttons_frame,
-                                                  text='Create Makeup',
+                                                  text='Create',
                                                   command=self.add_makeup)
         self.buttons['CLASS_ADD_MAKEUP'].grid(row=0,column=1)
 
         self.buttons['CLASS_REMOVE_MAKEUP'] = ctk.CTkButton(makeup_buttons_frame,
-                                                  text='Delete Makeup',
+                                                  text='Remove',
                                                   command = lambda frame=self.makeup_frame, labels=self.makeup_labels, type='CLASS_REMOVE_MAKEUP':
                                                       fn.edit_info(frame, labels, type))
         self.buttons['CLASS_REMOVE_MAKEUP'].grid(row=0,column=2)
