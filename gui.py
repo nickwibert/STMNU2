@@ -99,7 +99,7 @@ class STMNU(ctk.CTk):
 
         # Destroy loading screen
         self.load_screen.destroy()
-        window_width = 1200
+        window_width = 1300
         window_height = 900
         # Calculate center coordinates
         x = int((self.winfo_screenwidth()/2) - (window_width/2))
