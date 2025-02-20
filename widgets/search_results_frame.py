@@ -200,6 +200,7 @@ class SearchResultsFrame(ctk.CTkFrame):
                                      text='', anchor=anchor,
                                      width=self.column_widths[col],
                                      cursor='hand2')
+                label.cget('font').configure(size=14)
                 # Placeholder for ID 
                 label.id = None
                 # Place label in grid and store
@@ -294,8 +295,8 @@ class SearchResultsFrame(ctk.CTkFrame):
             # Make sure NA values are replaced with 0, and there are no decimals
             self.df[['AVAILABLE','TRIAL_COUNT','WAIT_COUNT']] = self.df[['AVAILABLE','TRIAL_COUNT','WAIT_COUNT']].fillna(0).astype('int')
             # Truncate class name
-            self.df['CLASSNAME'] = self.df['CLASSNAME'].str[:16] + '...'
-
+            self.df['CLASSNAME'] = self.df['CLASSNAME'].str[:20] + '...'
+            
         # Update matches in search results frame
         self.display_search_results(select_first_result)
 
@@ -340,8 +341,9 @@ class SearchResultsFrame(ctk.CTkFrame):
                 if self.headers[col] == 'Trials':
                     if not (pd.to_datetime(self.database.trial.loc[self.database.trial['CLASS_ID']==id,'DATE']) >= datetime.now()).all():
                         label.flag = True
-                label.configure(text=label_txt, bg_color='indian red' if label.flag else 'transparent',
+                label.configure(text=label_txt, bg_color='red' if label.flag else 'transparent',
                                 text_color='white' if label.flag else 'black')
+                label.cget('font').configure(weight='bold' if label.flag else 'normal')
                 # Bind functions to highlight row when mouse hovers over it
                 label.bind("<Enter>", lambda event, c=label.master, r=row:
                                             fn.highlight_label(c,r))
@@ -378,18 +380,22 @@ class SearchResultsFrame(ctk.CTkFrame):
         if prev_id is not None and prev_id in id_column.values:
             prev_selection_idx = self.df.loc[id_column == prev_id].index[0]
             for label in self.results_list.grid_slaves(row=prev_selection_idx):
-                label.configure(bg_color='indian red' if label.flag else 'transparent',
+                label.configure(bg_color='red' if label.flag else 'transparent',
                                 text_color='white' if label.flag else 'black')
 
         # Update index to current selection
         self.selection_idx = self.df.loc[id_column == id].index[0]
         # Change color of search result containing selected student to indicate that they are the current selection
         for label in self.results_list.grid_slaves(row=self.selection_idx):
-            label.configure(bg_color='indian red' if label.flag else 'royalblue',
+            label.configure(bg_color='red' if label.flag else 'royalblue',
                             text_color='white' if label.flag else 'black')
-    
+
+        if self.type=='class':
+            self.master.reset_scroll_frames()
+
         # Finally, update the relevant info frame based on `id`
         self.master.update_labels(id)
+
 
     # Select previous result (row ABOVE current selection in search results)
     def prev_result(self):

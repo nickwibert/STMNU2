@@ -358,10 +358,6 @@ class ClassInfoFrame(ctk.CTkFrame):
             label.configure(text='', fg_color='transparent')
             label.master.grid_remove()
 
-        # Scroll the scrollable frames back to the top
-        for scroll_frame in self.scroll_frames:
-            scroll_frame._parent_canvas.yview_moveto(0)
-
         # Delete text displayed in note textbox
         self.note_textbox.configure(state='normal')
         self.note_textbox.delete('1.0', ctk.END)
@@ -692,6 +688,7 @@ class ClassInfoFrame(ctk.CTkFrame):
                 row_frame.grid()
                 edit_labels = {key:label for key,label in self.wait_labels.items() if f'{row}' in key}
                 fn.edit_info(edit_frame=self.wait_frame, labels=edit_labels, edit_type='CLASS_WAIT')
+                self.wait_scroll._parent_canvas.yview_moveto(1)
                 return
 
         print('Waitlist FULL')
@@ -708,6 +705,7 @@ class ClassInfoFrame(ctk.CTkFrame):
                 row_frame.grid()
                 edit_labels = {key:label for key,label in self.trial_labels.items() if f'{row}' in key}
                 fn.edit_info(edit_frame=self.trial_frame, labels=edit_labels, edit_type='CLASS_TRIAL')
+                self.trial_scroll._parent_canvas.yview_moveto(1)
                 return
             
         print('Trials FULL')
@@ -724,8 +722,12 @@ class ClassInfoFrame(ctk.CTkFrame):
                 row_frame.grid()
                 edit_labels = {key:label for key,label in self.makeup_labels.items() if f'{row}' in key}
                 fn.edit_info(edit_frame=self.makeup_frame, labels=edit_labels, edit_type='CLASS_MAKEUP')
+                self.makeup_scroll._parent_canvas.yview_moveto(1)
                 return
             
         print('Makeups FULL')
 
  
+    def reset_scroll_frames(self):
+        for scroll_frame in self.scroll_frames:
+            scroll_frame._parent_canvas.yview_moveto(0)
