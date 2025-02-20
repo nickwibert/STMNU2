@@ -504,20 +504,25 @@ class StudentDatabase:
             with record:
                 # Loop through each field
                 for field in new_info.keys():
-                    # Get info about this field in the dbf file
-                    field_info = self.classes_dbf.field_info(field)
-                    # Convert date fields to proper format
-                    if str(field_info.py_type) == "<class 'datetime.date'>":
-                        if new_info[field] is not None and len(new_info[field]) > 0:
-                            new_info[field] = datetime.strptime(new_info[field], "%m/%d/%Y")
-                    # Special case: there may be fields which have no restrictions in the new program,
-                    # but still must be truncated to fit in the old program.
-                    elif len(str(new_info[field])) > field_info.length:
-                        new_info[field] = str(new_info[field])[:field_info.length]
-                    # For this record, if the dbase field does not match the user-entered field,
-                    # update that field in the dbf file (if the field is unchanged, ignore)
-                    if record[field] != new_info[field]:
-                        record[field] = new_info[field]
+                    try:
+                        # Get info about this field in the dbf file
+                        field_info = self.classes_dbf.field_info(field)
+                        # Convert date fields to proper format
+                        if str(field_info.py_type) == "<class 'datetime.date'>":
+                            if new_info[field] is not None and len(new_info[field]) > 0:
+                                new_info[field] = datetime.strptime(new_info[field], "%m/%d/%Y")
+                        # Special case: there may be fields which have no restrictions in the new program,
+                        # but still must be truncated to fit in the old program.
+                        elif len(str(new_info[field])) > field_info.length:
+                            new_info[field] = str(new_info[field])[:field_info.length]
+                        # For this record, if the dbase field does not match the user-entered field,
+                        # update that field in the dbf file (if the field is unchanged, ignore)
+                        if record[field] != new_info[field]:
+                            record[field] = new_info[field]
+                    # If field does not exist in DBF file, ignore this data and move to the next field
+                    except dbf.exceptions.FieldMissingError as err:
+                        print(err.args[0])
+                        continue
 
 
 

@@ -18,9 +18,9 @@ CURRENT_SESSION = datetime(year=CURRENT_YEAR, month=CURRENT_MONTH, day=1)
 
 ### Class size limits ###
 MAX_CLASS_SIZE = 19
-MAX_WAIT_SIZE = 4
-MAX_TRIAL_SIZE = 8
-MAX_MAKEUP_SIZE = 4
+MAX_WAIT_SIZE = 9
+MAX_TRIAL_SIZE = 9
+MAX_MAKEUP_SIZE = 9
 
 # Cutoff date for students to be excluded
 MONTHS_SINCE_PAYMENT_LIMIT = 8
