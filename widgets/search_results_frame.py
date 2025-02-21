@@ -339,7 +339,7 @@ class SearchResultsFrame(ctk.CTkFrame):
                 label.flag = False
                 # SPECIAL CASE: make 'trial count' cell RED if there are any past/blank trial dates
                 if self.headers[col] == 'Trials':
-                    if not (pd.to_datetime(self.database.trial.loc[self.database.trial['CLASS_ID']==id,'DATE']) >= datetime.now()).all():
+                    if not (pd.to_datetime(self.database.trial.loc[self.database.trial['CLASS_ID']==id,'DATE']).dt.date.astype('object') >= datetime.now().date()).all():
                         label.flag = True
                 label.configure(text=label_txt, bg_color='red' if label.flag else 'transparent',
                                 text_color='white' if label.flag else 'black')

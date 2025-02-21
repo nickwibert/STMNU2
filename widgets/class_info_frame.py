@@ -71,14 +71,22 @@ class ClassInfoFrame(ctk.CTkFrame):
         self.blink_text()
         # Add frames to grid, leaving first column (column 0) open for search results
         self.header_frame.grid(row=0, column=1, rowspan=1, sticky='nsew')
+
         self.roll_frame.grid_propagate(False)
         self.roll_frame.grid(row=1, column=1, rowspan=3, sticky='nsew')
+
         self.wait_frame.grid(row=0, column=2, sticky='nsew')
         self.wait_scroll.grid(row=self.wait_frame.grid_size()[1], column=0, sticky='nsew', padx=5)
+        self.wait_frame.rowconfigure(self.wait_scroll.grid_info().get('row'), weight=3)
+
         self.trial_frame.grid(row=1, column=2, sticky='nsew')
         self.trial_scroll.grid(row=self.trial_frame.grid_size()[1], column=0, sticky='nsew', padx=5)
+        self.trial_frame.rowconfigure(self.trial_scroll.grid_info().get('row'), weight=3)
+
         self.makeup_frame.grid(row=2, column=2, sticky='nsew')
         self.makeup_scroll.grid(row=self.makeup_frame.grid_size()[1], column=0, sticky='nsew', padx=5)
+        self.makeup_frame.rowconfigure(self.makeup_scroll.grid_info().get('row'), weight=3)
+
         self.note_frame.grid(row=3, column=2, sticky='nsew')
 
         # Create and add search results frame to grid
@@ -99,67 +107,78 @@ class ClassInfoFrame(ctk.CTkFrame):
         age_switch.grid(row=MAX_CLASS_SIZE+1, column=1, columnspan=2, pady=(0,5), padx=(0,5))
 
         # Frame to hold waitlist buttons
-        wait_buttons_frame = ctk.CTkFrame(self.wait_frame)
+        wait_buttons_frame = ctk.CTkFrame(self.wait_frame, fg_color=self.wait_frame.cget('border_color'), corner_radius=0)
         wait_buttons_frame.columnconfigure((0,1,2), weight=1)
-        wait_buttons_frame.grid(row=self.wait_frame.grid_size()[1], column=0, sticky='nsew', padx=5, pady=5)
+        wait_buttons_frame.grid(row=self.wait_frame.grid_size()[1], column=0, sticky='nsew', )
+        self.wait_frame.rowconfigure(wait_buttons_frame.grid_info().get('row'), weight=1)
         # Button to edit waitlist
         self.buttons['EDIT_CLASS_WAIT'] = ctk.CTkButton(wait_buttons_frame,
+                                                  width=100,
                                                   text="Edit",
                                                   command = lambda frame=self.wait_frame, labels=self.wait_labels, type='CLASS_WAIT':
                                                                fn.edit_info(frame, labels, type))
         self.buttons['EDIT_CLASS_WAIT'].grid(row=0, column=0, pady=10)
 
         self.buttons['ADD_WAIT'] = ctk.CTkButton(wait_buttons_frame,
+                                                  width=100,
                                                   text='Create',
                                                   command=self.add_wait)
         self.buttons['ADD_WAIT'].grid(row=0,column=1)
 
         self.buttons['CLASS_REMOVE_WAIT'] = ctk.CTkButton(wait_buttons_frame,
                                                   text='Remove',
+                                                  width=100,
                                                   command = lambda frame=self.wait_frame, labels=self.wait_labels, type='CLASS_REMOVE_WAIT':
                                                       fn.edit_info(frame, labels, type))
         self.buttons['CLASS_REMOVE_WAIT'].grid(row=0,column=2)
 
         # Frame/buttons to add/remove trials
-        trial_buttons_frame = ctk.CTkFrame(self.trial_frame)
+        trial_buttons_frame = ctk.CTkFrame(self.trial_frame, fg_color=self.trial_frame.cget('border_color'), corner_radius=0)
         trial_buttons_frame.columnconfigure((0,1,2), weight=1)
-        trial_buttons_frame.grid(row=self.trial_frame.grid_size()[1], column=0, sticky='nsew', padx=5, pady=5)
-
+        trial_buttons_frame.grid(row=self.trial_frame.grid_size()[1], column=0, sticky='nsew',)
+        self.trial_frame.rowconfigure(trial_buttons_frame.grid_info().get('row'), weight=1)
         # Button to edit trials
         self.buttons['EDIT_CLASS_TRIAL'] = ctk.CTkButton(trial_buttons_frame,
+                                                  width=100,
                                                   text="Edit",
                                                   command = lambda frame=self.trial_frame, labels=self.trial_labels, type='CLASS_TRIAL':
                                                                fn.edit_info(frame, labels, type))
         self.buttons['EDIT_CLASS_TRIAL'].grid(row=0, column=0, pady=10)
 
         self.buttons['CLASS_ADD_TRIAL'] = ctk.CTkButton(trial_buttons_frame,
+                                                  width=100,
                                                   text='Create',
                                                   command=self.add_trial)
         self.buttons['CLASS_ADD_TRIAL'].grid(row=0,column=1)
 
         self.buttons['CLASS_REMOVE_TRIAL'] = ctk.CTkButton(trial_buttons_frame,
                                                   text='Remove',
+                                                  width=100,
                                                   command = lambda frame=self.trial_frame, labels=self.trial_labels, type='CLASS_REMOVE_TRIAL':
                                                       fn.edit_info(frame, labels, type))
         self.buttons['CLASS_REMOVE_TRIAL'].grid(row=0,column=2)
 
         # Frame to hold makeup buttons
-        makeup_buttons_frame = ctk.CTkFrame(self.makeup_frame)
+        makeup_buttons_frame = ctk.CTkFrame(self.makeup_frame, fg_color=self.makeup_frame.cget('border_color'), corner_radius=0)
         makeup_buttons_frame.columnconfigure((0,1,2), weight=1)
-        makeup_buttons_frame.grid(row=self.makeup_frame.grid_size()[1], column=0, sticky='nsew', padx=5, pady=5)
+        makeup_buttons_frame.grid(row=self.makeup_frame.grid_size()[1], column=0, sticky='nsew',)
+        self.makeup_frame.rowconfigure(makeup_buttons_frame.grid_info().get('row'), weight=1)
         # Button to edit makeups
         self.buttons['EDIT_CLASS_MAKEUP'] = ctk.CTkButton(makeup_buttons_frame,
+                                                  width=100,
                                                   text="Edit",
                                                   command = lambda frame=self.makeup_frame, labels=self.makeup_labels, type='CLASS_MAKEUP':
                                                                fn.edit_info(frame, labels, type))
         self.buttons['EDIT_CLASS_MAKEUP'].grid(row=0, column=0, pady=10)
 
         self.buttons['CLASS_ADD_MAKEUP'] = ctk.CTkButton(makeup_buttons_frame,
+                                                  width=100,
                                                   text='Create',
                                                   command=self.add_makeup)
         self.buttons['CLASS_ADD_MAKEUP'].grid(row=0,column=1)
 
         self.buttons['CLASS_REMOVE_MAKEUP'] = ctk.CTkButton(makeup_buttons_frame,
+                                                  width=100,
                                                   text='Remove',
                                                   command = lambda frame=self.makeup_frame, labels=self.makeup_labels, type='CLASS_REMOVE_MAKEUP':
                                                       fn.edit_info(frame, labels, type))
@@ -172,6 +191,9 @@ class ClassInfoFrame(ctk.CTkFrame):
                                                   command = lambda frame=self.note_frame, labels=self.note_textbox, type='CLASS_NOTE':
                                                                fn.edit_info(frame, labels, type))
         self.buttons['EDIT_CLASS_NOTE'].grid(row=self.note_frame.grid_size()[1], column=0, pady=10)
+
+        # Final update of the labels using the first class selected on startup
+        self.update_labels(self.id)
 
 
     def create_labels(self):
@@ -435,7 +457,6 @@ class ClassInfoFrame(ctk.CTkFrame):
             # Leave button alone if it doesn't deal with waitlist, trials, or makeups
             else:
                 continue
-
             # If record list is empty, only enable 'add' button
             if info.empty:
                 if 'ADD' in button_name:
@@ -580,8 +601,8 @@ class ClassInfoFrame(ctk.CTkFrame):
                 trial_name_txt += trial_record['NAME']
                 trial_phone_txt += str(trial_record['PHONE'])
                 trial_date_txt += str(trial_record['DATE'])
-                # Flag date with red bg if date is past or blank
-                if not pd.to_datetime(trial_date_txt) >= datetime.now():
+                # Flag date with red bg if date is either blank or in the past
+                if pd.isna(pd.to_datetime(trial_date_txt)) or (pd.to_datetime(trial_date_txt).date() < datetime.today().date()):
                     trial_date_label.cget('font').configure(weight='bold')
                     trial_date_label.configure(text_color='red')
 
