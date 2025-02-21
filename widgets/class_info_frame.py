@@ -197,24 +197,24 @@ class ClassInfoFrame(ctk.CTkFrame):
 
 
     def create_labels(self):
-        title_font = ctk.CTkFont('Segoe UI Light', 18, 'bold')
+        title_font = ctk.CTkFont('Segoe UI', 20, 'bold')
         ### Class Header Frame ###
         self.header_frame.columnconfigure(0, weight=1)
         # Current session only needs to be created once when the program starts up; store separately
         session_label = ctk.CTkLabel(self.header_frame, width=300, wraplength=300, font=title_font, fg_color='black', text_color='white',
                                           text=f'Current Session: {calendar.month_name[CURRENT_SESSION.month]} {CURRENT_SESSION.year}')
         session_label.grid(row=self.header_frame.grid_size()[1], column=0, sticky='nsew', pady=(0,5))
-        # 'Selected Class' header
-        class_header = ctk.CTkLabel(self.header_frame, width=300, wraplength=300, anchor='w', justify='left', font=title_font,
-                                    text='Selected Class:')
-        class_header.grid(row=self.header_frame.grid_size()[1], column=0, sticky='nsew')
+        # # 'Selected Class' header
+        # class_header = ctk.CTkLabel(self.header_frame, width=300, wraplength=300, anchor='w', justify='left', font=title_font,
+        #                             text='Selected Class:')
+        # class_header.grid(row=self.header_frame.grid_size()[1], column=0, sticky='nsew')
 
         self.header_labels = {}
         for header in ['TEACH', 'CLASSTIME', 'CLASSNAME']:
             # Create label and add to grid
             label = ctk.CTkLabel(self.header_frame, text='', width=300,
                                  font=title_font,
-                                 wraplength=300, anchor='w', justify='left')
+                                 wraplength=400, anchor='w', justify='left')
             label.grid(row=self.header_frame.grid_size()[1], column=0, sticky='nsew')
             # Store header label
             self.header_labels[header] = label
@@ -460,18 +460,18 @@ class ClassInfoFrame(ctk.CTkFrame):
             # If record list is empty, only enable 'add' button
             if info.empty:
                 if 'ADD' in button_name:
-                    button.configure(state='normal')
+                    button.configure(state='normal', fg_color='steelblue3')
                 else:
-                    button.configure(state='disabled')
+                    button.configure(state='disabled', fg_color='grey')
             # If record list is full, disable 'add' button
             elif info.shape[0] == max_size:
                 if 'ADD' in button_name:
-                    button.configure(state='disabled')
+                    button.configure(state='disabled', fg_color='grey')
                 else:
-                    button.configure(state='normal')
+                    button.configure(state='normal', fg_color='steelblue3')
             # Otherwise, all buttons enabled
             else:
-                button.configure(state='normal')
+                button.configure(state='normal', fg_color='steelblue3')
 
         ### Class Header Frame ###
         for field in self.header_labels.keys():

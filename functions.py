@@ -515,7 +515,7 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
         
     # Disable relevant buttons and labels with click events
     for button in info_frame.buttons.values():
-        button.configure(state='disabled')
+        button.configure(state='disabled', fg_color='grey')
 
     for row in info_frame.search_results_frame.result_rows:
         for label in row:
@@ -753,7 +753,7 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
 
     # Re-enable the deactivated buttons
     for button in info_frame.buttons.values():
-        button.configure(state='normal')
+        button.configure(state='normal', fg_color='steelblue3')
 
     for row in info_frame.search_results_frame.result_rows:
         for label in row:
