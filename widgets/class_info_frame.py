@@ -198,6 +198,7 @@ class ClassInfoFrame(ctk.CTkFrame):
 
     def create_labels(self):
         title_font = ctk.CTkFont('Segoe UI', 20, 'bold')
+        instructor_font = ctk.CTkFont('Segoe UI', 28, 'bold')
         ### Class Header Frame ###
         self.header_frame.columnconfigure(0, weight=1)
         # Current session only needs to be created once when the program starts up; store separately
@@ -213,7 +214,7 @@ class ClassInfoFrame(ctk.CTkFrame):
         for header in ['TEACH', 'CLASSTIME', 'CLASSNAME']:
             # Create label and add to grid
             label = ctk.CTkLabel(self.header_frame, text='', width=300,
-                                 font=title_font,
+                                 font=instructor_font if header=='TEACH' else title_font,
                                  wraplength=400, anchor='w', justify='left')
             label.grid(row=self.header_frame.grid_size()[1], column=0, sticky='nsew')
             # Store header label
