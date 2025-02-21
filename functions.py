@@ -628,11 +628,18 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
         which_label.destroy()
         cancel_button.destroy()
     else:
+        edit_button = info_frame.buttons[f'EDIT_{edit_type}']
         # Place new 'confirm' button over the top of the original 'edit' button
-        confirm_button = ctk.CTkButton(info_frame.buttons[f'EDIT_{edit_type}'], text="Confirm Changes")
-        confirm_button.place(x=0, y=0, relheight=1.0, relwidth=1.0)
+        confirm_button = ctk.CTkButton(edit_button, text="✔", fg_color='forest green')
+        confirm_button.place(x=0, y=0, relheight=1.0, relwidth=0.5)
         # Bind "Control+End" to 'confirm' edit
         info_frame.window.bind('<Control-End>', lambda event: confirm_button.invoke())
+        # Place new 'cancel' alongside the 'confirm' button
+        cancel_button = ctk.CTkButton(edit_button, text="❌", fg_color='red',
+                                       command = lambda : wait_var.set('cancel'))
+        cancel_button.place(x=edit_button.cget('width')//2, y=0, relheight=1.0, relwidth=0.5)
+        # Bind "Escape" to 'confirm' edit
+        info_frame.window.bind('<Escape>', lambda event: cancel_button.invoke())
         
         # If a note is being edited, the `labels` object is actually a Textbox, and needs special handling.
         if 'NOTE' in edit_type:
@@ -647,8 +654,10 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
             confirm_button.wait_variable(wait_var)
             # Make textbox read-only again
             note_textbox.configure(state='disabled', fg_color=note_textbox.master.cget('fg_color'))
-            # Update relevant note field in database
-            info_frame.database.update_note_info(id=info_frame.id, edit_type=edit_type, note_textbox=note_textbox)
+
+            if wait_var.get() == 'confirmed':
+                # Update relevant note field in database
+                info_frame.database.update_note_info(id=info_frame.id, edit_type=edit_type, note_textbox=note_textbox)
         # Otherwise, replace relevant labels with entry boxes so user can modify them
         else:
             # Replace info labels with entry boxes, and populate with the current info
@@ -703,48 +712,44 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
             confirm_button.configure(command=lambda d=dbf_table, c=confirm_button, eb=entry_boxes, ef=edit_frame, v=wait_var:
                                                 validate_entryboxes(d, c, eb, ef, v))
             
-            # Wait for variable to be changed to 'confirmed' to continue
+            # Wait for variable to change to continue
             confirm_button.wait_variable(wait_var)
 
-            # For payments entered with no date, replace missing date with today's date
-            if edit_type == 'STUDENT_PAYMENT':
-                for month in list(calendar.month_abbr[1:]) + ['REGFEE']:
-                    # Month abbreviation + pay/date (i.e. 'JANPAY', 'JANDATE')
-                    pay_field = month.upper() if month == 'REGFEE' else month.upper() + 'PAY'
-                    date_field = month.upper() + 'DATE'
-                    pay_value = entry_boxes[pay_field].get()
-                    date_value = entry_boxes[date_field].get()
-                    # If pay amount is blank, enter 0.00 as default
-                    if len(pay_value) == 0:
-                        pay_value = 0.00
-                        entry_boxes[pay_field].cget('textvariable').set(pay_value)
-                    # If non-zero payment entered for this month AND no payment date provided,
-                    # enter today's date as the payment date by default
-                    if float(pay_value) != 0.0 and len(date_value) == 0:
-                        entry_boxes[date_field].cget('textvariable').set(datetime.today().strftime('%m/%d/%Y'))
+            # If edits confirmed, finalize changes
+            if wait_var.get() == 'confirmed':
+                # For payments entered with no date, replace missing date with today's date
+                if edit_type == 'STUDENT_PAYMENT':
+                    for month in list(calendar.month_abbr[1:]) + ['REGFEE']:
+                        # Month abbreviation + pay/date (i.e. 'JANPAY', 'JANDATE')
+                        pay_field = month.upper() if month == 'REGFEE' else month.upper() + 'PAY'
+                        date_field = month.upper() + 'DATE'
+                        pay_value = entry_boxes[pay_field].get()
+                        date_value = entry_boxes[date_field].get()
+                        # If pay amount is blank, enter 0.00 as default
+                        if len(pay_value) == 0:
+                            pay_value = 0.00
+                            entry_boxes[pay_field].cget('textvariable').set(pay_value)
+                        # If non-zero payment entered for this month AND no payment date provided,
+                        # enter today's date as the payment date by default
+                        if float(pay_value) != 0.0 and len(date_value) == 0:
+                            entry_boxes[date_field].cget('textvariable').set(datetime.today().strftime('%m/%d/%Y'))
 
-            # Update dataframe and dbf file to reflect changes
-            if 'STUDENT' in edit_type:
-                info_frame.database.update_student_info(student_id=info_frame.id, entry_boxes=entry_boxes, edit_type=edit_type, year=year)
-            else:
-                info_frame.database.update_class_info(class_id=info_frame.id, entry_boxes=entry_boxes, edit_type=edit_type)
-
-            # Update labels with new data (where necessary) and destroy entry boxes
-            for field in entry_boxes.keys():
-                entry = entry_boxes[field]
-                if entry.dtype == 'float':
-                    proposed_value = '{:.2f}'.format(float(entry.get()))
+                # Update dataframe and dbf file to reflect changes
+                if 'STUDENT' in edit_type:
+                    info_frame.database.update_student_info(student_id=info_frame.id, entry_boxes=entry_boxes, edit_type=edit_type, year=year)
                 else:
-                    proposed_value = entry.get()
+                    info_frame.database.update_class_info(class_id=info_frame.id, entry_boxes=entry_boxes, edit_type=edit_type)
 
-                if proposed_value != labels[field].cget("text"):
-                    labels[field].configure(text=proposed_value)
+            # Destroy entry boxes
+            for field in entry_boxes.keys():
                 entry_boxes[field].destroy()
 
-        # Get rid of confirm edits button
+        # Get rid of confirm/cancel buttons
         confirm_button.destroy()
+        cancel_button.destroy()
         # Unbind "Control+End"
         info_frame.window.unbind('<Control-End>')
+        info_frame.window.unbind('<Escape>')
 
     # Re-enable the deactivated buttons
     for button in info_frame.buttons.values():
@@ -800,7 +805,8 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
     info_frame.update_labels(info_frame.id)
     # Finally, if we have made changes to payments, we should update the information displaying in the class info frame
     # (This step ensures that selected student is added/removed from their class if user added/deleted a payment for current month)
-    info_frame.window.screens['Classes'].search_results_frame.update_labels(select_first_result=False)
+    if 'PAYMENT' in edit_type:
+        info_frame.window.screens['Classes'].search_results_frame.update_labels(select_first_result=False)
 
 # Move to next entry box
 def jump_to_entry(event, direction):
