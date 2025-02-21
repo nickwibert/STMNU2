@@ -42,6 +42,7 @@ class STMNU(ctk.CTk):
         # Load data and create widgets while loading screen is displayed
         self.create_main_window()
 
+        # Exit protocol
         self.protocol("WM_DELETE_WINDOW", self.exit_program)
 
     def create_main_window(self):

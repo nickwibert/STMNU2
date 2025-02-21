@@ -11,6 +11,8 @@ def main():
    # Initialize instance of program
    root = gui.STMNU(database)
 
+   # Start program maximized
+   root.state('zoomed')
    # Start program loop
    root.mainloop()
 
