@@ -578,7 +578,7 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
         buttons_frame = info_frame.buttons[edit_type].master
         # Create a label instructing user to choose a record to delete
         which_label = ctk.CTkLabel(buttons_frame, text='Which record would you like to delete?',
-                                          text_color='red') 
+                                          text_color='white') 
         which_label.grid(row=0, column=0, columnspan=2, sticky='nsew')
 
         # Create dummy entry boxes that will not be displayed to the user, but still contain the existing data.
