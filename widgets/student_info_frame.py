@@ -452,6 +452,8 @@ class StudentInfoFrame(ctk.CTkFrame):
                     self.personal_labels[field].configure(text=label_txt)
                 elif field == 'STATE':
                     self.personal_labels[field].configure(text=student_info[field].upper())
+                elif field == 'EMAIL':
+                    self.personal_labels[field].configure(text=student_info[field].lower())
                 else:
                     self.personal_labels[field].configure(text=student_info[field])
 
