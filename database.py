@@ -101,13 +101,19 @@ class StudentDatabase:
         # Load note
         self.note = pd.read_csv(self.csv_paths['note'])
 
+        # Load waitlist students
+        self.wait = pd.read_csv(self.csv_paths['wait'])
+
         # Load trial students
         self.trial = pd.read_csv(self.csv_paths['trial'])
         for col in ['DATE']:
             self.trial[col] = pd.to_datetime(self.trial[col], errors='coerce', format='mixed').dt.strftime('%m/%d/%Y')
 
-        # Load waitlist students
-        self.wait = pd.read_csv(self.csv_paths['wait'])
+        # Load makeups
+        self.makeup = pd.read_csv(self.csv_paths['makeup'])
+        for col in ['DATE']:
+            self.makeup[col] = pd.to_datetime(self.makeup[col], errors='coerce', format='mixed').dt.strftime('%m/%d/%Y')
+
 
     # Export all of the tables as csv files
     def save_data(self, backup=False):
@@ -120,6 +126,7 @@ class StudentDatabase:
         self.class_student.to_csv(self.csv_paths['class_student'],index=False)
         self.wait.to_csv(self.csv_paths['wait'],index=False)
         self.trial.to_csv(self.csv_paths['trial'],index=False)
+        self.makeup.to_csv(self.csv_paths['makeup'],index=False)
         self.note.to_csv(self.csv_paths['note'],index=False)
 
         # If backup requested, copy the above files into the BACKUP folder
@@ -500,9 +507,15 @@ class StudentDatabase:
                     note_txt = note_txt[max_length:].strip()
                         
 
-    def update_class_info(self, class_id, entry_boxes, edit_type):
+    def update_class_info(self, class_id, entry_boxes, edit_type, wait_var=None):
+        # Change wait variable value to exit edit mode
+        if wait_var:
+            wait_var.set('done')
+
         new_values = [entry.get().strip() for entry in entry_boxes.values()]
-        new_info = pd.Series({k:v for (k,v) in zip(entry_boxes.keys(), new_values)})
+        new_info = pd.Series({k:v for (k,v) in zip(entry_boxes.keys(), new_values)}).squeeze()
+
+        # Cast data types
         for field in entry_boxes.keys():
             if len(new_info[field]) == 0:
                 new_info[field] = 0 if entry_boxes[field].dtype == 'float' else None
@@ -519,6 +532,10 @@ class StudentDatabase:
             self.update_wait_info(class_id, new_info)
         elif 'TRIAL' in edit_type:
             self.update_trial_info(class_id, new_info)
+        elif 'MAKEUP' in edit_type:
+            self.update_makeup_info(class_id, new_info)
+            # Break out of function, since there are no makeups in DBF files
+            return
 
 
         ## Step 2: Update student info in original database (DBF file)
@@ -532,82 +549,174 @@ class StudentDatabase:
             with record:
                 # Loop through each field
                 for field in new_info.keys():
-                    # Get info about this field in the dbf file
-                    field_info = self.classes_dbf.field_info(field)
-                    # Convert date fields to proper format
-                    if str(field_info.py_type) == "<class 'datetime.date'>":
-                        if new_info[field] is not None and len(new_info[field]) > 0:
-                            new_info[field] = datetime.strptime(new_info[field], "%m/%d/%Y")
-                    # Special case: there may be fields which have no restrictions in the new program,
-                    # but still must be truncated to fit in the old program.
-                    elif len(str(new_info[field])) > field_info.length:
-                        new_info[field] = str(new_info[field])[:field_info.length]
-                    # For this record, if the dbase field does not match the user-entered field,
-                    # update that field in the dbf file (if the field is unchanged, ignore)
-                    if record[field] != new_info[field]:
-                        record[field] = new_info[field]
+                    try:
+                        # Get info about this field in the dbf file
+                        field_info = self.classes_dbf.field_info(field)
+                        # Convert date fields to proper format
+                        if str(field_info.py_type) == "<class 'datetime.date'>":
+                            if new_info[field] is not None and len(new_info[field]) > 0:
+                                new_info[field] = datetime.strptime(new_info[field], "%m/%d/%Y")
+                        # Special case: there may be fields which have no restrictions in the new program,
+                        # but still must be truncated to fit in the old program.
+                        elif len(str(new_info[field])) > field_info.length:
+                            new_info[field] = str(new_info[field])[:field_info.length]
+                        # For this record, if the dbase field does not match the user-entered field,
+                        # update that field in the dbf file (if the field is unchanged, ignore)
+                        if record[field] != new_info[field]:
+                            record[field] = new_info[field]
+                    # If field does not exist in DBF file, ignore this data and move to the next field
+                    except dbf.exceptions.FieldMissingError as err:
+                        print(err.args[0])
+                        continue
+
 
 
     def update_wait_info(self, class_id, new_info):
-        for field in [col_name for col_name in new_info.index if 'WAIT' in col_name]:
+        # `wait_counter` tracks how many waitlists have been entered as we loop through
+        # all 4 placeholder fields. This is done so that if a gap exists in the 
+        # middle of the waitlist, all the entries will shift upward.
+        wait_counter = 1
+        wait_columns = [col_name for col_name in new_info.index if 'WAIT' in col_name]
+        for field in wait_columns:
             # Extract wait number from field name
             wait_no = int(field[-1])
             # Get existing record for this waitlist entry (if exists)
             wait_record = self.wait.loc[((self.wait['CLASS_ID']==class_id)
                                         & (self.wait['WAIT_NO']==wait_no))]
+            # New information
+            new_wait_name = new_info[f'WAIT{wait_no}']
+            new_wait_phone = new_info[f'W{wait_no}PHONE']
 
             # If waitlist entry doesn't exist...
             if wait_record.empty:
                 # If both name and phone fields are blank, do nothing
-                if ((new_info[f'WAIT{wait_no}'] is None or len(new_info[f'WAIT{wait_no}'])==0)
-                    and (new_info[f'W{wait_no}PHONE'] is None or len(new_info[f'W{wait_no}PHONE'])==0)):
+                if all([(info is None or info.strip()=='') for info in [new_wait_name,new_wait_phone]]):
                     continue
                 else:
+                    # Create new record in waitlist.
+                    # Note: in the special case that a single waitlist is being added, we don't need to track
+                    # anything, so we use the true `wait_no` when creating the record
                     self.wait.loc[len(self.wait)] = {'WAIT_ID'  : self.wait.shape[0]+1,
                                                      'CLASS_ID' : class_id,
-                                                     'WAIT_NO'  : wait_no,
-                                                     'NAME'     : new_info[f'WAIT{wait_no}'],
-                                                     'PHONE'    : new_info[f'W{wait_no}PHONE'],
+                                                     'WAIT_NO'  : wait_counter if len(wait_columns) > 1 else wait_no,
+                                                     'NAME'     : new_wait_name,
+                                                     'PHONE'    : new_wait_phone,
                                                      'CREA_TMS' : datetime.now(),
                                                      'UPDT_TMS' : datetime.now()}
-            # If record already exists, modify
+                    wait_counter += 1
+            # If record already exists...
             else:
-                self.wait.loc[wait_record.index, 'NAME'] = new_info[f'WAIT{wait_no}']
-                self.wait.loc[wait_record.index, 'PHONE'] = new_info[f'W{wait_no}PHONE']
-                self.wait.loc[wait_record.index, 'UPDT_TMS'] = datetime.now()
+                # If new data is all blank, drop existing record
+                if all([(info is None or info.strip()=='') for info in [new_wait_name,new_wait_phone]]):
+                    self.wait = self.wait.drop(wait_record.index).reset_index(drop=True)
+                # Otherwise, modify existing record
+                else:
+                    self.wait.loc[wait_record.index, 'NAME'] = new_wait_name
+                    self.wait.loc[wait_record.index, 'PHONE'] = new_wait_phone
+                    self.wait.loc[wait_record.index, 'WAIT_NO'] = wait_counter
+                    self.wait.loc[wait_record.index, 'UPDT_TMS'] = datetime.now()
+                    wait_counter += 1
 
 
     def update_trial_info(self, class_id, new_info):
-        for field in [col_name for col_name in new_info.index if 'TRIAL' in col_name]:
-            # Extract wait number from field name
+        # `trial_counter` tracks how many trials have been entered as we loop through
+        # all 8 placeholder fields. This is done so that if a gap exists in the 
+        # middle of the trials, all the entries will shift upward.
+        trial_counter = 1 
+        trial_columns = [col_name for col_name in new_info.index if 'TRIAL' in col_name]
+        for field in trial_columns:
+            # Extract trial number from field name
             trial_no = int(field[-1])
             # Get existing record for this trial entry (if exists)
             trial_record = self.trial.loc[((self.trial['CLASS_ID']==class_id)
                                          & (self.trial['TRIAL_NO']==trial_no))]
+            
+            # New info
+            new_trial_name = new_info[f'TRIAL{trial_no}']
+            new_trial_phone = new_info[f'T{trial_no}PHONE']
+            new_trial_date = new_info[f'T{trial_no}DATE']
 
-            # If waitlist entry doesn't exist...
+            # If trial entry doesn't exist...
             if trial_record.empty:
-                # If all fields are blank, do nothing
-                if ((new_info[f'TRIAL{trial_no}'] is None or len(new_info[f'TRIAL{trial_no}'])==0)
-                    and (new_info[f'T{trial_no}PHONE'] is None or len(new_info[f'T{trial_no}PHONE'])==0)
-                    and (new_info[f'T{trial_no}DATE'] is None or len(new_info[f'T{trial_no}DATE'])==0)):
+                # If new data is all blank, do nothing
+                if all([(info is None or info.strip()=='') for info in [new_trial_name,new_trial_phone,new_trial_date]]):
                     continue
+                # Otherwise, create record
                 else:
+                    # Create new trial.
+                    # Note: in the special case that a single trial is being added, we don't need to track
+                    # anything, so we use the true `trial_no` when creating the record
                     self.trial.loc[len(self.trial)] = {'TRIAL_ID'  : self.trial.shape[0]+1,
                                                      'CLASS_ID' : class_id,
-                                                     'TRIAL_NO' : trial_no,
-                                                     'NAME'     : new_info[f'TRIAL{trial_no}'],
-                                                     'PHONE'    : new_info[f'T{trial_no}PHONE'],
-                                                     'DATE'     : new_info[f'T{trial_no}DATE'],
+                                                     'TRIAL_NO' : trial_counter if len(trial_columns) > 1 else trial_no,
+                                                     'NAME'     : new_trial_name,
+                                                     'PHONE'    : new_trial_phone,
+                                                     'DATE'     : new_trial_date,
                                                      'CREA_TMS' : datetime.now(),
                                                      'UPDT_TMS' : datetime.now()}
-            # If record already exists, modify
+                    trial_counter += 1
+            # If record already exists...
             else:
-                self.trial.loc[trial_record.index, 'NAME'] = new_info[f'TRIAL{trial_no}']
-                self.trial.loc[trial_record.index, 'PHONE'] = new_info[f'T{trial_no}PHONE']
-                self.trial.loc[trial_record.index, 'DATE'] = new_info[f'T{trial_no}DATE']
-                self.trial.loc[trial_record.index, 'UPDT_TMS'] = datetime.now()
+                # If new data is all blank, drop existing record
+                if all([(info is None or info.strip()=='') for info in [new_trial_name,new_trial_phone,new_trial_date]]):
+                    self.trial = self.trial.drop(trial_record.index).reset_index(drop=True)
+                # Otherwise, modify existing record
+                else:
+                    self.trial.loc[trial_record.index, 'NAME'] = new_trial_name
+                    self.trial.loc[trial_record.index, 'PHONE'] = new_trial_phone
+                    self.trial.loc[trial_record.index, 'DATE'] =  new_trial_date
+                    self.trial.loc[trial_record.index, 'TRIAL_NO'] = trial_counter
+                    self.trial.loc[trial_record.index, 'UPDT_TMS'] = datetime.now()
+                    trial_counter += 1
 
+
+    def update_makeup_info(self, class_id, new_info):
+        # `makeup_counter` tracks how many makeups have been entered as we loop through
+        # all 4 placeholder fields. This is done so that if a gap exists in the 
+        # middle of the makeups, all the entries will shift upward.
+        makeup_counter = 1 
+        makeup_columns = [col_name for col_name in new_info.index if 'MAKEUP' in col_name]
+        for field in makeup_columns:
+            # Extract makeup number from field name
+            makeup_no = int(field[-1])
+            # Get existing record for this makeup entry (if exists)
+            makeup_record = self.makeup.loc[((self.makeup['CLASS_ID']==class_id)
+                                         & (self.makeup['MAKEUP_NO']==makeup_no))]
+            
+            # New info
+            new_makeup_name = new_info[f'MAKEUP{makeup_no}']
+            new_makeup_date = new_info[f'M{makeup_no}DATE']
+
+            # If makeup entry doesn't exist...
+            if makeup_record.empty:
+                # If new data is all blank, do nothing
+                if all([(info is None or info.strip()=='') for info in [new_makeup_name,new_makeup_date]]):
+                    continue
+                # Otherwise, create record
+                else:
+                    # Create new makeup.
+                    # Note: in the special case that a single makeup is being added, we don't need to track
+                    # anything, so we use the true `trial_no` when creating the record
+                    self.makeup.loc[len(self.makeup)] = {'MAKEUP_ID'  : self.makeup.shape[0]+1,
+                                                     'CLASS_ID' : class_id,
+                                                     'MAKEUP_NO' : makeup_counter if len(makeup_columns) > 1 else makeup_no,
+                                                     'NAME'     : new_makeup_name,
+                                                     'DATE'     : new_makeup_date,
+                                                     'CREA_TMS' : datetime.now(),
+                                                     'UPDT_TMS' : datetime.now()}
+                    makeup_counter += 1
+            # If record already exists...
+            else:
+                # If new data is all blank, drop existing record
+                if all([(info is None or info.strip()=='') for info in [new_makeup_name,new_makeup_date]]):
+                    self.makeup = self.makeup.drop(makeup_record.index).reset_index(drop=True)
+                # Otherwise, modify existing record
+                else:
+                    self.makeup.loc[makeup_record.index, 'NAME'] = new_makeup_name
+                    self.makeup.loc[makeup_record.index, 'DATE'] =  new_makeup_date
+                    self.makeup.loc[makeup_record.index, 'MAKEUP_NO'] = makeup_counter
+                    self.makeup.loc[makeup_record.index, 'UPDT_TMS'] = datetime.now()
+                    makeup_counter += 1
 
 
     # The dataframe is sorted chronologically by default. This function will sort the dataframe alphabetically,
