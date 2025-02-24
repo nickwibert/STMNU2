@@ -178,6 +178,10 @@ class StudentDatabase:
         self.student.loc[len(self.student)] = new_student_info
         self.student.to_csv(self.csv_paths['student'], index=False)
 
+        # Insert into SQLite database
+        new_student_info['ACTIVE'] = new_student_info['ACTIVE']*1
+        self.sqlite_insert('student', {k:v for k,v in new_student_info.items() if k not in ['MOMNAME','DADNAME']})
+
         # Create guardian records (if provided)
         for guardian_type in ['MOM','DAD']:
             if f'{guardian_type}NAME' in new_student_info.keys():
@@ -189,6 +193,8 @@ class StudentDatabase:
                                 'CREA_TMS'     : datetime.now(),
                                 'UPDT_TMS'     : datetime.now()}
                 self.guardian.loc[len(self.guardian)] = guardian_info
+                # Insert into SQLite as well
+                self.sqlite_insert('guardian', guardian_info)
 
         ## Step 2: Create new record for this student in original database (DBF file)
         # Special handling for dates
@@ -220,9 +226,8 @@ class StudentDatabase:
         # Guardian index
         guardian_info = self.guardian.loc[self.guardian['FAMILY_ID'] == family_id]
 
-        new_values = [entry.get().strip() for entry in entry_boxes.values()]
-        new_student_info = pd.Series({k:v for (k,v) in zip(entry_boxes.keys(), new_values)})
-        for field in new_student_info.index:
+        new_student_info = {field : entry.get().strip() for (field,entry) in entry_boxes.items()}
+        for field in new_student_info.keys():
             if len(new_student_info[field]) == 0:
                 new_student_info[field] = 0 if entry_boxes[field].dtype == 'float' else None
             elif entry_boxes[field].dtype == 'float':
@@ -252,6 +257,7 @@ class StudentDatabase:
                         # If new value is blank, delete guardian record
                         if is_blank:
                             self.guardian = self.guardian.drop(guardian_record.index).reset_index(drop=True)
+                            self.sqlite_delete('guardian', {'GUARDIAN_ID' : guardian_record['GUARDIAN_ID']})
                         # Otherwise, modify existing guardian record
                         else:
                             self.guardian.loc[
@@ -272,9 +278,19 @@ class StudentDatabase:
                                             'CREA_TMS'     : datetime.now(),
                                             'UPDT_TMS'     : datetime.now()}
                             self.guardian.loc[len(self.guardian)] = guardian_record
+                            self.sqlite_insert('guardian', guardian_record)
                 # Otherwise edit 'student' table
                 else:
-                    self.student.loc[student_idx, field] = new_student_info[field] 
+                    self.student.loc[student_idx, field] = new_student_info[field]
+
+            for key in ['MOMNAME', 'DADNAME']:
+                new_student_info.pop(key)
+
+            new_student_info.update({'UPDT_TMS' : datetime.now()})
+            self.sqlite_update('student',
+                               new_student_info,
+                               where_dict={'STUDENT_ID' : student_id})
+            new_student_info.pop('UPDT_TMS')
         
 
         ## Step 2: Update student info in original database (DBF file)
@@ -312,11 +328,21 @@ class StudentDatabase:
                     elif record[field] != new_student_info[field]:
                         record[field] = new_student_info[field]
 
+
     # Toggle 'ACTIVE' value for selected student between True/False
     def activate_student(self, student_id):
         # Step 1: Pandas DataFrame
         student_record = self.student[self.student['STUDENT_ID'] == student_id]
-        self.student.loc[student_record.index, 'ACTIVE'] = not student_record['ACTIVE'].values[0]
+        self.student.loc[student_record.index, 'ACTIVE'] = not student_record['ACTIVE'].values[0] 
+
+        # Step 2: SQLite database
+        update_query = f"""
+            UPDATE student
+            SET ACTIVE = NOT ACTIVE
+            WHERE STUDENT_ID={student_id}
+        """
+        self.cursor.execute(update_query)
+        self.rdb_conn.commit()
         
 
     # Create/delete a `bill` record for the selected student, month, year
@@ -613,7 +639,6 @@ class StudentDatabase:
             ORDER BY DAYOFWEEK, TIMEOFDAY
             COLLATE NOCASE
         """
-        print(sql_query)
         matches = pd.read_sql(sql_query, self.rdb_conn)
         
         return matches
@@ -790,4 +815,31 @@ class StudentDatabase:
         # Change wait variable value to exit edit mode
         if wait_var:
             wait_var.set('done')
+
+    # Function to insert record into SQLite database table
+    def sqlite_insert(self, table, row):
+        cols = ', '.join('{}'.format(col) for col in row.keys())
+        vals = ', '.join('"{}"'.format(col) for col in row.values())
+        sql = 'INSERT INTO {0} ({1})\n VALUES ({2})'.format(table, cols, vals)
+        self.cursor.execute(sql)
+        self.rdb_conn.commit()
+
+    def sqlite_update(self, table, new_info, where_dict):
+        # `where_dict` is a dictionary that allows us to locate the record(s) which must be updated
+        # The dictionary key is the column name(s), and the values are the actual values
+        # (i.e. if we are updating the student table, where_dict={'STUDENT_ID' : <student id>}
+        # and for a trial, where_dict={'CLASS_ID':<class id>, 'TRIAL_NO':<trial #>}
+        set_clause = ', '.join([f'{field}="{value}"' for field,value in new_info.items()])
+        where_clause = ' AND '.join([f'{field}="{value}"' for field,value in where_dict.items()])
+        sql = f'UPDATE {table} SET {set_clause} WHERE {where_clause}'
+        self.cursor.execute(sql)
+        self.rdb_conn.commit()
+
+    # Function to insert record into SQLite database table
+    def sqlite_delete(self, table, where_dict):
+        where_clause = ' AND '.join([f'{field}="{value}"' for field,value in where_dict.items()])
+        sql = f'DELETE FROM {table} WHERE {where_clause}'
+        self.cursor.execute(sql)
+        self.rdb_conn.commit()
+
 
