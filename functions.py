@@ -857,9 +857,9 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
             
     info_frame.window.tabs.configure(state='normal')
     info_frame.update_labels(info_frame.id)
-    # Finally, if we have made changes to payments, we should update the information displaying in the class info frame
+    # Finally, if we have made changes to payments or class info, we should update the information displaying in the class info frame
     # (This step ensures that selected student is added/removed from their class if user added/deleted a payment for current month)
-    if 'PAYMENT' in edit_type:
+    if 'PAYMENT' in edit_type or 'CLASS' in edit_type:
         info_frame.window.screens['Classes'].search_results_frame.update_labels(select_first_result=False)
 
 # Move to next entry box
