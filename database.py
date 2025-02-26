@@ -366,8 +366,30 @@ class StudentDatabase:
                                              'YEAR'       : year}
         # If this month/year appears in 'bill' for this student (meaning they owed),
         # delete that bill record to indicate that the payment has been made
-        if not bill_record.empty:
+        else:
             self.bill = self.bill.drop(bill_record.index).reset_index(drop=True)
+
+        ## Step 1B: Update SQLite
+        select_sql = f'''
+            SELECT *
+            FROM bill
+            WHERE STUDENT_ID={student_id}
+                  AND MONTH={month_num}
+                  AND YEAR={year}
+        '''
+        bill_record = pd.read_sql(select_sql, self.rdb_conn)
+        bill_info = {'STUDENT_ID' : student_id,
+                     'MONTH'      : month_num,
+                     'YEAR'       : year}
+
+        # If this bill does not exist, create record
+        if bill_record.empty:
+            self.sqlite_insert('bill', bill_info)
+        # If this month/year appears in 'bill' for this student (meaning they owed),
+        # delete that bill record to indicate that the payment has been made
+        else:
+            self.sqlite_delete('bill', bill_info)
+
 
         ## Step 2: Update student info in original database (DBF file)
         if year == CURRENT_SESSION.year:
