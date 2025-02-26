@@ -409,9 +409,10 @@ class StudentDatabase:
                 bill_txt = '*' if bill_record.empty else ''
                 record[f'{month}BILL'] = bill_txt
 
+
     # Create/delete/modify payments for a given student in the `payment` table
     def update_payment_info(self, student_id, new_info, year):
-        for field in new_info.index:
+        for field in new_info.keys():
             # For now, reg. fee is stored in `student`
             if 'REG' in field:
                 self.student.loc[self.student['STUDENT_ID']==student_id,field] = new_info[field]
@@ -459,6 +460,79 @@ class StudentDatabase:
             # Otherwise, record already exists + new amount entered is NON-ZERO, so we edit the existing record
             else:
                 self.payment.loc[pay_record.index, field[3:]] = new_info[field]
+
+
+        ## SQLite database
+        pay_bill_query = f"""
+            SELECT STUDENT_ID, MONTH, YEAR, PAY, BILL
+            FROM (
+                SELECT MONTH_YEAR.*, PAY, IIF(B.STUDENT_ID IS NULL, 0, 1) AS BILL
+                FROM (
+                    SELECT DISTINCT {student_id} AS STUDENT_ID, MONTH, YEAR
+                    FROM payment
+                ) AS MONTH_YEAR
+                    LEFT JOIN payment AS P ON MONTH_YEAR.STUDENT_ID=P.STUDENT_ID
+                                        AND MONTH_YEAR.MONTH=P.MONTH
+                                        AND MONTH_YEAR.YEAR=P.YEAR
+                    LEFT JOIN bill AS B ON MONTH_YEAR.STUDENT_ID=B.STUDENT_ID
+                                        AND MONTH_YEAR.MONTH=B.MONTH
+                                        AND MONTH_YEAR.YEAR=B.YEAR
+            ) AS FINAL
+            -- Only pull month/year where there is a payment or a bill
+            WHERE (PAY IS NOT NULL OR BILL = 1) AND (YEAR={year})
+            ORDER BY YEAR, MONTH
+        """
+
+        pay_and_bills = pd.read_sql(pay_bill_query, self.rdb_conn)
+
+        # Loop through pay fields
+        for field in [key for key in new_info.keys() if 'PAY' in key]:
+            # For now, reg. fee is stored in `student`
+            if 'REG' in field:
+                self.student.loc[self.student['STUDENT_ID']==student_id,field] = new_info[field]
+                continue
+    
+            # Integer corresponding to the month this payment applies to
+            month_num = list(calendar.month_abbr).index(field[:3].title())
+            pay = new_info[field]
+            date = new_info[f'{field[:3]}DATE']
+
+            # If new value is non-zero, insert/update payment in database
+            if new_info[field] not in (None, 0.0, '0.00'):
+                # Perform insert/update
+                upsert_dict = {'STUDENT_ID' : student_id,
+                               'MONTH'      : month_num,
+                               'PAY'        : pay,
+                               'DATE'       : date,
+                               'YEAR'       : year}
+                unique_idx = ['STUDENT_ID', 'MONTH', 'YEAR']
+                self.sqlite_upsert('payment', upsert_dict, unique_idx)
+
+                # Next, if student had been billed for this month, delete bill record
+                if pay_and_bills.loc[pay_and_bills['BILL']==1,'MONTH'].isin([month_num]).any():
+                    self.sqlite_delete('bill',
+                                       where_dict={'STUDENT_ID' : student_id,
+                                                   'MONTH' : month_num,
+                                                   'YEAR' : year})
+                
+                # Finally, if payment record was created for CURRENT MONTH, place student in class roll
+                # and ensure they are marked as active
+                if month_num==CURRENT_SESSION.month:
+                    self.sqlite_update('student', new_info={'ACTIVE':1}, where_dict={'STUDENT_ID':student_id})
+                    for class_id in pd.read_sql(f'SELECT * FROM class_student WHERE STUDENT_ID={student_id}', self.rdb_conn)['CLASS_ID'].values:
+                        self.enroll_student(student_id, class_id)
+            else:
+                # Delete the payment record (if it exists)
+                self.sqlite_delete('payment',
+                                   where_dict={'STUDENT_ID' : student_id,
+                                               'MONTH'      : month_num,
+                                               'YEAR'       : year})
+
+                # If a payment record has been deleted for CURRENT MONTH, remove student from class roll
+                if month_num == CURRENT_SESSION.month:
+                    for class_id in pd.read_sql(f'SELECT * FROM class_student WHERE STUDENT_ID={student_id}', self.rdb_conn)['CLASS_ID'].values:
+                        self.unenroll_student(student_id, class_id,)
+
 
     # Create/delete/modify notes for a given student/class in the `note` table
     # The type of note we are dealing with is provided by edit_type (either 'NOTE_STUDENT' or 'NOTE_CLASS')
@@ -820,6 +894,12 @@ class StudentDatabase:
             # Fill a spot in the 'new' class by subtracting 1 from the 'AVAILABLE' column
             self.classes.loc[self.classes['CLASS_ID'] == class_id, 'AVAILABLE'] -= 1
 
+        ## STEP 1B: Update SQLite
+        upsert_dict = {'CLASS_ID' : class_id,
+                       'STUDENT_ID' : student_id}
+        unique_idx = list(upsert_dict.keys())
+        self.sqlite_upsert('class_student', upsert_dict, unique_idx)
+
         ## STEP 2: Update original database (DBF file)
         # Get 'STUDENTNO' and name corresponding to the selected 'student_id'
         student_info = self.student[self.student['STUDENT_ID'] == student_id].squeeze()
@@ -897,6 +977,12 @@ class StudentDatabase:
             self.class_student = self.class_student.drop(record.index).reset_index(drop=True)
             # Open up a spot in the current class by adding 1 to the 'AVAILABLE' column
             self.classes.loc[self.classes['CLASS_ID'] == class_id, 'AVAILABLE'] += 1
+
+        ## STEP 1B: Update SQLite
+        if not class_roll_only:
+            self.sqlite_delete('class_student',
+                            where_dict={'CLASS_ID' : class_id,
+                                        'STUDENT_ID' : student_id})
 
         ## STEP 2: Remove student from class roll in DBF file
         studentno = self.student.loc[self.student['STUDENT_ID']==student_id,'STUDENTNO'].values[0]
