@@ -946,7 +946,33 @@ class StudentDatabase:
         self.cursor.execute(sql)
         self.rdb_conn.commit()
 
-    # Function to insert record into SQLite database table
+    # Function to perform an insert/update in SQLite database depending on what is necessary.
+    # The argument `unique_idx` is a list of column names which are considered to be a unique set
+    # in the given `table`. If we attempt to insert a new record using values for the `unique_idx`
+    # columns that already exist as a set in the database, the query will instead UPDATE
+    # the existing record with the other values in `new_info`.
+    #
+    # (In simple terms, this function updates the relevant record if it already exists, otherwise
+    #  it goes ahead and creates a new record)
+    def sqlite_upsert(self, table, new_info, unique_idx):
+        cols = ', '.join(col for col in new_info.keys())
+        vals = ', '.join(f'"{val}"' for val in new_info.values())
+        conflict_cols = ', '.join(col for col in unique_idx)
+        set_clause = ', '.join(f'{col}=EXCLUDED.{col}' for col in new_info.keys() if col not in unique_idx)
+
+        # Typically, resolve CONFLICT with an UPDATE, but if every key in `new_info`
+        # also appears in `unique_idx`, resolve CONFLICTs with IGNORE
+        conflict_clause = 'NOTHING' if len(set_clause)==0 else f'UPDATE SET\n {set_clause}'
+        sql = f"""
+            INSERT INTO {table} ({cols})
+            VALUES ({vals})
+            ON CONFLICT({conflict_cols}) DO {conflict_clause}
+        """
+        self.cursor.execute(sql)
+        self.rdb_conn.commit()
+
+    # Function to delete record from SQLite database table. If the record that we request
+    # to delete does not exist, then nothing will happen.
     def sqlite_delete(self, table, where_dict):
         where_clause = ' AND '.join([f'{field}="{value}"' for field,value in where_dict.items()])
         sql = f'DELETE FROM {table} WHERE {where_clause}'
