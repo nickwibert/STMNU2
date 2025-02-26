@@ -285,6 +285,8 @@ class SearchResultsFrame(ctk.CTkFrame):
                                  ).reset_index()
 
             self.df = self.df.merge(class_counts, how='left', on='CLASS_ID')
+            # Make sure that NA values for 'COUNT' are replaced with 0
+            self.df['COUNT'] = self.df['COUNT'].fillna(0)
             # Calculate number of spots available and drop 'count' column
             available = self.df['MAX'] - self.df['COUNT']
             self.df.insert(self.df.shape[1]-2, 'AVAILABLE', available)
