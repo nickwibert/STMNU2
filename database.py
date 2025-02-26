@@ -925,14 +925,16 @@ class StudentDatabase:
         if wait_var:
             wait_var.set('done')
 
-    # Function to insert record into SQLite database table
+    # Function to insert record into SQLite database table.
     def sqlite_insert(self, table, row):
         cols = ', '.join('{}'.format(col) for col in row.keys())
         vals = ', '.join('"{}"'.format(col) for col in row.values())
-        sql = 'INSERT INTO {0} ({1})\n VALUES ({2})'.format(table, cols, vals)
+        sql = f'INSERT INTO {table} ({cols})\n VALUES ({vals})'
         self.cursor.execute(sql)
         self.rdb_conn.commit()
 
+    # Function to update an existing record in SQLite database table.
+    # If the record we request to update does not exist, nothing happens.
     def sqlite_update(self, table, new_info, where_dict):
         # `where_dict` is a dictionary that allows us to locate the record(s) which must be updated
         # The dictionary key is the column name(s), and the values are the actual values
