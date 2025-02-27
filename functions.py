@@ -646,6 +646,8 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
             note_textbox = labels
             # Enable textbox so user can modify
             note_textbox.configure(state='normal', fg_color='white')
+            # Focus textbox
+            note_textbox.focus_set()
 
             # For the note field, no validation is needed; the user can enter whatever they want.
             # So, the confirm button will simply end edit mode without checking anything.
