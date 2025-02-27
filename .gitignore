@@ -4,3 +4,4 @@ data/dbf_format/
 data/rdb_format/
 # Ignore Jupyter notebook; this is just a sandbox to test stuff out
 notes.ipynb
+/queries
