@@ -289,6 +289,11 @@ class StudentDatabase:
                     if str(field_info.py_type) == "<class 'datetime.date'>":
                         if new_student_info[field] is not None:
                             new_student_info[field] = datetime.strptime(new_student_info[field], "%m/%d/%Y")
+                    # Special case: there may be fields which have no restrictions in the new program,
+                    # but still must be truncated to fit in the old program.
+                    elif len(str(new_student_info[field])) > field_info.length:
+                        new_student_info[field] = str(new_student_info[field])[:field_info.length]
+                        
                     # Special case: for payment dates, if the payment value is blank or zero, delete date
                     if 'DATE' in field and 'ENROLL' not in field:
                         prefix = field[:-4]
@@ -507,6 +512,7 @@ class StudentDatabase:
                     try:
                         # Get info about this field in the dbf file
                         field_info = self.classes_dbf.field_info(field)
+
                         # Convert date fields to proper format
                         if str(field_info.py_type) == "<class 'datetime.date'>":
                             if new_info[field] is not None and len(new_info[field]) > 0:

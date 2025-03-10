@@ -407,7 +407,8 @@ def validate_entryboxes(dbf_table, confirm_button, entry_boxes, error_frame, wai
     error_labels = []
 
     # SPECIAL CASE: Ignore data validation for certain columns
-    cols_to_ignore = [col for i in range(1,10) for col in (f'TRIAL{i}', f'T{i}PHONE')] \
+    cols_to_ignore = ['FNAME', 'LNAME'] \
+                     + [col for i in range(1,10) for col in (f'TRIAL{i}', f'T{i}PHONE')] \
                      + [col for i in range(1,10) for col in (f'WAIT{i}', f'W{i}PHONE')] \
                      + [f'MAKEUP{i}' for i in range(1,5)]
 
