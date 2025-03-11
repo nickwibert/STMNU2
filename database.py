@@ -793,16 +793,23 @@ class StudentDatabase:
 
             # Add new instructor/daytime to student's record
             with record:
+                # Track duplicate classtimes
+                student_enrolled = False
                 # Loop through each instructor/daytime pair in STUD00
                 for teach_col, daytime_col in list(zip(teach_cols, daytime_cols)):
-                    # If instructor/daytime is already present, end function (this prevents enrolling the student in the same class twice)
+                    # Check if instructor/daytime is already present
                     if record[teach_col].strip() == new_class_info['TEACH'] and record[daytime_col].strip() == new_class_info['CLASSTIME']:
-                        break
-                    # Put instructor/daytime into first blank spot
-                    elif record[teach_col].strip() == '':
+                        # If this is a DUPLICATE classtime for the student, make sure we reset it to blank
+                        if student_enrolled:
+                            record[teach_col] = ''
+                            record[daytime_col] = ''
+                        else:
+                            student_enrolled = True
+                    # Put instructor/daytime into first blank spot (if not already enrolled)
+                    elif record[teach_col].strip() == '' and not student_enrolled:
                         record[teach_col] = new_class_info['TEACH']
                         record[daytime_col] = new_class_info['CLASSTIME']
-                        break
+                        student_enrolled = True
     
 
     # Remove student from class associated with `class_id`
@@ -861,7 +868,27 @@ class StudentDatabase:
                             # If so, delete this instructor and daytime from the student's record
                             record[teach_col] = ''
                             record[daytime_col] = ''
-                            break
+
+                    # Loop through each instructor/daytime pair AGAIN to make sure the classes get shifted up (if needed)
+                    previous_class_info = {'TEACH_placeholder' : 'teach', 'CLASSTIME_placeholder' : 'classtime'}
+                    for teach_col, daytime_col in list(zip(teach_cols, daytime_cols)):
+                        # If the previous classtime values are blank...
+                        if not any([val.strip() for val in previous_class_info.values()]):
+                            # And the current classtime values are NOT blank, shift them to the previous pair of fields
+                            if record[teach_col].strip() != '':
+                                for field in previous_class_info.keys():
+                                    record[field] = record[teach_col] if 'INS' in field else record[daytime_col]
+                                    
+                                record[teach_col] = ''
+                                record[daytime_col] = ''
+                        # Set the current classtime values to 'previous' and continue
+                        previous_class_info = {teach_col : record[teach_col], daytime_col : record[daytime_col]}
+
+
+
+                            
+                            
+
     
         # Change wait variable value to exit edit mode
         if wait_var:
