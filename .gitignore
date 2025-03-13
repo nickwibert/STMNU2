@@ -7,3 +7,5 @@ data/rdb_format/
 queries/
 # Ignore Jupyter notebook; this is just a sandbox to test stuff out
 notes.ipynb
+# File containing sensitive info
+.env
