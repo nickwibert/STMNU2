@@ -7,12 +7,14 @@ import customtkinter as ctk
 from dbfread import DBF
 import dbf
 import re
+from dotenv import load_dotenv
 
 import functions as fn
 from widgets.dialog_boxes import PasswordDialog
 
 # Global variables
 from globals import CURRENT_SESSION, CUTOFF_DATE
+load_dotenv()
 
 # Function to convert a given .dbf file to .csv
 def dbf_to_csv(filename, save_to_path='C:\\STMNU2\\data\\dbf_format'):
@@ -509,7 +511,7 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
         if info_frame.database.request_password:
             dialog = PasswordDialog(window=info_frame.window, text="Enter password:", title="Edit Payments")
             password = dialog.get_input()
-            if password != '***REMOVED***':
+            if password != os.getenv('PAYMENT_PASSWORD'):
                 return
             # Don't require the user to enter the password again until the program has been restarted
             info_frame.database.request_password = False
