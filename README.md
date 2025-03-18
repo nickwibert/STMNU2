@@ -1,10 +1,18 @@
-# Gymtek Student Menu V2
+# STMNU2: A student database application for a family-owned gymnastics center
 
 Gymtek Gymnastic Center is a small business which has relied on a dBASE program (written by the owner) since the late 1980s to function as a student database. The project hosted here is a simple Tkinter/CustomTkinter GUI that I built as a full remake of the original program, custom-made to mimic the functionality with which its users are familiar while offering a more streamlined way for the user to interact with the program.
 
-This project also uses [Ethan Furman's DBF package](https://github.com/ethanfurman/dbf) for reading/writing DBF files that function with the original dBASE program. Much of the work for this project came from the need to ensure that any and all changes made in the new program will be reflected in the old program as well (at the request of the owner), and I relied exclusively on this package for dealing with the maintenance of DBF files.
+The screenshots below show some simple comparisons between the old and new programs, specifically when viewing a student record (top row) and a class record (bottom row). The most notable change is the addition of a comprehensive search feature which allows the user to query/filter students and classes, while the old program required the user to page through individual records one-by-one.
 
-Note: the project is published here with consent of Gymtek's owner to serve as part of my portfolio. All of the company's sensitive data and information is excluded from this project, and indeed the project cannot be run on any other machine besides mine and the business's due to essential files (mainly the above-mentioned DBF files) being excluded from this repository. The project is hosted here purely to serve as part of my coding portfolio. Please refer to the information below, as well as comments within the code itself, for explanations on what the program does.
+Old dBASE Program             |  New Version
+:-------------------------:|:-------------------------:
+![image](https://github.com/user-attachments/assets/4b0df317-dba5-4ee1-a897-cf750566c8f1) | ![image](https://github.com/user-attachments/assets/a078eec4-33e9-47e6-a352-f8a54de8f6bd)
+![image](https://github.com/user-attachments/assets/84fc4494-acc7-4b7d-b40c-e55493403cb0) | ![image](https://github.com/user-attachments/assets/d33507b0-cde4-4ce1-929d-df10ccc1bcfc)
+
+This project uses [Ethan Furman's DBF package](https://github.com/ethanfurman/dbf) for reading/writing DBF files that function with the original dBASE program. Much of the work for this project came from the need to ensure that any and all changes made in the new program will be reflected in the old program as well (at the request of the owner), and I relied exclusively on this package for dealing with the maintenance of DBF files.
+
+**NOTE:** The project is published here with consent of Gymtek's owner. All of the company's sensitive data and information is excluded from this project, and indeed the project cannot be run on any other machine besides mine and the business's due to the exclusion of essential files (mainly the above-mentioned DBF files) from this repository. The project is hosted here purely to serve as part of my coding portfolio. Please refer to the information below, as well as comments within the code itself, for explanations on what the program does.
+
 
 ## Database Structure
 The original dBASE program relies primarily on four different tables (`.dbf` files):
