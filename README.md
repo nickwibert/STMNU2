@@ -23,27 +23,9 @@ The original dBASE program relies primarily on four different tables (`.dbf` fil
 
 Tables 1 and 2 above contain each gymnastic student's personal information, their parents' information, and all of the payments made for that student in the given year (represented as fields like `JANPAY`, `FEBPAY`, etc.). Tables 3 and 4 have a similar structure, with information for a given class as well as all of the students enrolled in said class (represented as fields like `STUDENT1`, `STUDENT2`, etc.).
 
-For the new program, I decided to represent the data using a relational database structure. For the relatively small amount of data involved in this program, I don't think this new structure will make much difference in terms of efficiency, but it was much more efficient for me to write Python code when the data was represented this way. The new database structure contains the following tables:
-  1. `student`
-     * Contains the student's personal information, along with a primary key and relevant foreign keys (i.e. `FAMILY_ID`)
-  2. `guardian`
-     * Contains information for guardians, which can be linked back to students via `FAMILY_ID`
-  3. `payment`
-     * Contains payment information for a given student and session (month/year) such that each record corresponds to a single payment
-  4. `bill`
-     * Contains bill information for a given student and session (month/year) such that each record corresponds to a single bill
-  5. `classes`
-     * Contains basic information for a class like instructor, classtime, etc. along with a primary key
-  6. `class_student`
-     * Simply contains two fields representing primary keys from `student` and `classes` to link each student with the class in which they are enrolled
-  7. `waitlist`
-     * Children on a waitlist to enter a given class
-  8. `trial`
-     * Children who are doing a trial for a given class
-  9. `makeup`
-     * Each record corresponds to a student performing a makeup for a missed class
-  10. `note`\
-     * Each record corresponds to a note created by the user, which may correspond to either a class (`CLASS_ID` is not null) or a student (`STUDENT_ID` is not null)
+For the new program, I decided to represent the data using a relational database structure. For the relatively small amount of data involved in this program, I don't think this new structure will make much difference in terms of efficiency, but it was much more efficient for me to write Python code when the data was represented this way. Furthermore, by adding an 'ACTIVE' status to each student and by tracking payments as individual records rather than columns, eliminated the need for previous-month and previous-year tables. The diagram below displays the new database structure.
+![Untitled](https://github.com/user-attachments/assets/66072761-c98c-4dbc-aee8-d5ba94e25842)
+
 
 The biggest challenge in the new program was to make changes to these new RDB style tables during runtime while making sure to update the DBF tables as well. The file `database.py` functions mostly as an interface between these two database representations, and throughout it you will see that most of the functions are split into two chunks to first make a necessary change in the RDB representation, and then apply that same change to the DBF files.
 
