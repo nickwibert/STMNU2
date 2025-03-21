@@ -388,6 +388,16 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=Fals
                 if '.db' in save_as:
                     df.to_sql(df_name, conn, if_exists='replace', index=False)
 
+        # Ensure that unique indices are created for SQLite database tables
+        unique_index_dir = 'C:\\STMNU2\\queries\\unique_index\\'
+        for filename in os.listdir(unique_index_dir):
+            if 'idx' in filename:
+                with open(os.path.join(unique_index_dir,filename), 'r') as sql_file:
+                    sql_script = sql_file.read()
+
+                conn.executescript(sql_script)
+                conn.commit()
+        
         # Close database connection
         conn.close()
 
