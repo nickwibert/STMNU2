@@ -435,7 +435,7 @@ class StudentInfoFrame(ctk.CTkFrame):
                         ).fillna(''
                         ).str.title()
         # Get family ID
-        family_id = int(float(student_info['FAMILY_ID']))
+        family_id = student_info['FAMILY_ID']
 
         # Dataframe containing payments (for selected year, could be current or previous year)
         # payment_info = self.database.payment[(self.database.payment['STUDENT_ID'] == student_id)
@@ -452,10 +452,14 @@ class StudentInfoFrame(ctk.CTkFrame):
                                 self.database.conn)
 
         # Dataframe containing info for student's guardians
-        if family_id == '' or pd.isna(family_id):
-            guardian_info = pd.DataFrame(columns=self.database.guardian.columns)
-        else:
-            guardian_info = self.database.guardian.loc[self.database.guardian['FAMILY_ID'] == int(family_id)]
+        # if family_id == '' or pd.isna(family_id):
+        #     guardian_info = pd.DataFrame(columns=self.database.guardian.columns)
+        # else:
+        #     guardian_info = self.database.guardian.loc[self.database.guardian['FAMILY_ID'] == int(family_id)]
+        guardian_info = pd.read_sql(f"""SELECT *
+                                        FROM guardian 
+                                        WHERE FAMILY_ID='{family_id}'""",
+                                    self.database.conn)
 
         # Class info for each class_id
         class_info = self.database.class_student.loc[self.database.class_student['STUDENT_ID'] == student_id
