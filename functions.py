@@ -125,7 +125,8 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=Fals
                                 'UPDT_TMS'   : [datetime.now()]*STUD00.shape[0],})
 
         # Insert FAMILY_ID into student
-        student = student.merge(STUD00[['STUDENTNO','MOMNAME','DADNAME']].fillna(''), how='left', on='STUDENTNO'
+        student = student.merge(STUD00[['STUDENTNO','FNAME','LNAME','MOMNAME','DADNAME']].fillna(''), how='left',
+                                on=['STUDENTNO','FNAME','LNAME']
                         ).merge(families[['MOMNAME','DADNAME','LNAME','FAMILY_ID']], how='left',
                                 on=['MOMNAME','DADNAME','LNAME']
                         ).drop(columns=['MOMNAME','DADNAME']
@@ -138,30 +139,30 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=Fals
         ### PAYMENT and BILL ###
         payment = pd.DataFrame()
         bill = pd.DataFrame()
-        payment_cols = ['STUDENTNO'] + [month.upper() + suffix for month in list(calendar.month_abbr[1:]) for suffix in ['PAY','DATE','BILL']]
+        payment_cols = ['STUDENTNO', 'FNAME', 'LNAME'] + [month.upper() + suffix for month in list(calendar.month_abbr[1:]) for suffix in ['PAY','DATE','BILL']]
         # Pivot payments for previous year and current year to create 'payment' table
         year = CURRENT_SESSION.year - 1
         for STUD in [STUD99, STUD00]:
             payment_df = STUD[payment_cols]
             # 'Melt' dataframe so that all month column names are put into one column called 'COLUMN'
-            df_long = payment_df.melt(id_vars=['STUDENTNO'], var_name='COLUMN', value_name='VALUE')
+            df_long = payment_df.melt(id_vars=['STUDENTNO', 'FNAME', 'LNAME'], var_name='COLUMN', value_name='VALUE')
             df_long['MONTH'] = df_long['COLUMN'].str[:3].map({calendar.month_abbr[i].upper() : i for i in range(1,13)})
             df_long['TYPE'] = df_long['COLUMN'].str[3:]  # Remaining characters for the type
-            df_long['row'] = df_long.groupby(['STUDENTNO', 'MONTH', 'TYPE']).cumcount()
+            df_long['row'] = df_long.groupby(['STUDENTNO', 'FNAME', 'LNAME', 'MONTH', 'TYPE']).cumcount()
             # Pivot payment columns so that the new table has columns: [PAYMENT_ID, STUDENT_ID, MONTH, 'PAY', 'DATE']
-            df_pivot = df_long.pivot(index=['STUDENTNO','MONTH', 'row'], columns='TYPE', values='VALUE').rename_axis(columns=None).reset_index()
-            df_pivot = df_pivot[['STUDENTNO', 'MONTH', 'PAY', 'DATE', 'BILL']]
+            df_pivot = df_long.pivot(index=['STUDENTNO', 'FNAME', 'LNAME', 'MONTH', 'row'], columns='TYPE', values='VALUE').rename_axis(columns=None).reset_index()
+            df_pivot = df_pivot[['STUDENTNO', 'FNAME', 'LNAME', 'MONTH', 'PAY', 'DATE', 'BILL']]
             # Add year column
             df_pivot['YEAR'] = int(df_pivot['DATE'].str[:4].mode()[0])
 
             # When payment is 0 and BILL = '*', this indicates a payment is owed.
             # Create records in a new table 'bill' to represent owed payments
             bill_df = df_pivot.loc[((df_pivot['PAY'] == 0) | (pd.isna(df_pivot['PAY']))) & (df_pivot['BILL'] == '*')
-                             ].loc[:,['STUDENTNO', 'MONTH', 'YEAR']
+                             ].loc[:,['STUDENTNO', 'FNAME', 'LNAME', 'MONTH', 'YEAR']
                              ].reset_index(drop=True)
             bill = pd.concat([bill, bill_df], ignore_index=True)
             # Also add REGFEE bills from STUD tables to `bill`
-            regfee_bills = STUD.loc[STUD['REGBILL'] == '*', ['STUDENTNO']].assign(MONTH=13, YEAR=year)
+            regfee_bills = STUD.loc[STUD['REGBILL'] == '*', ['STUDENTNO', 'FNAME', 'LNAME']].assign(MONTH=13, YEAR=year)
             bill = pd.concat([bill, regfee_bills], ignore_index=True)
             # move to current year before next loop
             year += 1
@@ -171,10 +172,13 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=Fals
                        ].reset_index(drop=True)], ignore_index=True)
 
         # Get STUDENT_ID from 'student'
-        payment = student[['STUDENT_ID','STUDENTNO']].merge(payment, how='right', on='STUDENTNO')
-        bill = student[['STUDENT_ID','STUDENTNO']].merge(bill, how='right', on='STUDENTNO')
-        payment = payment.drop(columns='STUDENTNO')
-        bill = bill.drop(columns='STUDENTNO')
+        payment = student[['STUDENT_ID','STUDENTNO', 'FNAME', 'LNAME']
+                        ].merge(payment, how='right', on=['STUDENTNO', 'FNAME', 'LNAME'])
+        bill = student[['STUDENT_ID','STUDENTNO', 'FNAME', 'LNAME']
+                     ].merge(bill, how='right', on=['STUDENTNO', 'FNAME', 'LNAME'])
+        payment = payment.drop(columns=['STUDENTNO', 'FNAME', 'LNAME'])
+        bill = bill.drop(columns=['STUDENTNO', 'FNAME', 'LNAME'])
+        
 
 
         ### Active column in `STUDENT` needs to be calculated based on payments, or loaded from existing data ###
