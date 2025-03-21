@@ -52,7 +52,7 @@ class StudentDatabase:
         fn.dbf_to_csv('STUD99.dbf')
         fn.dbf_to_csv('clsbymon.dbf')
         # Update files representing relational database structure
-        fn.transform_to_rdb(data_path='C:\\STMNU2\\data', save_to_path='C:\\STMNU2\\data\\rdb_format', save_as='.csv',
+        fn.transform_to_rdb(data_path='C:\\STMNU2\\data', save_to_path='C:\\STMNU2\\data\\rdb_format', save_as=['.csv','.db'],
                             do_not_load=self.do_not_load, update_active=self.update_active)
 
         # CSV paths

@@ -382,10 +382,10 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=Fals
                 continue
             else:
                 # Write to csv files if option chosen
-                if save_as=='.csv':
+                if '.csv' in save_as:
                     df.to_csv(f'{save_to_path}\\{df_name}.csv', index=False)
                 # Write to SQLite database if option chosen
-                elif save_as=='.db':
+                if '.db' in save_as:
                     df.to_sql(df_name, conn, if_exists='replace', index=False)
 
         # Close database connection
