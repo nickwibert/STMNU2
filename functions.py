@@ -135,6 +135,9 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=Fals
         family_id = student.pop('FAMILY_ID')
         student.insert(1, 'FAMILY_ID', family_id)
 
+        # Apply formatting to date columns
+        date_cols = [col for col in student.columns if 'DATE' in col or col=='BIRTHDAY']
+        student[date_cols] = format_date_columns(student[date_cols])
 
         ### PAYMENT and BILL ###
         payment = pd.DataFrame()
@@ -170,6 +173,9 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=Fals
             # All remaining records with non-zero payments are saved to 'payment'
             payment = pd.concat([payment, df_pivot[((df_pivot['PAY'] != 0) & (~pd.isna(df_pivot['PAY'])))
                        ].reset_index(drop=True)], ignore_index=True)
+
+        # Apply formatting to date columns
+        payment['DATE'] = format_date_columns(payment[['DATE']])
 
         # Get STUDENT_ID from 'student'
         payment = student[['STUDENT_ID','STUDENTNO', 'FNAME', 'LNAME']
@@ -320,6 +326,10 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=Fals
             trial.insert(len(trial.columns),'CREA_TMS',[datetime.now()]*trial.shape[0])
             trial.insert(len(trial.columns),'UPDT_TMS',[datetime.now()]*trial.shape[0])
 
+            # Apply formatting to date columns
+            date_cols = [col for col in trial.columns if 'DATE' in col]
+            trial[date_cols] = format_date_columns(trial[date_cols])
+
 
         ### NOTES ###
         note = pd.DataFrame()
@@ -361,7 +371,6 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=Fals
             note.insert(len(note.columns),'CREA_TMS',[datetime.now()]*note.shape[0])
             note.insert(len(note.columns),'UPDT_TMS',[datetime.now()]*note.shape[0])
         
-
         # Put all the dataframes into a list
         df_list = [guardian, student, payment, bill, classes, class_student, wait, trial, note]
         df_names = ['guardian', 'student', 'payment', 'bill', 'classes', 'class_student', 'wait', 'trial', 'note']
@@ -444,6 +453,12 @@ def validate_date(date_text):
         return True
     except ValueError:
         return False
+    
+
+# Apply "MM/DD/YYYY" formatting to a set of date columns (subset of df)
+def format_date_columns(date_df):
+    return date_df.apply(pd.to_datetime, format='mixed', errors='coerce'
+                 ).apply(lambda x: x.dt.strftime('%m/%d/%Y'))
     
     
 # Highlight row when mouse hovers over it
