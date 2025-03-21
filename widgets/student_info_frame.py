@@ -479,7 +479,9 @@ class StudentInfoFrame(ctk.CTkFrame):
         for field in self.personal_labels.keys():
             # Update non-headers and guardian fields        
             if not any(x in field for x in ['HEADER', 'MOM', 'DAD']):
-                if field in ['BALANCE', 'MONTHLYFEE']:
+                if field == 'ZIP':
+                    self.personal_labels[field].configure(text=int(float(student_info[field])))
+                elif field in ['BALANCE', 'MONTHLYFEE']:
                     label_txt = '' if student_info[field]=='' else f'{float(student_info[field]):.2f}'
                     self.personal_labels[field].configure(text=label_txt)
                 elif field == 'STATE':
