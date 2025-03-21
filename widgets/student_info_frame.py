@@ -420,19 +420,36 @@ class StudentInfoFrame(ctk.CTkFrame):
         # Update student id
         self.id = student_id
         # Series containing all info for a single student (capitalize all strings for visual appeal)
-        student_info = self.database.student[self.database.student['STUDENT_ID'] == student_id
-                                                 ].squeeze(
-                                                 ).astype('string'
-                                                 ).fillna(''
-                                                 ).str.title()
+        # student_info = self.database.student[self.database.student['STUDENT_ID'] == student_id
+        #                                          ].squeeze(
+        #                                          ).astype('string'
+        #                                          ).fillna(''
+        #                                         ).str.title()
+
+        student_info = pd.read_sql(f'''SELECT *
+                                       FROM student
+                                       WHERE STUDENT_ID={student_id}''',
+                                   self.database.conn
+                        ).squeeze(
+                        ).astype('string'
+                        ).fillna(''
+                        ).str.title()
         # Get family ID
-        family_id = student_info['FAMILY_ID']
+        family_id = int(float(student_info['FAMILY_ID']))
 
         # Dataframe containing payments (for selected year, could be current or previous year)
-        payment_info = self.database.payment[(self.database.payment['STUDENT_ID'] == student_id)
-                                             & (self.database.payment['YEAR'] == self.year)]
-        bill_info = self.database.bill[(self.database.bill['STUDENT_ID'] == student_id)
-                                       & (self.database.bill['YEAR'] == self.year)]
+        # payment_info = self.database.payment[(self.database.payment['STUDENT_ID'] == student_id)
+        #                                      & (self.database.payment['YEAR'] == self.year)]
+        # bill_info = self.database.bill[(self.database.bill['STUDENT_ID'] == student_id)
+        #                                & (self.database.bill['YEAR'] == self.year)]
+        payment_info = pd.read_sql(f'''SELECT *
+                                       FROM payment 
+                                       WHERE STUDENT_ID={student_id} AND YEAR={self.year}''',
+                                   self.database.conn)
+        bill_info = pd.read_sql(f'''SELECT *
+                                    FROM bill 
+                                    WHERE STUDENT_ID={student_id} AND YEAR={self.year}''',
+                                self.database.conn)
 
         # Dataframe containing info for student's guardians
         if family_id == '' or pd.isna(family_id):
