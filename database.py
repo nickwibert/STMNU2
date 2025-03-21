@@ -42,8 +42,8 @@ class StudentDatabase:
         self.request_password = True
         
         # SQLite database connection
-        self.rdb_conn = sqlite3.connect('C:\\STMNU2\\data\\database.db')
-        self.cursor = self.rdb_conn.cursor()
+        self.conn = sqlite3.connect('C:\\STMNU2\\data\\database.db')
+        self.cursor = self.conn.cursor()
 
 
     def load_data(self):
@@ -54,7 +54,7 @@ class StudentDatabase:
         # Update files representing relational database structure
         fn.transform_to_rdb(data_path='C:\\STMNU2\\data', save_to_path='C:\\STMNU2\\data\\rdb_format', save_as=['.csv','.db'],
                             do_not_load=self.do_not_load, update_active=self.update_active)
-
+                    
         # CSV paths
         rdb_folder_path = 'C:\\STMNU2\\data\\rdb_format'
         filenames = [filename for filename in os.listdir('C:\\STMNU2\\data\\rdb_format') if filename != 'BACKUP']
@@ -159,7 +159,7 @@ class StudentDatabase:
             COLLATE NOCASE
         """
 
-        matches = pd.read_sql(sql_query, self.rdb_conn)
+        matches = pd.read_sql(sql_query, self.conn)
         
         return matches
     
@@ -349,7 +349,7 @@ class StudentDatabase:
             WHERE STUDENT_ID={student_id}
         """
         self.cursor.execute(update_query)
-        self.rdb_conn.commit()
+        self.conn.commit()
         
 
     # Create/delete a `bill` record for the selected student, month, year
@@ -377,7 +377,7 @@ class StudentDatabase:
                   AND MONTH={month_num}
                   AND YEAR={year}
         '''
-        bill_record = pd.read_sql(select_sql, self.rdb_conn)
+        bill_record = pd.read_sql(select_sql, self.conn)
         bill_info = {'STUDENT_ID' : student_id,
                      'MONTH'      : month_num,
                      'YEAR'       : year}
@@ -483,7 +483,7 @@ class StudentDatabase:
             ORDER BY YEAR, MONTH
         """
 
-        pay_and_bills = pd.read_sql(pay_bill_query, self.rdb_conn)
+        pay_and_bills = pd.read_sql(pay_bill_query, self.conn)
 
         # Loop through pay fields
         for field in [key for key in new_info.keys() if 'PAY' in key]:
@@ -519,7 +519,7 @@ class StudentDatabase:
                 # and ensure they are marked as active
                 if month_num==CURRENT_SESSION.month:
                     self.sqlite_update('student', new_info={'ACTIVE':1}, where_dict={'STUDENT_ID':student_id})
-                    for class_id in pd.read_sql(f'SELECT * FROM class_student WHERE STUDENT_ID={student_id}', self.rdb_conn)['CLASS_ID'].values:
+                    for class_id in pd.read_sql(f'SELECT * FROM class_student WHERE STUDENT_ID={student_id}', self.conn)['CLASS_ID'].values:
                         self.enroll_student(student_id, class_id)
             else:
                 # Delete the payment record (if it exists)
@@ -530,7 +530,7 @@ class StudentDatabase:
 
                 # If a payment record has been deleted for CURRENT MONTH, remove student from class roll
                 if month_num == CURRENT_SESSION.month:
-                    for class_id in pd.read_sql(f'SELECT * FROM class_student WHERE STUDENT_ID={student_id}', self.rdb_conn)['CLASS_ID'].values:
+                    for class_id in pd.read_sql(f'SELECT * FROM class_student WHERE STUDENT_ID={student_id}', self.conn)['CLASS_ID'].values:
                         self.unenroll_student(student_id, class_id,)
 
 
@@ -844,7 +844,7 @@ class StudentDatabase:
             ORDER BY DAYOFWEEK, TIMEOFDAY
             COLLATE NOCASE
         """
-        matches = pd.read_sql(sql_query, self.rdb_conn)
+        matches = pd.read_sql(sql_query, self.conn)
         
         return matches
     
@@ -1039,7 +1039,7 @@ class StudentDatabase:
         vals = ', '.join('"{}"'.format(col) for col in row.values())
         sql = f'INSERT INTO {table} ({cols})\n VALUES ({vals})'
         self.cursor.execute(sql)
-        self.rdb_conn.commit()
+        self.conn.commit()
 
     # Function to update an existing record in SQLite database table.
     # If the record we request to update does not exist, nothing happens.
@@ -1052,7 +1052,7 @@ class StudentDatabase:
         where_clause = ' AND '.join([f'{field}="{value}"' for field,value in where_dict.items()])
         sql = f'UPDATE {table} SET {set_clause} WHERE {where_clause}'
         self.cursor.execute(sql)
-        self.rdb_conn.commit()
+        self.conn.commit()
 
     # Function to perform an insert/update in SQLite database depending on what is necessary.
     # The argument `unique_idx` is a list of column names which are considered to be a unique set
@@ -1077,7 +1077,7 @@ class StudentDatabase:
             ON CONFLICT({conflict_cols}) DO {conflict_clause}
         """
         self.cursor.execute(sql)
-        self.rdb_conn.commit()
+        self.conn.commit()
 
     # Function to delete record from SQLite database table. If the record that we request
     # to delete does not exist, then nothing will happen.
@@ -1085,6 +1085,6 @@ class StudentDatabase:
         where_clause = ' AND '.join([f'{field}="{value}"' for field,value in where_dict.items()])
         sql = f'DELETE FROM {table} WHERE {where_clause}'
         self.cursor.execute(sql)
-        self.rdb_conn.commit()
+        self.conn.commit()
 
 

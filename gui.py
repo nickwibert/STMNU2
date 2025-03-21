@@ -190,7 +190,7 @@ class STMNU(ctk.CTk):
         self.database.save_data(backup=False)
 
         # Disconnect from SQLite database
-        self.database.rdb_conn.close()
+        self.database.conn.close()
 
         # Destroy window/program
         self.destroy()
