@@ -436,6 +436,8 @@ class StudentInfoFrame(ctk.CTkFrame):
                         ).str.title()
         # Get family ID
         family_id = student_info['FAMILY_ID']
+        # Get ACTIVE status
+        active = int(student_info['ACTIVE'])
 
         # Dataframe containing payments (for selected year, could be current or previous year)
         # payment_info = self.database.payment[(self.database.payment['STUDENT_ID'] == student_id)
@@ -471,10 +473,9 @@ class StudentInfoFrame(ctk.CTkFrame):
         # This will either be empty, or contain exactly one note
         note_info = self.database.note[self.database.note['STUDENT_ID'] == student_id].squeeze()
 
-
         # Active Status: change button appearance to match data (if necessary)
-        if ((student_info['ACTIVE'] == 'True' and self.buttons['ACTIVATE_STUDENT'].cget('text') == 'INACTIVE')
-            or (student_info['ACTIVE'] == 'False' and self.buttons['ACTIVATE_STUDENT'].cget('text') == 'ACTIVE')):
+        if ((active and self.buttons['ACTIVATE_STUDENT'].cget('text') == 'INACTIVE')
+            or (not active and self.buttons['ACTIVATE_STUDENT'].cget('text') == 'ACTIVE')):
             self.toggle_active(visual_only=True)
 
         # Student Number
