@@ -1,9 +1,6 @@
 __pycache__/
 # Ignore changes to data; these don't need to be consistent across machines
 data/
-# Ignore SQLite queries, these are just for tests and making modifications to database.db
-# so only needed on the main machine where I develop
-queries/
 # Ignore Jupyter notebook; this is just a sandbox to test stuff out
 notes.ipynb
 # File containing sensitive info
