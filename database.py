@@ -290,15 +290,14 @@ class StudentDatabase:
                 else:
                     self.student.loc[student_idx, field] = new_student_info[field]
 
+            new_student_info_sqlite = new_student_info.copy()
             for key in ['MOMNAME', 'DADNAME']:
-                new_student_info.pop(key)
+                new_student_info_sqlite.pop(key)
 
-            new_student_info.update({'UPDT_TMS' : datetime.now()})
+            new_student_info_sqlite.update({'UPDT_TMS' : datetime.now()})
             self.sqlite_update('student',
-                               new_student_info,
+                               new_student_info_sqlite,
                                where_dict={'STUDENT_ID' : student_id})
-            new_student_info.pop('UPDT_TMS')
-        
 
         ## Step 2: Update student info in original database (DBF file)
         
