@@ -477,12 +477,19 @@ class StudentInfoFrame(ctk.CTkFrame):
                                  self.database.conn)
         # Notes for the given student
         # This will either be empty, or contain exactly one note
-        note_info = self.database.note[self.database.note['STUDENT_ID'] == student_id].squeeze()
+        # note_info = self.database.note[self.database.note['STUDENT_ID'] == student_id].squeeze()
+        note_info = pd.read_sql(f"""SELECT *
+                                    FROM note
+                                    WHERE STUDENT_ID = {student_id}""",
+                                self.database.conn
+                     ).squeeze()
 
         # Active Status: change button appearance to match data (if necessary)
         if ((active and self.buttons['ACTIVATE_STUDENT'].cget('text') == 'INACTIVE')
             or (not active and self.buttons['ACTIVATE_STUDENT'].cget('text') == 'ACTIVE')):
             self.toggle_active(visual_only=True)
+
+        
 
         # Student Number
         self.personal_labels['STUDENTNO_HEADER'].configure(text=f'#{student_info['STUDENTNO']}')
