@@ -360,9 +360,9 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=Fals
             # Drop the old columns
             class_note = class_note.drop(columns=note_cols)
 
-            # Add blank CLASS_ID to 'stud_note' and blank STUDENT_ID to 'class_note' so we can combine them
-            student_note.insert(0, 'CLASS_ID', [pd.NA]*student_note.shape[0])
-            class_note.insert(0, 'STUDENT_ID', [pd.NA]*class_note.shape[0])
+            # Add '0' CLASS_ID to 'stud_note' and '0' STUDENT_ID to 'class_note' so we can combine them
+            student_note.insert(0, 'CLASS_ID', [0]*student_note.shape[0])
+            class_note.insert(0, 'STUDENT_ID', [0]*class_note.shape[0])
 
             # Create final table `note` which contains both student and class notes
             note = pd.concat([student_note, class_note], axis=0).sort_values(by=['STUDENT_ID', 'CLASS_ID'])
