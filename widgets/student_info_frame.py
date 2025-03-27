@@ -464,12 +464,18 @@ class StudentInfoFrame(ctk.CTkFrame):
                                     self.database.conn)
 
         # Class info for each class_id
-        class_info = self.database.class_student.loc[self.database.class_student['STUDENT_ID'] == student_id
-                                               ].merge(self.database.classes, on='CLASS_ID', how='left'
-                                               ).sort_values(by='CLASS_ID'
-                                               ).reset_index(drop=True
-                                               ).loc[:,['CODE','TEACH','CLASSTIME','CLASS_ID']]
-        
+        # class_info = self.database.class_student.loc[self.database.class_student['STUDENT_ID'] == student_id
+        #                                        ].merge(self.database.classes, on='CLASS_ID', how='left'
+        #                                        ).sort_values(by='CLASS_ID'
+        #                                        ).reset_index(drop=True
+        #                                        ).loc[:,['CODE','TEACH','CLASSTIME','CLASS_ID']]
+        class_info = pd.read_sql(f"""SELECT CODE, TEACH, CLASSTIME, CS.CLASS_ID
+                                     FROM class_student AS CS
+                                         LEFT JOIN classes AS C ON CS.CLASS_ID = C.CLASS_ID
+                                     WHERE CS.STUDENT_ID = {student_id}
+                                     ORDER BY C.DAYOFWEEK, C.TIMEOFDAY""",
+                                 self.database.conn)
+        # Notes for the given student
         # This will either be empty, or contain exactly one note
         note_info = self.database.note[self.database.note['STUDENT_ID'] == student_id].squeeze()
 
