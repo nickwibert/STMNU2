@@ -400,8 +400,8 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=Fals
 
         # Ensure that all ID columns are cast as integer
         for df, df_name in zip(df_list, df_names):
-            id_cols = df.filter(like='_ID').columns
-            set_clause = ', '.join(f'{col} = CAST({col} AS INTEGER)' for col in id_cols)
+            id_no_cols = df.filter(regex='_ID|_NO').columns
+            set_clause = ', '.join(f'{col} = CAST({col} AS INTEGER)' for col in id_no_cols)
             conn.execute(f'UPDATE {df_name} SET {set_clause}')
             conn.commit()
         
