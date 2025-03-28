@@ -508,7 +508,7 @@ class ClassInfoFrame(ctk.CTkFrame):
         # Get max class size from `classes`
         max_class_size = header_info['MAX']
         # Get current class size as the number of students who have paid/been billed for the current month
-        actual_class_size = roll_info.loc[(roll_info['PAID'] | roll_info['BILLED'])].shape[0]
+        actual_class_size = roll_info.loc[(roll_info['PAID']==1) | (roll_info['BILLED']==1)].shape[0]
         # Get 'potential' class size as the number of students who are listed as part of this class, regardless of payment
         potential_class_size = roll_info.shape[0]
 
@@ -684,7 +684,12 @@ class ClassInfoFrame(ctk.CTkFrame):
         student_search_frame = self.window.screens['Students'].search_results_frame
 
         # Populate student's first/last name into the search fields and perform search
-        student_info = self.database.student.loc[self.database.student['STUDENT_ID'] == student_id].squeeze()
+        # student_info = self.database.student.loc[self.database.student['STUDENT_ID'] == student_id].squeeze()
+        student_info = pd.read_sql(f"""SELECT STUDENT_ID, FNAME, LNAME
+                                       FROM student
+                                       WHERE STUDENT_ID={student_id}""",
+                                    self.database.conn)
+        
         student_search_frame.entry_boxes['First Name'].cget('textvariable').set(student_info['FNAME'])
         student_search_frame.entry_boxes['Last Name'].cget('textvariable').set(student_info['LNAME'])
         student_search_frame.search_button.invoke()
