@@ -398,51 +398,76 @@ class ClassInfoFrame(ctk.CTkFrame):
         # Currently selected class
         self.id = class_id
 
-        header_info = self.database.classes[self.database.classes['CLASS_ID'] == class_id].squeeze()
+        # header_info = self.database.classes[self.database.classes['CLASS_ID'] == class_id].squeeze()
+        header_info = pd.read_sql(f"SELECT * FROM classes WHERE CLASS_ID={class_id}", self.database.conn
+                       ).squeeze()
 
-        roll_info = self.database.class_student[(self.database.class_student['CLASS_ID'] == class_id)
-                            ].merge(self.database.student[self.database.student['ACTIVE']],
-                                    how='inner',
-                                    on='STUDENT_ID'
-                            ).merge(self.database.payment[((self.database.payment['MONTH'] == CURRENT_SESSION.month)
-                                                          & (self.database.payment['YEAR'] == CURRENT_SESSION.year))],
-                                    how='left',
-                                    on='STUDENT_ID'
-                            ).loc[:,['PAY','STUDENT_ID','FAMILY_ID','FNAME','LNAME','BIRTHDAY']]
-        # Create 'PAID' which is true if student has a non-zero payment for the current month/year
-        roll_info['PAID'] = roll_info['PAY'] > 0
-        # Get `bill_info` as all the bill records for students in `roll_info`
-        bill_info = self.database.bill.merge(roll_info, how='inner', on='STUDENT_ID'
-                                     ).loc[:,['STUDENT_ID','MONTH','YEAR']]
-        # Create 'BILLED' which is true if student has been billed for the current month/year
-        # (since they have a bill record, someone has confirmed that the student
-        # is attending and plans to pay; therefore they will take up a spot in the class)
-        roll_info['BILLED'] = roll_info['STUDENT_ID'].isin(bill_info.loc[((bill_info['MONTH']==CURRENT_SESSION.month)
-                                                                          &(bill_info['YEAR']==CURRENT_SESSION.year)),'STUDENT_ID'].values)
+        # roll_info = self.database.class_student[(self.database.class_student['CLASS_ID'] == class_id)
+        #                     ].merge(self.database.student[self.database.student['ACTIVE']],
+        #                             how='inner',
+        #                             on='STUDENT_ID'
+        #                     ).merge(self.database.payment[((self.database.payment['MONTH'] == CURRENT_SESSION.month)
+        #                                                   & (self.database.payment['YEAR'] == CURRENT_SESSION.year))],
+        #                             how='left',
+        #                             on='STUDENT_ID'
+        #                     ).loc[:,['PAY','STUDENT_ID','FAMILY_ID','FNAME','LNAME','BIRTHDAY']]
+        # # Create 'PAID' which is true if student has a non-zero payment for the current month/year
+        # roll_info['PAID'] = roll_info['PAY'] > 0
+
+        roll_info = pd.read_sql(f"""-- Keep only the active students who are either paid or billed
+                                    SELECT ACTIVE_STUDENTS.STUDENT_ID, FNAME, LNAME, BIRTHDAY,
+                                        IIF(P.STUDENT_ID IS NULL, 0, 1) AS PAID,
+                                        IIF(B.STUDENT_ID IS NULL, 0, 1) AS BILLED
+                                    FROM (
+                                        -- Get all (active) student IDs linked to this class ID
+                                        SELECT CS.CLASS_ID, S.STUDENT_ID, S.FNAME, S.LNAME, S.BIRTHDAY
+                                        FROM class_student AS CS
+                                            INNER JOIN student AS S ON CS.STUDENT_ID = S.STUDENT_ID
+                                        WHERE S.ACTIVE AND CLASS_ID = {class_id}
+                                    ) AS ACTIVE_STUDENTS
+                                        LEFT JOIN payment AS P ON ACTIVE_STUDENTS.STUDENT_ID = P.STUDENT_ID
+                                                                AND P.MONTH=3 AND P.YEAR=2025
+                                        LEFT JOIN bill AS B ON ACTIVE_STUDENTS.STUDENT_ID = B.STUDENT_ID
+                                                                AND B.MONTH=3 AND B.YEAR=2025
+                                    WHERE PAID OR BILLED
+                                    ORDER BY PAID DESC, LNAME ASC""",
+                                self.database.conn)
         
-        # # Create 'BILL_COUNT' which is the number of payments owed by each student in `roll_info`
-        # # (this is simply determined by the number of records that student currently has in the `bill` table)
-        # roll_info = roll_info.merge(self.database.bill.groupby('STUDENT_ID').size().reset_index(name='BILL_COUNT'),
-        #                             how='left',
-        #                             on='STUDENT_ID'
-        #                     ).merge(self.database.bill[self.database.bill['MONTH']==13].groupby('STUDENT_ID').size().reset_index(name='REGFEE_COUNT'),
-        #                             how='left',
-        #                             on='STUDENT_ID'
-        #                     ).fillna(0)
-        roll_info = roll_info.sort_values(by=['PAID','BILLED','LNAME'], ascending=[False,False,True]
-                            ).reset_index(drop=True)
-        wait_info = self.database.wait[self.database.wait['CLASS_ID'] == class_id
-                            ].reset_index(drop=True
-                            ).fillna('')
-        trial_info = self.database.trial[self.database.trial['CLASS_ID'] == class_id
-                            ].reset_index(drop=True
-                            ).fillna('')
+        # Get `bill_info` as all the bill records for students in `roll_info`
+        # bill_info = self.database.bill.merge(roll_info, how='inner', on='STUDENT_ID'
+        #                              ).loc[:,['STUDENT_ID','MONTH','YEAR']]
+        bill_info = pd.read_sql(f"""SELECT STUDENT_ID, MONTH, YEAR
+                                    FROM bill
+                                    WHERE STUDENT_ID IN ({','.join(str(id) for id in roll_info['STUDENT_ID'])})""",
+                                self.database.conn)
+        
+        # wait_info = self.database.wait[self.database.wait['CLASS_ID'] == class_id
+        #                     ].reset_index(drop=True
+        #                     ).fillna('')
+        wait_info = pd.read_sql(f"""SELECT WAIT_ID, CLASS_ID, WAIT_NO, NAME, PHONE
+                                    FROM wait
+                                    WHERE CLASS_ID={class_id}""",
+                                self.database.conn)
+        
+        # trial_info = self.database.trial[self.database.trial['CLASS_ID'] == class_id
+        #                     ].reset_index(drop=True
+        #                     ).fillna('')
+        trial_info = pd.read_sql(f"""SELECT TRIAL_ID, CLASS_ID, TRIAL_NO, NAME, PHONE, DATE
+                                     FROM trial
+                                     WHERE CLASS_ID={class_id}""",
+                                self.database.conn)
+        
         makeup_info = self.database.makeup[self.database.makeup['CLASS_ID'] == class_id
                             ].reset_index(drop=True
                             ).fillna('')
         
         # This will either be empty, or contain exactly one note
-        note_info = self.database.note[self.database.note['CLASS_ID'] == class_id].squeeze()
+        # note_info = self.database.note[self.database.note['CLASS_ID'] == class_id].squeeze()
+        note_info = pd.read_sql(f"""SELECT NOTE_ID, CLASS_ID, NOTE_TXT
+                                    FROM note
+                                    WHERE CLASS_ID = {class_id}""",
+                                self.database.conn
+                     ).squeeze()
 
         # Before populating labels, enable/disable certain buttons based on spots available
         for button_name, button in self.buttons.items():
