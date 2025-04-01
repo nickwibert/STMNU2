@@ -46,8 +46,8 @@ class STMNU(ctk.CTk):
         self.protocol("WM_DELETE_WINDOW", self.exit_program)
 
     def create_main_window(self):
-        # Load data
-        self.database.load_data()
+        # Load data from dBASE program
+        self.database.load_data_from_dbase()
 
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
@@ -179,15 +179,15 @@ class STMNU(ctk.CTk):
 
     # Function called when the user closes the main program window
     def exit_program(self):
-        # # Ask user if they want to backup files
-        # wait_var = ctk.StringVar()
+        # Ask user if they want to backup files
+        wait_var = ctk.StringVar()
+        backup_dialog = BackupDialog(window=self, title='Backup Data?', wait_var=wait_var)
+        self.wait_variable(wait_var)
+        backup_dialog.update()
 
-        # backup_dialog = BackupDialog(window=self, title='Backup Data?', wait_var=wait_var)
-        # self.wait_variable(wait_var)
-        # backup_dialog.update()
-        # backup = True if wait_var.get() == 'backup' else False
-        # Export database tables to csv files (in new RDB format)
-        self.database.save_data(backup=False)
+        # If user requests, backup SQLite database to CSV files in `backup_dir`
+        if wait_var.get() == 'backup':
+            fn.backup_sqlite_to_csv()
 
         # Disconnect from SQLite database
         self.database.conn.close()
