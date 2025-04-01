@@ -9,7 +9,7 @@ from widgets.search_results_frame import SearchResultsFrame
 from widgets.dialog_boxes import MoveStudentDialog, NewStudentDialog
 
 # Global variables
-from globals import CURRENT_SESSION
+from globals import CURRENT_SESSION, CALENDAR_DICT
 
 class StudentInfoFrame(ctk.CTkFrame):
     def __init__(self, window, master, database, **kwargs):
@@ -305,10 +305,8 @@ class StudentInfoFrame(ctk.CTkFrame):
         # Values that will populate month column
         month_column = ['Month'] + list(calendar.month_name)[1:] + ['Reg. Fee']
         # Prefixes/suffixes to store labels and also access data from STUD00.dbf (JANPAY, JANDATE, etc.)
-        prefix = ['HEADER'] + [month.upper() for month in calendar.month_abbr[1:]] + ['REG']
-        suffix = [['HEADER','PAY','DATE', 'BILL'] for _ in range(13)]
-        # Special row of suffixes for REGFEE (because column with pay is simply 'REGFEE' rather than 'REGFEEPAY', and 'REGBILL')
-        suffix.append(['FEEHEADER', 'FEE', 'FEEDATE', 'BILL'])
+        prefix = ['HEADER'] + list(CALENDAR_DICT.values())
+        suffix = [['HEADER','PAY','DATE', 'BILL'] for _ in range(14)]
 
         # 14 rows (header row + 12 months + registration fee row)
         for row in range(14):
@@ -497,17 +495,21 @@ class StudentInfoFrame(ctk.CTkFrame):
         for field in self.personal_labels.keys():
             # Update non-headers and guardian fields        
             if not any(x in field for x in ['HEADER', 'MOM', 'DAD']):
-                if field == 'ZIP':
-                    self.personal_labels[field].configure(text=int(float(student_info[field])))
-                elif field in ['BALANCE', 'MONTHLYFEE']:
-                    label_txt = '' if student_info[field]=='' else f'{float(student_info[field]):.2f}'
-                    self.personal_labels[field].configure(text=label_txt)
-                elif field == 'STATE':
-                    self.personal_labels[field].configure(text=student_info[field].upper())
-                elif field == 'EMAIL':
-                    self.personal_labels[field].configure(text=student_info[field].lower())
+                # If value is blank or None, wipe text
+                if student_info[field] in ('', None):
+                    self.personal_labels[field].configure(text='')
                 else:
-                    self.personal_labels[field].configure(text=student_info[field])
+                    if field == 'ZIP':
+                        self.personal_labels[field].configure(text=int(float(student_info[field])))
+                    elif field in ['BALANCE', 'MONTHLYFEE']:
+                        label_txt = '' if student_info[field]=='' else f'{float(student_info[field]):.2f}'
+                        self.personal_labels[field].configure(text=label_txt)
+                    elif field == 'STATE':
+                        self.personal_labels[field].configure(text=student_info[field].upper())
+                    elif field == 'EMAIL':
+                        self.personal_labels[field].configure(text=student_info[field].lower())
+                    else:
+                        self.personal_labels[field].configure(text=student_info[field])
 
 
         # Handle guardians separately
@@ -559,10 +561,8 @@ class StudentInfoFrame(ctk.CTkFrame):
             
 
         # Prefixes/suffixes to store labels and also access data from STUD00.dbf (JANPAY, JANDATE, etc.)
-        prefix = ['HEADER'] + [month.upper() for month in calendar.month_abbr[1:]] + ['REG']
-        suffix = [['HEADER','PAY','DATE', 'BILL'] for _ in range(13)]
-        # Special row of suffixes for REGFEE (because column with pay is simply 'REGFEE' rather than 'REGFEEPAY', and 'REGBILL')
-        suffix.append(['FEEHEADER', 'FEE', 'FEEDATE', 'BILL'])
+        prefix = ['HEADER'] + list(CALENDAR_DICT.values())
+        suffix = [['HEADER','PAY','DATE', 'BILL'] for _ in range(14)]
         
         # Loop through header, 12 months, and registration fee
         for row in range(14):
@@ -573,11 +573,6 @@ class StudentInfoFrame(ctk.CTkFrame):
             # Header row
             if row == 0:
                 pay, date, bill = ('Amount', 'Date', 'Bill')
-            # Reg. Fee row
-            elif row == 13:
-                pay = '' if student_info['REGFEE']=='' else f'{float(student_info['REGFEE']):.2f}'
-                date = student_info['REGFEEDATE']
-                bill = '*' if row in bill_info['MONTH'].values else ''
             # Check if a payment exists for this month
             elif row not in payment_info['MONTH'].values:
                 pay, date = ('0.00', '')
@@ -683,7 +678,10 @@ class StudentInfoFrame(ctk.CTkFrame):
         # we need to modify the filters before we can select it
         if class_id not in class_search_frame.df['CLASS_ID'].values:
             # Populate class instructor / day of week filters
-            class_info = self.database.classes.loc[self.database.classes['CLASS_ID'] == class_id].squeeze()
+            class_info = pd.read_sql(f"""SELECT TEACH, DAYOFWEEK
+                                         FROM classes
+                                         WHERE CLASS_ID={class_id}""",
+                                     self.database.conn).squeeze()
             class_search_frame.filter_dropdowns['INSTRUCTOR'].set(class_info['TEACH'].title())
             class_search_frame.filter_dropdowns['DAY'].set(calendar.day_name[class_info['DAYOFWEEK']-1])
             # Activate/disable filters as necessary
@@ -712,8 +710,9 @@ class StudentInfoFrame(ctk.CTkFrame):
     def create_move_student_dialog(self):
         # In this case, there is only one student label (the currently selected student)
         # But we need to pass it in to MoveStudentDialog as a list containing one label
-        student_info = self.database.student.loc[self.database.student['STUDENT_ID'] == self.id].squeeze()
-        label = ctk.CTkLabel(self, text=f"1. {student_info['FNAME']} {student_info['LNAME']}")
+        self.database.cursor.execute(f'SELECT FNAME, LNAME FROM student WHERE STUDENT_ID={self.id}')
+        first_name, last_name = self.database.cursor.fetchone()
+        label = ctk.CTkLabel(self, text=f"1. {first_name} {last_name}")
         label.student_id = self.id
         student_labels = [label]
 
@@ -730,17 +729,19 @@ class StudentInfoFrame(ctk.CTkFrame):
 
     def create_student(self):
         # Get the # of student records at the moment
-        student_count = self.database.student.shape[0]
+        self.database.cursor.execute('SELECT COUNT(STUDENT_ID) FROM student')
+        student_count = self.database.cursor.fetchone()[0]
         new_window = NewStudentDialog(window=self.window,
                                       title='New Student',
                                       database=self.database)
         # Wait for the new student dialog window to be closed
         self.wait_window(new_window)
         # If the a student has indeed been added to the database, open the new student's record
-        if self.database.student.shape[0] != student_count:
-            new_student_id = self.database.student['STUDENT_ID'].max()
-            new_student_record = self.database.student.loc[self.database.student['STUDENT_ID']==new_student_id].squeeze()
+        self.database.cursor.execute('SELECT COUNT(STUDENT_ID) FROM student')
+        new_student_count = self.database.cursor.fetchone()[0]
+        if new_student_count != student_count:
+            new_student_record = pd.read_sql("SELECT STUDENT_ID, FNAME, LNAME, MAX(STUDENT_ID) FROM student", self.database.conn).squeeze()
             self.search_results_frame.entry_boxes['First Name'].cget('textvariable').set(new_student_record['FNAME'])
             self.search_results_frame.entry_boxes['Last Name'].cget('textvariable').set(new_student_record['LNAME'])
             self.search_results_frame.search_button.invoke()
-            self.search_results_frame.select_result(new_student_id)
+            self.search_results_frame.select_result(new_student_record['STUDENT_ID'])

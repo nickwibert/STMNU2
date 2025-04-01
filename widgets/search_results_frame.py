@@ -111,14 +111,16 @@ class SearchResultsFrame(ctk.CTkFrame):
             search_help_text = 'Click a checkbox to enable a filter, then choose a value.'
             ctk.CTkLabel(self.query_frame, text=search_help_text, wraplength=self.query_frame.winfo_reqwidth()
                          ).grid(row=2,column=0,columnspan=2,sticky='nsew',)
+            instructor_names = pd.read_sql("SELECT DISTINCT TEACH FROM classes ORDER BY TEACH",
+                                           self.database.conn
+                                ).squeeze()
             # Dictionaries of values for different option menus.
             # The dictionary keys is what the user will see, and
             # the corresponding values will be the patterns used to 
             # search the database.
             self.filter_dicts = {
                 'INSTRUCTOR' :
-                    {k:v for (k,v) in zip(self.database.classes['TEACH'].sort_values().str.title(),
-                                          self.database.classes['TEACH'].sort_values())},
+                    {k:v for (k,v) in zip(instructor_names.str.title(), instructor_names)},
                 'GENDER' :
                     {
                         "Girl's" : "GIRL",
@@ -245,6 +247,7 @@ class SearchResultsFrame(ctk.CTkFrame):
                 filter_dict = self.filter_dicts[filter_type]
                 filter_dropdown = self.filter_dropdowns[filter_type]
                 # If this option menu is disabled, ignore value inside
+
                 if filter_dropdown.cget('state') == 'disabled':
                     filter = ''
                 # Otherwise, get selected filter
@@ -338,9 +341,9 @@ class SearchResultsFrame(ctk.CTkFrame):
                 label.id = id
                 label.flag = False
                 # SPECIAL CASE: make 'trial count' cell RED if there are any past/blank trial dates
-                if self.headers[col] == 'Trials':
-                    if not (pd.to_datetime(self.database.trial.loc[self.database.trial['CLASS_ID']==id,'DATE']).dt.date.astype('object') >= datetime.now().date()).all():
-                        label.flag = True
+                # if self.headers[col] == 'Trials':
+                #     if not (pd.to_datetime(self.database.trial.loc[self.database.trial['CLASS_ID']==id,'DATE']).dt.date.astype('object') >= datetime.now().date()).all():
+                #         label.flag = True
                 label.configure(text=label_txt, bg_color='red' if label.flag else 'transparent',
                                 text_color='white' if label.flag else 'black')
                 label.cget('font').configure(weight='bold' if label.flag else 'normal')

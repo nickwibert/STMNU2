@@ -402,17 +402,6 @@ class ClassInfoFrame(ctk.CTkFrame):
         header_info = pd.read_sql(f"SELECT * FROM classes WHERE CLASS_ID={class_id}", self.database.conn
                        ).squeeze()
 
-        # roll_info = self.database.class_student[(self.database.class_student['CLASS_ID'] == class_id)
-        #                     ].merge(self.database.student[self.database.student['ACTIVE']],
-        #                             how='inner',
-        #                             on='STUDENT_ID'
-        #                     ).merge(self.database.payment[((self.database.payment['MONTH'] == CURRENT_SESSION.month)
-        #                                                   & (self.database.payment['YEAR'] == CURRENT_SESSION.year))],
-        #                             how='left',
-        #                             on='STUDENT_ID'
-        #                     ).loc[:,['PAY','STUDENT_ID','FAMILY_ID','FNAME','LNAME','BIRTHDAY']]
-        # # Create 'PAID' which is true if student has a non-zero payment for the current month/year
-        # roll_info['PAID'] = roll_info['PAY'] > 0
 
         roll_info = pd.read_sql(f"""-- Keep only the active students who are either paid or billed
                                     SELECT ACTIVE_STUDENTS.STUDENT_ID, FNAME, LNAME, BIRTHDAY,
@@ -426,11 +415,12 @@ class ClassInfoFrame(ctk.CTkFrame):
                                         WHERE S.ACTIVE AND CLASS_ID = {class_id}
                                     ) AS ACTIVE_STUDENTS
                                         LEFT JOIN payment AS P ON ACTIVE_STUDENTS.STUDENT_ID = P.STUDENT_ID
-                                                                AND P.MONTH=3 AND P.YEAR=2025
+                                                                AND P.MONTH={CURRENT_SESSION.month}
+                                                                AND P.YEAR={CURRENT_SESSION.year}
                                         LEFT JOIN bill AS B ON ACTIVE_STUDENTS.STUDENT_ID = B.STUDENT_ID
-                                                                AND B.MONTH=3 AND B.YEAR=2025
-                                    WHERE PAID OR BILLED
-                                    ORDER BY PAID DESC, LNAME ASC""",
+                                                                AND B.MONTH={CURRENT_SESSION.month}
+                                                                AND B.YEAR={CURRENT_SESSION.year}
+                                    ORDER BY PAID DESC, BILLED DESC, LNAME ASC""",
                                 self.database.conn)
         
         # Get `bill_info` as all the bill records for students in `roll_info`
@@ -444,7 +434,7 @@ class ClassInfoFrame(ctk.CTkFrame):
         # wait_info = self.database.wait[self.database.wait['CLASS_ID'] == class_id
         #                     ].reset_index(drop=True
         #                     ).fillna('')
-        wait_info = pd.read_sql(f"""SELECT WAIT_ID, CLASS_ID, WAIT_NO, NAME, PHONE
+        wait_info = pd.read_sql(f"""SELECT CLASS_ID, WAIT_NO, NAME, PHONE
                                     FROM wait
                                     WHERE CLASS_ID={class_id}""",
                                 self.database.conn)
@@ -452,18 +442,22 @@ class ClassInfoFrame(ctk.CTkFrame):
         # trial_info = self.database.trial[self.database.trial['CLASS_ID'] == class_id
         #                     ].reset_index(drop=True
         #                     ).fillna('')
-        trial_info = pd.read_sql(f"""SELECT TRIAL_ID, CLASS_ID, TRIAL_NO, NAME, PHONE, DATE
+        trial_info = pd.read_sql(f"""SELECT CLASS_ID, TRIAL_NO, NAME, PHONE, DATE
                                      FROM trial
                                      WHERE CLASS_ID={class_id}""",
                                 self.database.conn)
         
-        makeup_info = self.database.makeup[self.database.makeup['CLASS_ID'] == class_id
-                            ].reset_index(drop=True
-                            ).fillna('')
+        # makeup_info = self.database.makeup[self.database.makeup['CLASS_ID'] == class_id
+        #                     ].reset_index(drop=True
+        #                     ).fillna('')
+        makeup_info = pd.read_sql(f"""SELECT CLASS_ID, MAKEUP_NO, NAME, DATE
+                                     FROM makeup
+                                     WHERE CLASS_ID={class_id}""",
+                                self.database.conn)
         
         # This will either be empty, or contain exactly one note
         # note_info = self.database.note[self.database.note['CLASS_ID'] == class_id].squeeze()
-        note_info = pd.read_sql(f"""SELECT NOTE_ID, CLASS_ID, NOTE_TXT
+        note_info = pd.read_sql(f"""SELECT CLASS_ID, NOTE_TXT
                                     FROM note
                                     WHERE CLASS_ID = {class_id}""",
                                 self.database.conn
@@ -559,7 +553,7 @@ class ClassInfoFrame(ctk.CTkFrame):
                         tooltip_txt = 'Payments owed:'
                         # Create tooltip showing which payments are owed
                         for bill_idx in range(student_bills.shape[0]):
-                            bill = student_bills.iloc[bill_idx].squeeze()
+                            bill = student_bills.iloc[bill_idx].astype('int')
                             month = 'Reg Fee' if bill['MONTH']==13 else calendar.month_abbr[bill['MONTH']]
                             tooltip_txt += f'\n{month} {bill['YEAR']}'
 
@@ -596,8 +590,8 @@ class ClassInfoFrame(ctk.CTkFrame):
                 row_frame.configure(fg_color=row_color)
                 row_frame.grid()
                 row_color = 'grey65' if row_color=='grey75' else 'grey75'
-                wait_name_txt += wait_record['NAME']
-                wait_phone_txt += str(wait_record['PHONE'])
+                wait_name_txt += wait_record['NAME'] if wait_record['NAME'] is not None else ''
+                wait_phone_txt += str(wait_record['PHONE']) if wait_record['PHONE'] is not None else ''
 
             # Update wait labels
             wait_name_label.configure(text=wait_name_txt)
@@ -624,9 +618,10 @@ class ClassInfoFrame(ctk.CTkFrame):
                 row_color = 'grey65' if row_color=='grey75' else 'grey75'
                 trial_name_label.master.grid()
 
-                trial_name_txt += trial_record['NAME']
-                trial_phone_txt += str(trial_record['PHONE'])
-                trial_date_txt += str(trial_record['DATE'])
+                trial_name_txt += trial_record['NAME'] if trial_record['NAME'] is not None else ''
+                trial_phone_txt += trial_record['DATE'] if trial_record['DATE'] is not None else ''
+                trial_date_txt += trial_record['DATE'] if trial_record['DATE'] is not None else ''
+
                 # Flag date with red bg if date is either blank or in the past
                 if pd.isna(pd.to_datetime(trial_date_txt)) or (pd.to_datetime(trial_date_txt).date() < datetime.today().date()):
                     trial_date_label.cget('font').configure(weight='bold')
@@ -652,8 +647,8 @@ class ClassInfoFrame(ctk.CTkFrame):
                 row_frame.configure(fg_color=row_color)
                 row_frame.grid()
                 row_color = 'grey65' if row_color=='grey75' else 'grey75'
-                makeup_name_txt += makeup_record['NAME']
-                makeup_date_txt += str(makeup_record['DATE'])
+                makeup_name_txt += makeup_record['NAME'] if makeup_record['NAME'] is not None else ''
+                makeup_date_txt += str(makeup_record['DATE']) if makeup_record['DATE'] is not None else ''
 
             # Update wait labels
             makeup_name_label.configure(text=makeup_name_txt)
@@ -688,7 +683,7 @@ class ClassInfoFrame(ctk.CTkFrame):
         student_info = pd.read_sql(f"""SELECT STUDENT_ID, FNAME, LNAME
                                        FROM student
                                        WHERE STUDENT_ID={student_id}""",
-                                    self.database.conn)
+                                    self.database.conn).squeeze()
         
         student_search_frame.entry_boxes['First Name'].cget('textvariable').set(student_info['FNAME'])
         student_search_frame.entry_boxes['Last Name'].cget('textvariable').set(student_info['LNAME'])

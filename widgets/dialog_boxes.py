@@ -112,7 +112,10 @@ class MoveStudentDialog(DialogBox):
         self.time_dropdown = ctk.CTkOptionMenu(self, command=lambda _: self.update_time_dropdown(-1))
         self.day_dropdown = ctk.CTkOptionMenu(self, command=self.update_time_dropdown)
 
-        instructor_names = self.database.classes['TEACH'].drop_duplicates().sort_values().str.title()
+        # Get list of all instructors from database
+        self.database.cursor.execute('SELECT DISTINCT TEACH FROM classes ORDER BY TEACH')
+        instructor_names=[teach[0].title() for teach in self.database.cursor.fetchall()]
+
         self.instructor_dropdown = ctk.CTkOptionMenu(self, values=instructor_names, width=150,
                                                 command=self.update_day_dropdown)
         instructor_label = ctk.CTkLabel(self, text='Select instructor:')
@@ -140,10 +143,11 @@ class MoveStudentDialog(DialogBox):
     # based on when the given instructor teaches
     def update_day_dropdown(self, instructor):
         # Find all days on which given instructor teaches
-        day_indexes = self.database.classes[self.database.classes['TEACH'] == instructor.upper()
-                            ].loc[:,'DAYOFWEEK'
-                            ].sort_values(
-                            ).drop_duplicates()
+        self.database.cursor.execute(f"""SELECT DISTINCT DAYOFWEEK
+                                         FROM classes
+                                         WHERE TEACH='{instructor.upper()}'
+                                         ORDER BY DAYOFWEEK""")
+        day_indexes = [int(row[0]) for row in self.database.cursor.fetchall()]
         
         days = [calendar.day_name[i-1] for i in day_indexes]
         # Update day dropdown values to only include those days when the instructor teaches
@@ -169,11 +173,14 @@ class MoveStudentDialog(DialogBox):
         # Get current value of instructor
         instructor = self.instructor_dropdown.get()
         # Find all possible times for given instructor and day
-        times = self.database.classes[((self.database.classes['TEACH'] == instructor.upper())
-                                            & (self.database.classes['DAYOFWEEK'] == day_idx))
-                            ].sort_values(by='TIMEOFDAY'
-                            ).loc[:,'CLASSTIME'
-                            ].to_list()            
+        # Find all days on which given instructor teaches
+        self.database.cursor.execute(f"""SELECT DISTINCT CLASSTIME
+                                         FROM classes
+                                         WHERE TEACH='{instructor.upper()}'
+                                            AND DAYOFWEEK={day_idx}
+                                         ORDER BY TIMEOFDAY""")
+        times = [row[0] for row in self.database.cursor.fetchall()]
+      
         # Update time dropdown values to only include those times when the instructor teaches on this day
         self.time_dropdown.configure(values=times)
         # Select first option
@@ -199,34 +206,33 @@ class MoveStudentDialog(DialogBox):
         # and extract the unique student ID of the student being moved
         student_id = self.student_labels[student_roll_num-1].student_id
 
-        # Get all information associated with the 'new' class
-        class_info = self.database.classes[((self.database.classes['TEACH'] == instructor.upper())
-                                          & (self.database.classes['DAYOFWEEK'] == day_idx)
-                                          & (self.database.classes['CLASSTIME'] == classtime))
-                                 ].squeeze()
-        
-        class_count = class_info['MAX'] - class_info['AVAILABLE']
-        
-        # If the selected class is at or above MAX_CLASS_SIZE, don't allow the user to move any more students into it
-        if class_count >= 16:
-            warning_txt = f'WARNING: The currently selected class already has {class_count} ' \
-                          f'spots filled. Please choose a different class.'
-            self.warning_label.configure(text=warning_txt)
-            return
-        # If class is full or over-capacity, ask user to confirm one more time
-        elif class_info['AVAILABLE'] <= 0:
-            warning_txt = f'WARNING: The currently selected class already has {class_count} ' \
-                          f'spots filled, and a max enrollment of {class_info['MAX']} students. Are you sure you want to proceed? ' \
-                           "(If so, click 'Confirm' again)"
-            self.warning_label.configure(text=warning_txt)
-            # Change 'confirm' button command to wait for user to click it again
-            var = ctk.StringVar()
-            self.confirm_button.configure(command = lambda : var.set('continue'))
-            # Wait until confirm button is clicked before continuing
-            self.confirm_button.wait_variable(var)
+        # Get class ID associated with 'new class'
+        self.database.cursor.execute(f"""SELECT CLASS_ID
+                                         FROM classes
+                                         WHERE TEACH='{instructor.upper()}'
+                                            AND DAYOFWEEK={day_idx}
+                                            AND CLASSTIME='{classtime}'""")
+        class_id = self.database.cursor.fetchone()[0]
+        # # If the selected class is at or above MAX_CLASS_SIZE, don't allow the user to move any more students into it
+        # if class_count >= 16:
+        #     warning_txt = f'WARNING: The currently selected class already has {class_count} ' \
+        #                   f'spots filled. Please choose a different class.'
+        #     self.warning_label.configure(text=warning_txt)
+        #     return
+        # # If class is full or over-capacity, ask user to confirm one more time
+        # elif class_info['AVAILABLE'] <= 0:
+        #     warning_txt = f'WARNING: The currently selected class already has {class_count} ' \
+        #                   f'spots filled, and a max enrollment of {class_info['MAX']} students. Are you sure you want to proceed? ' \
+        #                    "(If so, click 'Confirm' again)"
+        #     self.warning_label.configure(text=warning_txt)
+        #     # Change 'confirm' button command to wait for user to click it again
+        #     var = ctk.StringVar()
+        #     self.confirm_button.configure(command = lambda : var.set('continue'))
+        #     # Wait until confirm button is clicked before continuing
+        #     self.confirm_button.wait_variable(var)
 
         # Call function to move student in parent frame, and destroy MoveStudentDialog window
-        self.database.move_student(student_id, self.current_class_id, new_class_id=class_info['CLASS_ID'])
+        self.database.move_student(student_id, self.current_class_id, new_class_id=class_id)
         self.destroy()
 
 
@@ -257,10 +263,10 @@ class NewStudentDialog(DialogBox):
 
         self.header_frame = ctk.CTkFrame(self)
         self.header_frame.grid(row=0,column=0,)
-        studentno = self.database.student['STUDENTNO'].max()
+
         enrolldate = datetime.today().strftime('%m/%d/%Y')
         self.header_label = ctk.CTkLabel(self.header_frame, anchor='center',
-                                         text=f"Student Number: {studentno}\nEnroll Date: {enrolldate}")
+                                         text=f"Enroll Date: {enrolldate}")
         self.header_label.grid(row=0,column=0,sticky='nsew')
 
         ## Personal Information ##
