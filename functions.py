@@ -552,6 +552,11 @@ def validate_entryboxes(dbf_table, confirm_button, entry_boxes, error_frame, wai
             # SPECIAL CASE: Columns to ignore 
             if field in cols_to_ignore:
                 continue
+            # SPECIAL CASE: change REG fields to REGFEE to match DBF
+            elif field=='REGPAY':
+                field = 'REGFEE'
+            elif field=='REGDATE':
+                field = 'REGFEEDATE'
 
             try:
                 field_info = dbf_table.field_info(field)
@@ -605,6 +610,12 @@ def validate_entryboxes(dbf_table, confirm_button, entry_boxes, error_frame, wai
         else:
             # Change variable value so program continues
             wait_var.set('confirmed')
+
+    # Get rid of any error labels, if they exist
+    if len(error_labels) > 0:
+        for _ in range(len(error_labels)):
+            label = error_labels.pop()
+            label.destroy()
 
 
 
@@ -815,7 +826,7 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
                 if any(substr in key for substr in ['DATE', 'BIRTHDAY']):
                     entry_box.dtype = 'datetime.date'
                 # If field is numeric, enable data validation
-                elif any(substr in key for substr in ['ZIP', 'MONTHLYFEE', 'BALANCE', 'PAY', 'REGFEE']):
+                elif any(substr in key for substr in ['ZIP', 'MONTHLYFEE', 'BALANCE', 'PAY',]):
                     vcmd = (info_frame.register(fn.validate_float), '%d', '%P', '%s', '%S')
                     entry_box.configure(validate = 'key', validatecommand=vcmd)
                     entry_box.dtype = 'int' if key == 'ZIP' else 'float'
@@ -847,10 +858,10 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
             if wait_var.get() == 'confirmed':
                 # For payments entered with no date, replace missing date with today's date
                 if edit_type == 'STUDENT_PAYMENT':
-                    for month in list(calendar.month_abbr[1:]) + ['REGFEE']:
+                    for month in CALENDAR_DICT.values():
                         # Month abbreviation + pay/date (i.e. 'JANPAY', 'JANDATE')
-                        pay_field = month.upper() if month == 'REGFEE' else month.upper() + 'PAY'
-                        date_field = month.upper() + 'DATE'
+                        pay_field = month + 'PAY'
+                        date_field = month + 'DATE'
                         pay_value = entry_boxes[pay_field].get()
                         date_value = entry_boxes[date_field].get()
                         # If pay amount is blank, enter 0.00 as default
