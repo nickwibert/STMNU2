@@ -72,6 +72,8 @@ def transform_to_rdb(do_not_load=[], update_active=False, save_as='.csv'):
 
         clsbymon = pd.read_csv(os.path.join(DATA_DIR, 'dbf_format', 'clsbymon.csv'))
 
+        # Connect to SQLite database
+        conn = sqlite3.connect(SQLITE_DB)
 
         ### GUARDIAN ###
         # Since we only have first names, and a lot of the data is inconsistent
@@ -186,32 +188,30 @@ def transform_to_rdb(do_not_load=[], update_active=False, save_as='.csv'):
         payment = payment.drop(columns=['STUDENTNO', 'FNAME', 'LNAME','BILL'])
         bill = bill.drop(columns=['STUDENTNO', 'FNAME', 'LNAME'])
         
-
-
         ### Active column in `STUDENT` needs to be calculated based on payments, or loaded from existing data ###
         if update_active:
             # Determine which students are 'inactive' by gathering all those who have not made
             # a payment in the last MONTHS_SINCE_LAST_PAYMENT months (see globals.py)
-            payment_session = pd.to_datetime(payment[['YEAR','MONTH']].assign(DAY=1))
+            payment_session = pd.to_datetime(payment[['YEAR','MONTH']].assign(DAY=1), errors='coerce')
             inactive_students = student.loc[~student['STUDENT_ID'].isin(payment.loc[payment_session >= CUTOFF_DATE,'STUDENT_ID']),'STUDENT_ID'].drop_duplicates()
         # Otherwise, get active student status from current version of `student.csv`
         else:
-            inactive_students = pd.read_csv(os.path.join(save_to_path,'student.csv'))
-            inactive_students = inactive_students.loc[~inactive_students['ACTIVE'],'STUDENT_ID'].drop_duplicates()
+            inactive_students = pd.read_sql('SELECT DISTINCT STUDENT_ID FROM student WHERE NOT ACTIVE', conn).squeeze()
 
         # Declare 'ACTIVE' students as those who are NOT present in the `inactive_students` list.
         # We do it in this complicated way to handle the scenario where new students were added
         # in the old program; for those new students that appear in STUD00 but not in `student`,
         # we want their ACTIVE status to be TRUE. Therefore this method will catch all
         # the existing 'ACTIVE' students as well as the newly enrolled students, and label them all as active.
-        student['ACTIVE'] = ~student['STUDENT_ID'].isin(inactive_students)
+        student['ACTIVE'] = (~student['STUDENT_ID'].isin(inactive_students))*1
 
         # Alter 'ACTIVE', change to 'True' if student has a payment for current session
         student = student.merge(payment.loc[(payment['MONTH']==CURRENT_SESSION.month)&(payment['YEAR']==CURRENT_SESSION.year),['STUDENT_ID','PAY']],
                                 how='left', on='STUDENT_ID')
-        student['ACTIVE'] = np.where(student['PAY']>0,True,student['ACTIVE'])
+        student['ACTIVE'] = np.where(student['PAY']>0, 1, student['ACTIVE'])
         student = student.drop(columns=['PAY'])
-        
+
+
         ### CLASSES ###
         # Keep the first 11 columns from 'clsbymon', and FINAL column (CLASS_ID)
         classes = clsbymon.iloc[:,list(range(11)) + [clsbymon.shape[1]-1]].copy()
@@ -274,7 +274,7 @@ def transform_to_rdb(do_not_load=[], update_active=False, save_as='.csv'):
 
         # Finally, keep only the rows which have some data
         wait = wait.dropna(how='all', subset=['NAME','PHONE']).reset_index(drop=True)
-        wait.insert(0, 'WAIT_ID', wait.index + 1)
+
         # Timestamp columns (placeholder)
         wait.insert(len(wait.columns),'CREA_TMS',[datetime.now()]*wait.shape[0])
         wait.insert(len(wait.columns),'UPDT_TMS',[datetime.now()]*wait.shape[0])
@@ -283,7 +283,8 @@ def transform_to_rdb(do_not_load=[], update_active=False, save_as='.csv'):
         ### TRIAL ###
         trial = pd.DataFrame()
         if 'trial' in do_not_load:
-            trial = pd.read_csv(os.path.join(save_to_path,'trial.csv'))
+            # Simply pull current version of `trial` from database
+            trial = pd.read_sql('SELECT * FROM trial', conn)
         else:
             columns = ['CLASS_ID'] + [col for i in range(1, 9) for col in (f'TRIAL{i}', f'T{i}PHONE', f'T{i}DATE')]
             trial_df = clsbymon[columns]
@@ -322,7 +323,6 @@ def transform_to_rdb(do_not_load=[], update_active=False, save_as='.csv'):
 
             # Finally, keep only the rows which have some data
             trial = trial.dropna(how='all', subset=['NAME','PHONE','DATE']).reset_index(drop=True)
-            trial.insert(0, 'TRIAL_ID', trial.index + 1)
             # Timestamp columns (placeholder)
             trial.insert(len(trial.columns),'CREA_TMS',[datetime.now()]*trial.shape[0])
             trial.insert(len(trial.columns),'UPDT_TMS',[datetime.now()]*trial.shape[0])
@@ -335,7 +335,8 @@ def transform_to_rdb(do_not_load=[], update_active=False, save_as='.csv'):
         ### NOTES ###
         note = pd.DataFrame()
         if 'note' in do_not_load:
-            note = pd.read_csv(os.path.join(save_to_path,'note.csv'))
+            # Load current version of `note` from database
+            note = pd.read_sql('SELECT * FROM note', conn)
         else:
             # Column names for student notes (3 placeholder columns)
             note_cols = [f'NOTE{i}' for i in range(1,4)]
@@ -367,15 +368,15 @@ def transform_to_rdb(do_not_load=[], update_active=False, save_as='.csv'):
 
             # Create final table `note` which contains both student and class notes
             note = pd.concat([student_note, class_note], axis=0).sort_values(by=['STUDENT_ID', 'CLASS_ID'])
-            note.insert(0, 'NOTE_ID', list(range(1, note.shape[0]+1)))
             # Timestamp columns (placeholder)
             note.insert(len(note.columns),'CREA_TMS',[datetime.now()]*note.shape[0])
             note.insert(len(note.columns),'UPDT_TMS',[datetime.now()]*note.shape[0])
-        
+
+
+        ### SAVE TRANSFORMED TABLES TO CSV OR DB ###
         # Put all the dataframes into a list
         df_list = [guardian, student, payment, bill, classes, class_student, wait, trial, note]
         df_names = ['guardian', 'student', 'payment', 'bill', 'classes', 'class_student', 'wait', 'trial', 'note']
-        conn = sqlite3.connect(data_path + '\\database.db')
 
         for df, df_name in zip(df_list, df_names):
             # Override: if table name is in list `do_not_load`, we did not create a new version of that table and thus do not save anything
@@ -384,7 +385,7 @@ def transform_to_rdb(do_not_load=[], update_active=False, save_as='.csv'):
             else:
                 # Write to csv files if option chosen
                 if '.csv' in save_as:
-                    df.to_csv(f'{save_to_path}\\{df_name}.csv', index=False)
+                    df.to_csv(os.path.join(BACKUP_DIR, f'{df_name}.csv'), index=False)
                 # Write to SQLite database if option chosen
                 if '.db' in save_as:
                     df.to_sql(df_name, conn, if_exists='replace', index=False)
