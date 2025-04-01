@@ -456,6 +456,30 @@ def populate_sqlite_from_csv(do_not_load=[]):
     # Close connection when done
     conn.close()
 
+# Backup SQLite database to individual CSV files. This is simply intended as an extra layer of caution
+# in case something unexpected happens with the '.db' file. Every time the user exits the program, they
+# will be prompted to perform this backup.
+def backup_sqlite_to_csv():
+    try:
+        conn = sqlite3.connect(SQLITE_DB)
+
+        # Get names of all database tables as Pandas Series
+        table_names = pd.read_sql("SELECT name FROM sqlite_schema WHERE type='table' ORDER BY name", conn
+                    ).squeeze()
+        # Loop through table names
+        for table_name in table_names:
+            # Load into Pandas DataFrame and then save out to CSV
+            table_df = pd.read_sql(f"SELECT * FROM {table_name}", conn)
+            table_df.to_csv(os.path.join(BACKUP_DIR, f'{table_name}.csv'), index=False)
+        
+        # Close database connection
+        conn.close()
+    except sqlite3.Error as err:
+        print(f'Database error: {err}')
+    except Exception as exc:
+        print(f'Error occured: {exc}')
+
+
 # Validate if the user entry is a number (used for numeric fields)
 # This will run every time a key is pressed, so that if the user tries to enter
 # a letter or other invalid character, nothing happens
