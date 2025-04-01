@@ -15,7 +15,8 @@ import functions as fn
 from widgets.dialog_boxes import PasswordDialog
 
 # Global variables
-from globals import CURRENT_SESSION, CUTOFF_DATE
+from globals import DATA_DIR, BACKUP_DIR, QUERY_DIR, SQLITE_DB, \
+                    CALENDAR_DICT, CURRENT_SESSION, CUTOFF_DATE
 load_dotenv()
 
 # Function to convert a given .dbf file to .csv
@@ -53,21 +54,24 @@ def dbf_to_csv(filename, save_to_path='C:\\STMNU2\\data\\dbf_format'):
 #       - clsbymon.csv
 # The argument `save_as` is looking for either '.csv' or '.db'. If '.csv', the new dataframes will
 # simply be exported as CSV files. If '.db', the dataframes will be saved to a SQLite database.
-def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=False, save_as='.db'):
-    # List of Pandas dataframes. We will add the tables (dataframes) to the list one by one as they are created
-    dataframes = []
+def transform_to_rdb(do_not_load=[], update_active=False, save_as='.csv'):
     try:
         # If necessary files are not found, throw error
-        if not os.path.isfile(data_path + '\\dbf_format\\STUD00.csv'): raise FileNotFoundError('STUD00.csv')
-        if not os.path.isfile(data_path + '\\dbf_format\\clsbymon.csv'): raise FileNotFoundError('clsbymon.csv')
+        if not os.path.isfile(DATA_DIR + '\\dbf_format\\STUD00.csv'): raise FileNotFoundError('STUD00.csv')
+        if not os.path.isfile(DATA_DIR + '\\dbf_format\\clsbymon.csv'): raise FileNotFoundError('clsbymon.csv')
 
         # Load .dbf files for students and classes
-        STUD00 = pd.read_csv('C:\\STMNU2\\data\\dbf_format\\STUD00.csv').dropna(subset=['FNAME','LNAME']).reset_index(drop=True)
+        STUD00 = pd.read_csv(os.path.join(DATA_DIR, 'dbf_format', 'STUD00.csv')).dropna(subset=['FNAME','LNAME']).reset_index(drop=True)
         STUD00.insert(0, 'STUDENT_ID', STUD00.index + 1)
-        STUD99 = pd.read_csv('C:\\STMNU2\\data\\dbf_format\\STUD99.csv').dropna(subset=['FNAME','LNAME']).reset_index(drop=True)
+        STUD99 = pd.read_csv(os.path.join(DATA_DIR, 'dbf_format', 'STUD99.csv')).dropna(subset=['FNAME','LNAME']).reset_index(drop=True)
         STUD99.insert(0, 'STUDENT_ID', STUD99.index + 1)
 
-        clsbymon = pd.read_csv('C:\\STMNU2\\data\\dbf_format\\clsbymon.csv')
+        # Rename REGFEE column to match other month pay columns
+        STUD00 = STUD00.rename(columns={'REGFEE' : 'REGPAY', 'REGFEEDATE' : 'REGDATE'})
+        STUD99 = STUD99.rename(columns={'REGFEE' : 'REGPAY', 'REGFEEDATE' : 'REGDATE'})
+
+        clsbymon = pd.read_csv(os.path.join(DATA_DIR, 'dbf_format', 'clsbymon.csv'))
+
 
         ### GUARDIAN ###
         # Since we only have first names, and a lot of the data is inconsistent
@@ -110,9 +114,6 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=Fals
                                 'LNAME'      : STUD00['LNAME'],
                                 'BIRTHDAY'   : STUD00['BIRTHDAY'],
                                 'ENROLLDATE' : STUD00['ENROLLDATE'],
-                                'REGFEE'     : STUD00['REGFEE'],
-                                'REGFEEDATE' : STUD00['REGFEEDATE'],
-                                'REGBILL'    : STUD00['REGBILL'],
                                 'MONTHLYFEE' : STUD00['MONTHLYFEE'],
                                 'BALANCE'    : STUD00['BALANCE'],
                                 'PHONE'      : STUD00['PHONE'],
@@ -142,14 +143,14 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=Fals
         ### PAYMENT and BILL ###
         payment = pd.DataFrame()
         bill = pd.DataFrame()
-        payment_cols = ['STUDENTNO', 'FNAME', 'LNAME'] + [month.upper() + suffix for month in list(calendar.month_abbr[1:]) for suffix in ['PAY','DATE','BILL']]
+        payment_cols = ['STUDENTNO', 'FNAME', 'LNAME'] + [month + suffix for month in CALENDAR_DICT.values() for suffix in ['PAY','DATE','BILL']]
         # Pivot payments for previous year and current year to create 'payment' table
         year = CURRENT_SESSION.year - 1
         for STUD in [STUD99, STUD00]:
             payment_df = STUD[payment_cols]
             # 'Melt' dataframe so that all month column names are put into one column called 'COLUMN'
             df_long = payment_df.melt(id_vars=['STUDENTNO', 'FNAME', 'LNAME'], var_name='COLUMN', value_name='VALUE')
-            df_long['MONTH'] = df_long['COLUMN'].str[:3].map({calendar.month_abbr[i].upper() : i for i in range(1,13)})
+            df_long['MONTH'] = df_long['COLUMN'].str[:3].map({month_name:month_num for month_num,month_name in CALENDAR_DICT.items()})
             df_long['TYPE'] = df_long['COLUMN'].str[3:]  # Remaining characters for the type
             df_long['row'] = df_long.groupby(['STUDENTNO', 'FNAME', 'LNAME', 'MONTH', 'TYPE']).cumcount()
             # Pivot payment columns so that the new table has columns: [PAYMENT_ID, STUDENT_ID, MONTH, 'PAY', 'DATE']
@@ -164,9 +165,9 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=Fals
                              ].loc[:,['STUDENTNO', 'FNAME', 'LNAME', 'MONTH', 'YEAR']
                              ].reset_index(drop=True)
             bill = pd.concat([bill, bill_df], ignore_index=True)
-            # Also add REGFEE bills from STUD tables to `bill`
-            regfee_bills = STUD.loc[STUD['REGBILL'] == '*', ['STUDENTNO', 'FNAME', 'LNAME']].assign(MONTH=13, YEAR=year)
-            bill = pd.concat([bill, regfee_bills], ignore_index=True)
+            # # Also add REGFEE bills from STUD tables to `bill`
+            # regfee_bills = STUD.loc[STUD['REGBILL'] == '*', ['STUDENTNO', 'FNAME', 'LNAME']].assign(MONTH=13, YEAR=year)
+            # bill = pd.concat([bill, regfee_bills], ignore_index=True)
             # move to current year before next loop
             year += 1
 
@@ -182,7 +183,7 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=Fals
                         ].merge(payment, how='right', on=['STUDENTNO', 'FNAME', 'LNAME'])
         bill = student[['STUDENT_ID','STUDENTNO', 'FNAME', 'LNAME']
                      ].merge(bill, how='right', on=['STUDENTNO', 'FNAME', 'LNAME'])
-        payment = payment.drop(columns=['STUDENTNO', 'FNAME', 'LNAME'])
+        payment = payment.drop(columns=['STUDENTNO', 'FNAME', 'LNAME','BILL'])
         bill = bill.drop(columns=['STUDENTNO', 'FNAME', 'LNAME'])
         
 
