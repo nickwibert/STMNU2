@@ -413,21 +413,35 @@ def create_sqlite():
     conn.commit()
     # Close database connection
     conn.close()
-    # Connect to sqlite database (or create if it does not exist)
-    conn = sqlite3.connect(data_dir + "\\database.db", timeout=10)
-    # Cursor to navigate database
-    cur = conn.cursor()    
 
-    # Table names
-    tables = ['guardian','student','payment', 'bill', 'classes','class_student','wait','trial','note']
-    # Loop through tables 
-    for table in tables:
+# Populate SQLite database from CSV files. This is function is necessary for interacting
+# with the old dBASE program, to ensure that any changes made in the old program are 
+# loaded fresh every time the new program is launched. Once the old program is decommissioned,
+# this function will be deprecated.
+#
+# The function expects a path to the directory containing the relevant CSV files
+# as well as a list of table names which should be populated (so that certain tables
+# can be excluded from the populate action as desired)
+def populate_sqlite_from_csv(do_not_load=[]):
+    # Connect to sqlite database (or create if it does not exist)
+    conn = sqlite3.connect(SQLITE_DB, timeout=10)
+    cur = conn.cursor()
+    # Get names of all tables which we are to populate
+    # (all tables in SQLite excluding those in `do_not_load`)
+    table_names = pd.read_sql(f"""SELECT name
+                                  FROM sqlite_schema
+                                  WHERE type='table'
+                                        AND name NOT LIKE '%sqlite%'
+                                        AND name NOT IN ({', '.join(f"'{t}'" for t in do_not_load)})""",
+                              conn
+                   ).squeeze()
+    # Loop through table names
+    for table in table_names:
         # Path to CSV file containing this table
-        table_csv_path  = f'{csv_dir}\\{table}.csv'
+        table_csv_path  = os.path.join(BACKUP_DIR, f'{table}.csv')
         # Get field names for table
         columns = list(pd.read_csv(table_csv_path).columns)
-        # Create table in SQLite database using table name and field names
-        cur.execute(f"CREATE TABLE IF NOT EXISTS {table} ({', '.join(columns)});")
+
         # Open the CSV file we wish to import
         with open(table_csv_path,'r') as fin:
             # Read records from csv file
