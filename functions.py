@@ -388,35 +388,31 @@ def transform_to_rdb(do_not_load=[], update_active=False, save_as='.csv'):
                     df.to_csv(os.path.join(BACKUP_DIR, f'{df_name}.csv'), index=False)
                 # Write to SQLite database if option chosen
                 if '.db' in save_as:
-                    df.to_sql(df_name, conn, if_exists='replace', index=False)
-
-        # Ensure that unique indices are created for SQLite database tables
-        unique_index_dir = 'C:\\STMNU2\\queries\\unique_index\\'
-        for filename in os.listdir(unique_index_dir):
-            if 'idx' in filename:
-                with open(os.path.join(unique_index_dir,filename), 'r') as sql_file:
-                    sql_script = sql_file.read()
-
-                conn.executescript(sql_script)
-                conn.commit()
-
-        # Ensure that all ID columns are cast as integer
-        for df, df_name in zip(df_list, df_names):
-            id_no_cols = df.filter(regex='_ID|_NO').columns
-            set_clause = ', '.join(f'{col} = CAST({col} AS INTEGER)' for col in id_no_cols)
-            conn.execute(f'UPDATE {df_name} SET {set_clause}')
-            conn.commit()
+                    df.to_sql(df_name+'_temp', conn, if_exists='replace', index=False)
         
         # Close database connection
         conn.close()
 
     except FileNotFoundError as err:
-        print(f"File '{err.args[0]}' not found at {data_path}.")
+        print(f"File '{err.args[0]}' not found at {DATA_DIR}.")
 
 
-# Function to create SQLite database from a set of CSV files
-# (specifically, the set of CSV files that will result from running `transform_to_rdb()` above)
-def create_sqlite_db(data_dir, csv_dir):
+# Function to create SQLite database file named `database.db` at the path
+# specified in `db_dir`. Tables are created by running `create_tables.sql`
+# found in the path specified by `create_query_path`.
+def create_sqlite():
+    # Connect to sqlite database (or create if it does not exist)
+    conn = sqlite3.connect(SQLITE_DB, timeout=10)
+
+    # Read in SQL create statements as a single string
+    with open(os.path.join(QUERY_DIR, 'create_tables.sql'), 'r') as sql_file:
+        sql_script = sql_file.read()
+
+    # Execute all create table statements in one transaction, then commit to database
+    conn.executescript(sql_script)
+    conn.commit()
+    # Close database connection
+    conn.close()
     # Connect to sqlite database (or create if it does not exist)
     conn = sqlite3.connect(data_dir + "\\database.db", timeout=10)
     # Cursor to navigate database
