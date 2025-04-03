@@ -1,0 +1,7 @@
+SELECT STUDENT_ID, FNAME, LNAME
+FROM student AS S
+WHERE (FNAME LIKE :first_name)
+        AND (LNAME LIKE :last_name)
+        AND (ACTIVE OR :show_inactive)
+ORDER BY LNAME, FNAME
+COLLATE NOCASE

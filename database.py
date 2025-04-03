@@ -9,7 +9,7 @@ import calendar
 from datetime import datetime
 
 # Global variables
-from globals import CURRENT_SESSION, CALENDAR_DICT
+from globals import CURRENT_SESSION, CALENDAR_DICT, QUERY_DIR
 
 class StudentDatabase:
     def __init__(self, student_dbf_path, student_prev_year_dbf_path, clsbymon_dbf_path, do_not_load=[], update_active=False):
@@ -70,19 +70,17 @@ class StudentDatabase:
         # Force all uppercase
         for key in query.keys(): query[key] = query[key].upper()
 
-        # Create SQL query from user input
-        sql_query = f"""
-            SELECT STUDENT_ID, FNAME, LNAME
-            FROM student AS S
-            WHERE (FNAME LIKE '{query['First Name']}%')
-                   AND (LNAME LIKE '{query['Last Name']}%')
-                   AND (ACTIVE OR {show_inactive})
-            ORDER BY LNAME, FNAME
-            COLLATE NOCASE
-        """
+         # Read in query from 'search_student.sql' as string
+        with open(os.path.join(QUERY_DIR,'search_student.sql'), 'r') as sql_file:
+            sql_script = sql_file.read()
 
-        matches = pd.read_sql(sql_query, self.conn)
-        
+        # Parameters used in query
+        params = {'first_name'    : f"%{query['First Name']}%",
+                  'last_name'     : f"%{query['Last Name']}%", 
+                  'show_inactive' : show_inactive}
+
+        # Query database and return results as DataFrame
+        matches = pd.read_sql(sql_script, self.conn, params=params)
         return matches
     
 
@@ -622,54 +620,20 @@ class StudentDatabase:
     # Similar to `search_students`, but for classes. User selects options to filter down
     # list of classes (i.e. gender, class level, day of week)
     def filter_classes(self, filters):
-        # Query to get class info and counts for every class selected by `filters`
-        sql_query = f"""
-        -- Finally, get number of trial spots, as well as class info from `classes` table
-        SELECT COUNTS.CLASS_ID, C.TEACH, C.CLASSTIME,
-            CONCAT(SUBSTRING(C.CLASSNAME, 0, 25),'...') AS CLASSNAME,
-            C.MAX - COUNTS.CLASS_COUNT AS AVAILABLE,
-            COUNTS.TRIAL_COUNT,
-            COUNT(W.WAIT_NO) AS WAITLIST_COUNT
-        FROM (
-            -- Get number of waitlist spots
-            SELECT CLASS_COUNTS.CLASS_ID, CLASS_COUNTS.CLASS_COUNT,
-                COUNT(T.TRIAL_NO) AS TRIAL_COUNT
-            FROM (
-                -- Get number of paid/billed students for every class
-                SELECT C.CLASS_ID, COUNT(PAID_OR_BILLED.STUDENT_ID) AS CLASS_COUNT
-                FROM classes AS C
-                    LEFT JOIN class_student AS CS ON C.CLASS_ID = CS.CLASS_ID
-                    LEFT JOIN (
-                        -- Get all active students who are paid or billed for current session
-                        SELECT S.STUDENT_ID,
-                            IIF(P.STUDENT_ID IS NULL, 0, 1) AS PAID,
-                            IIF(B.STUDENT_ID IS NULL, 0, 1) AS BILLED
-                        FROM student AS S 
-                            LEFT JOIN payment AS P ON S.STUDENT_ID = P.STUDENT_ID
-                                                    AND P.MONTH={CURRENT_SESSION.month}
-                                                    AND P.YEAR={CURRENT_SESSION.year}
-                            LEFT JOIN bill AS B ON S.STUDENT_ID = B.STUDENT_ID
-                                                    AND B.MONTH={CURRENT_SESSION.month}
-                                                    AND B.YEAR={CURRENT_SESSION.year}
-                        WHERE S.ACTIVE AND (PAID OR BILLED)
-                    ) AS PAID_OR_BILLED ON CS.STUDENT_ID = PAID_OR_BILLED.STUDENT_ID
-                GROUP BY C.CLASS_ID
-            ) AS CLASS_COUNTS
-                LEFT JOIN trial AS T ON CLASS_COUNTS.CLASS_ID = T.CLASS_ID
-            GROUP BY CLASS_COUNTS.CLASS_ID
-        ) AS COUNTS
-            LEFT JOIN wait AS W ON COUNTS.CLASS_ID = W.CLASS_ID
-            INNER JOIN classes AS C ON COUNTS.CLASS_ID = C.CLASS_ID
-        WHERE (TEACH LIKE '%{filters['INSTRUCTOR']}%')
-            AND (CLASSNAME LIKE '%{filters['GENDER']}%')
-            AND (DAYOFWEEK LIKE '%{filters['DAY']}%')
-            AND (CLASSNAME LIKE '%{filters['LEVEL']}%' OR CLASSTIME LIKE '%{filters['LEVEL']}%')
-        GROUP BY C.CLASS_ID
-        ORDER BY DAYOFWEEK, TIMEOFDAY
-        COLLATE NOCASE"""
+         # Read in query from 'filter_classes.sql' as string
+        with open(os.path.join(QUERY_DIR,'filter_classes.sql'), 'r') as sql_file:
+            sql_script = sql_file.read()
+
+        # Parameters used in query
+        params = {'current_month'     : CURRENT_SESSION.month,
+                  'current_year'      : CURRENT_SESSION.year, 
+                  'instructor_filter' : f"%{filters['INSTRUCTOR']}%",
+                  'gender_filter'     : f"%{filters['GENDER']}%",
+                  'day_filter'        : f"%{filters['DAY']}%",
+                  'level_filter'      : f"%{filters['LEVEL']}%"}
 
         # Query database and return results as DataFrame
-        matches = pd.read_sql(sql_query, self.conn)
+        matches = pd.read_sql(sql_script, self.conn, params=params)
         return matches
     
 
