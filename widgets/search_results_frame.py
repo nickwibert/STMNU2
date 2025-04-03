@@ -258,47 +258,6 @@ class SearchResultsFrame(ctk.CTkFrame):
 
             # Search for matches
             self.df = self.database.filter_classes(filters)
-
-            ## Add column for available spots in each class ##
-            # Get student count for each class and add to results dataframe
-            # (spots are taken by both PAID and BILLED students)
-            payment_info = self.database.payment.loc[(self.database.payment['MONTH'] == CURRENT_SESSION.month)
-                                                    & (self.database.payment['YEAR'] == CURRENT_SESSION.year)
-                                            ].loc[:, ['STUDENT_ID', 'PAY']]
-            bill_info = self.database.bill.loc[(self.database.bill['MONTH'] == CURRENT_SESSION.month)
-                                             & (self.database.bill['YEAR'] == CURRENT_SESSION.year)
-                                            ].assign(BILLED=True)
-            class_counts = self.df.merge(self.database.class_student, how='right'
-                                 ).merge(payment_info, how='left'
-                                 ).merge(bill_info, how='left'
-                                 ).dropna(subset=['PAY','BILLED'], how='all'
-                                 ).groupby('CLASS_ID'
-                                 ).size(
-                                 ).rename('COUNT'
-                                 ).reset_index()
-            trial_counts = self.df.merge(self.database.trial[['CLASS_ID','TRIAL_NO']], how='inner', on='CLASS_ID'
-                                 ).groupby('CLASS_ID'
-                                 ).size(
-                                 ).rename('TRIAL_COUNT'
-                                 ).reset_index()
-            wait_counts = self.df.merge(self.database.wait[['CLASS_ID','WAIT_NO']], how='inner', on='CLASS_ID'
-                                 ).groupby('CLASS_ID'
-                                 ).size(
-                                 ).rename('WAIT_COUNT'
-                                 ).reset_index()
-
-            self.df = self.df.merge(class_counts, how='left', on='CLASS_ID')
-            # Calculate number of spots available and drop 'count' column
-            available = self.df['MAX'] - self.df['COUNT']
-            self.df.insert(self.df.shape[1]-2, 'AVAILABLE', available)
-            self.df.drop(columns=['COUNT','MAX'], inplace=True)
-            # Add trial/waitlist counts
-            self.df = self.df.merge(trial_counts, how='left', on='CLASS_ID'
-                            ).merge(wait_counts, how='left', on='CLASS_ID')
-            # Make sure NA values are replaced with 0, and there are no decimals
-            self.df[['AVAILABLE','TRIAL_COUNT','WAIT_COUNT']] = self.df[['AVAILABLE','TRIAL_COUNT','WAIT_COUNT']].fillna(0).astype('int')
-            # Truncate class name
-            self.df['CLASSNAME'] = self.df['CLASSNAME'].str[:20] + '...'
             
         # Update matches in search results frame
         self.display_search_results(select_first_result)
