@@ -162,7 +162,7 @@ class StudentDatabase:
         self.cursor.execute("SELECT MAX(CAST(GUARDIAN_ID AS integer))+1 AS NEW_GUARDIAN_ID FROM guardian")
         new_guardian_id = self.cursor.fetchone()[0]
 
-        new_student_info = {field : entry.get().strip() for (field,entry) in entry_boxes.items() if entry.get()}
+        new_student_info = {field : entry.get().strip() for (field,entry) in entry_boxes.items()}
         for field in new_student_info.keys():
             if len(new_student_info[field]) == 0:
                 new_student_info[field] = 0 if entry_boxes[field].dtype =='float' else None
@@ -810,7 +810,8 @@ class StudentDatabase:
         # The dictionary key is the column name(s), and the values are the actual values
         # (i.e. if we are updating the student table, where_dict={'STUDENT_ID' : <student id>}
         # and for a trial, where_dict={'CLASS_ID':<class id>, 'TRIAL_NO':<trial #>}
-        set_clause = ', '.join([f'{field}="{value}"' for field,value in new_info.items()])
+        set_clause = ', '.join([f'{field}="{value if value is not None else ''}"'\
+                                for field,value in new_info.items()])
         where_clause = ' AND '.join([f'{field}="{value}"' for field,value in where_dict.items()])
         sql = f'UPDATE {table} SET {set_clause} WHERE {where_clause}'
         self.cursor.execute(sql)
