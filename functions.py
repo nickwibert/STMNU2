@@ -13,7 +13,7 @@ import functions as fn
 from widgets.dialog_boxes import PasswordDialog
 
 # Global variables
-from globals import CURRENT_SESSION, CUTOFF_DATE
+from globals import CURRENT_SESSION, PREVIOUS_SESSION
 load_dotenv()
 
 # Function to convert a given .dbf file to .csv
@@ -169,10 +169,15 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=Fals
         bill = bill.drop(columns='STUDENTNO')
 
         if update_active:
-            # Determine which students are 'inactive' by gathering all those who have not made
-            # a payment in the last MONTHS_SINCE_LAST_PAYMENT months (see globals.py)
-            payment_session = pd.to_datetime(payment[['YEAR','MONTH']].assign(DAY=1))
-            inactive_students = student.loc[~student['STUDENT_ID'].isin(payment.loc[payment_session >= CUTOFF_DATE,'STUDENT_ID']),'STUDENT_ID'].drop_duplicates()
+            # Determine which students were paid or billed in current/previous sessions
+            paid_students = payment.loc[((payment['MONTH']==CURRENT_SESSION.month) & (payment['YEAR']==CURRENT_SESSION.year))
+                                        | ((payment['MONTH']==PREVIOUS_SESSION.month) & (payment['YEAR']==PREVIOUS_SESSION.year)),
+                                        'STUDENT_ID'].unique()
+            billed_students = bill.loc[((bill['MONTH']==CURRENT_SESSION.month) & (bill['YEAR']==CURRENT_SESSION.year))
+                                        | ((bill['MONTH']==PREVIOUS_SESSION.month) & (bill['YEAR']==PREVIOUS_SESSION.year)),
+                                        'STUDENT_ID'].unique()
+            # Students who were not paid or billed in the current/previous sessions are considered INACTIVE
+            inactive_students = student.loc[(~student['STUDENT_ID'].isin(paid_students)) & (~student['STUDENT_ID'].isin(billed_students)),'STUDENT_ID'].drop_duplicates()
         # Otherwise, get active student status from current version of `student.csv`
         else:
             inactive_students = pd.read_csv(os.path.join(save_to_path,'student.csv'))
