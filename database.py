@@ -62,8 +62,10 @@ class StudentDatabase:
 
         # Create empty tables in SQLite database
         fn.create_sqlite()
-        # Populate with data that we loaded/transformed from dBASE
-        fn.populate_sqlite_from_csv(self.do_not_load)
+        # Populate tables with data (for tables included in `do_not_load`, this will
+        # simply be the existing data from SQLite; otherwise it is overwritten with 
+        # data loaded from dBASE)
+        fn.populate_sqlite_from_csv()
 
 
     def search_student(self, query, show_inactive=False):
