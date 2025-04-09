@@ -619,7 +619,7 @@ class ClassInfoFrame(ctk.CTkFrame):
                 trial_name_label.master.grid()
 
                 trial_name_txt += trial_record['NAME'] if trial_record['NAME'] is not None else ''
-                trial_phone_txt += trial_record['DATE'] if trial_record['DATE'] is not None else ''
+                trial_phone_txt += trial_record['PHONE'] if trial_record['PHONE'] is not None else ''
                 trial_date_txt += trial_record['DATE'] if trial_record['DATE'] is not None else ''
 
                 # Flag date with red bg if date is either blank or in the past
