@@ -1,5 +1,6 @@
 import customtkinter as ctk
 import pandas as pd
+import os
 from tktooltip import ToolTip
 import calendar
 from datetime import datetime
@@ -8,7 +9,8 @@ from widgets.search_results_frame import SearchResultsFrame
 from widgets.dialog_boxes import MoveStudentDialog
 
 # Global values
-from globals import CURRENT_SESSION, MAX_CLASS_SIZE, MAX_WAIT_SIZE, MAX_TRIAL_SIZE, MAX_MAKEUP_SIZE
+from globals import CURRENT_SESSION, MAX_CLASS_SIZE, MAX_WAIT_SIZE, MAX_TRIAL_SIZE, MAX_MAKEUP_SIZE, \
+                    QUERY_DIR
 
 # Reusable frame for class information (intended to mimic the screen from the dBASE
 # program after using class search)
@@ -429,25 +431,36 @@ class ClassInfoFrame(ctk.CTkFrame):
                        ).squeeze()
 
 
-        roll_info = pd.read_sql(f"""-- Keep only the active students who are either paid or billed
-                                    SELECT ACTIVE_STUDENTS.STUDENT_ID, FNAME, LNAME, BIRTHDAY,
-                                        IIF(P.STUDENT_ID IS NULL, 0, 1) AS PAID,
-                                        IIF(B.STUDENT_ID IS NULL, 0, 1) AS BILLED
-                                    FROM (
-                                        -- Get all (active) student IDs linked to this class ID
-                                        SELECT CS.CLASS_ID, S.STUDENT_ID, S.FNAME, S.LNAME, S.BIRTHDAY
-                                        FROM class_student AS CS
-                                            INNER JOIN student AS S ON CS.STUDENT_ID = S.STUDENT_ID
-                                        WHERE S.ACTIVE AND CLASS_ID = {class_id}
-                                    ) AS ACTIVE_STUDENTS
-                                        LEFT JOIN payment AS P ON ACTIVE_STUDENTS.STUDENT_ID = P.STUDENT_ID
-                                                                AND P.MONTH={CURRENT_SESSION.month}
-                                                                AND P.YEAR={CURRENT_SESSION.year}
-                                        LEFT JOIN bill AS B ON ACTIVE_STUDENTS.STUDENT_ID = B.STUDENT_ID
-                                                                AND B.MONTH={CURRENT_SESSION.month}
-                                                                AND B.YEAR={CURRENT_SESSION.year}
-                                    ORDER BY PAID DESC, BILLED DESC, LNAME ASC""",
-                                self.database.conn)
+        # roll_info = pd.read_sql(f"""-- Keep only the active students who are either paid or billed
+        #                             SELECT ACTIVE_STUDENTS.STUDENT_ID, FNAME, LNAME, BIRTHDAY,
+        #                                 IIF(P.STUDENT_ID IS NULL, 0, 1) AS PAID,
+        #                                 IIF(B.STUDENT_ID IS NULL, 0, 1) AS BILLED
+        #                             FROM (
+        #                                 -- Get all (active) student IDs linked to this class ID
+        #                                 SELECT CS.CLASS_ID, S.STUDENT_ID, S.FNAME, S.LNAME, S.BIRTHDAY
+        #                                 FROM class_student AS CS
+        #                                     INNER JOIN student AS S ON CS.STUDENT_ID = S.STUDENT_ID
+        #                                 WHERE S.ACTIVE AND CLASS_ID = {class_id}
+        #                             ) AS ACTIVE_STUDENTS
+        #                                 LEFT JOIN payment AS P ON ACTIVE_STUDENTS.STUDENT_ID = P.STUDENT_ID
+        #                                                         AND P.MONTH={CURRENT_SESSION.month}
+        #                                                         AND P.YEAR={CURRENT_SESSION.year}
+        #                                 LEFT JOIN bill AS B ON ACTIVE_STUDENTS.STUDENT_ID = B.STUDENT_ID
+        #                                                         AND B.MONTH={CURRENT_SESSION.month}
+        #                                                         AND B.YEAR={CURRENT_SESSION.year}
+        #                             ORDER BY PAID DESC, BILLED DESC, LNAME ASC""",
+        #                         self.database.conn)
+
+         # Read in query from 'roll_info.sql' as string
+        with open(os.path.join(QUERY_DIR,'roll_info.sql'), 'r') as sql_file:
+            sql_script = sql_file.read()
+
+        # Query database and return results as DataFrame
+        roll_info = pd.read_sql(sql_script,
+                                self.database.conn,
+                                params={'class_id'      : int(class_id),
+                                        'current_month' : CURRENT_SESSION.month,
+                                        'current_year'  : CURRENT_SESSION.year})
         
         # Get `bill_info` as all the bill records for students in `roll_info`
         # bill_info = self.database.bill.merge(roll_info, how='inner', on='STUDENT_ID'
