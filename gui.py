@@ -150,6 +150,8 @@ class STMNU(ctk.CTk):
             self.bind('<F3>',     lambda event: frame.buttons['EDIT_CLASS_NOTE'].invoke())
             self.bind('<F5>',     lambda event: frame.switches['AGE'].toggle())
             self.bind('<F6>',     lambda event: frame.buttons['MOVE_STUDENT'].invoke())
+            self.bind('<F7>',     lambda event: frame.switches['PAYMENT'].toggle())
+
 
 
     def prev_screen(self):

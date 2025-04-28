@@ -257,23 +257,23 @@ class ClassInfoFrame(ctk.CTkFrame):
             self.roll_labels[f'STUDENT{row}'] = name_label
 
             # Label that will contain the student's age
-            age_label = ctk.CTkLabel(self.roll_frame, width=50, justify='right',
+            age_label = ctk.CTkLabel(self.roll_frame, width=50,
                                       font=ctk.CTkFont('Arial',16,'normal'),
                                       bg_color='gray70' if row % 2 == 0 else 'gray80',
                                       cursor='hand2')
-            age_label.grid(row=name_label.grid_info().get('row'), column=1, sticky='nsew', ipadx=5)
+            age_label.grid(row=name_label.grid_info().get('row'), column=1, sticky='nsew')
             self.age_labels[f'STUDENT{row}'] = age_label
 
             # Label that will contain payment for current month (if exists)
-            pay_label = ctk.CTkLabel(self.roll_frame, width=75, anchor='w',
+            pay_label = ctk.CTkLabel(self.roll_frame, width=75, anchor='e',
                                       font=ctk.CTkFont('Arial',18,'bold'),
                                       bg_color='gray70' if row % 2 == 0 else 'gray80',
                                       cursor='hand2')
-            pay_label.grid(row=name_label.grid_info().get('row'), column=2, sticky='nsew',)
+            pay_label.grid(row=name_label.grid_info().get('row'), column=2, sticky='nsew')
             self.pay_labels[f'STUDENT{row}'] = pay_label
 
             # Label that will contain $ symbols to indicate # of payments owed
-            bill_label = ctk.CTkLabel(self.roll_frame, width=75, anchor='w',
+            bill_label = ctk.CTkLabel(self.roll_frame, width=75, 
                                       font=ctk.CTkFont('Arial',18,'bold'),
                                       text_color='red',
                                       bg_color='gray70' if row % 2 == 0 else 'gray80',
