@@ -191,10 +191,10 @@ def transform_to_rdb(data_path, save_to_path, do_not_load=[], update_active=Fals
         student['ACTIVE'] = ~student['STUDENT_ID'].isin(inactive_students)
 
         # Alter 'ACTIVE', change to 'True' if student has a payment for current session
-        student = student.merge(payment.loc[(payment['MONTH']==CURRENT_SESSION.month)&(payment['YEAR']==CURRENT_SESSION.year),['STUDENT_ID','PAY']],
-                                how='left', on='STUDENT_ID')
-        student['ACTIVE'] = np.where(student['PAY']>0,True,student['ACTIVE'])
-        student = student.drop(columns=['PAY'])
+        # student = student.merge(payment.loc[(payment['MONTH']==CURRENT_SESSION.month)&(payment['YEAR']==CURRENT_SESSION.year),['STUDENT_ID','PAY']],
+        #                         how='left', on='STUDENT_ID')
+        # student['ACTIVE'] = np.where(student['PAY']>0,True,student['ACTIVE'])
+        # student = student.drop(columns=['PAY'])
         
         ### CLASSES ###
         # Keep the first 11 columns from 'clsbymon', and FINAL column (CLASS_ID)
