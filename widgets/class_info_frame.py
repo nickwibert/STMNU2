@@ -582,7 +582,7 @@ class ClassInfoFrame(ctk.CTkFrame):
                             pay_txt += f"${roll_info.loc[row-1,'PAY']:.2f}"
                         # Otherwise, leave pay label blank
                         else:
-                            continue
+                            pass
                             
                     # Add dollar signs ($) after the student's bill label if they owe for previous months
                     # (i.e. if a student has 3 asterisks under 'BILL', 3 dollar signs should display here)
