@@ -57,13 +57,20 @@ class ClassInfoFrame(ctk.CTkFrame):
         for scroll_frame in self.scroll_frames:
             scroll_frame._scrollbar.configure(height=0)
 
-        ### SWITCHES ###
-        age_switch = ctk.CTkSwitch(self.roll_frame,
-                                    text='Show/Hide Age',
+        ### SWITCHES ###   
+        roll_widget_frame = ctk.CTkFrame(self.roll_frame)
+        age_switch = ctk.CTkSwitch(roll_widget_frame, text='Toggle Age',
                                     command=lambda : self.update_labels(self.id),
                                     variable=ctk.StringVar(value='hide'),
                                     onvalue='show',offvalue='hide')
         self.switches['AGE'] = age_switch
+
+        payment_switch = ctk.CTkSwitch(roll_widget_frame, text='Toggle Payment',
+                                       command=lambda : self.update_labels(self.id),
+                                       variable=ctk.StringVar(value='hide'),
+                                       onvalue='show',offvalue='hide')
+        self.switches['PAYMENT'] = payment_switch
+
 
         # Create labels for frames created above
         self.create_labels()
@@ -74,6 +81,10 @@ class ClassInfoFrame(ctk.CTkFrame):
 
         self.roll_frame.grid_propagate(False)
         self.roll_frame.grid(row=1, column=1, rowspan=3, sticky='nsew')
+        roll_widget_frame.grid(row=MAX_CLASS_SIZE+1, column=0, columnspan=4)
+        age_switch.grid(row=1, column=0, sticky='nsew', padx=5)
+        payment_switch.grid(row=1, column=1, sticky='nsew', padx=5)
+
 
         self.wait_frame.grid(row=0, column=2, sticky='nsew')
         self.wait_scroll.grid(row=self.wait_frame.grid_size()[1], column=0, sticky='nsew', padx=5)
@@ -99,12 +110,12 @@ class ClassInfoFrame(ctk.CTkFrame):
         # when 'Edit' mode is activated
         self.buttons['PREV_CLASS'] = ctk.CTkButton(self, command=self.search_results_frame.prev_result)
         self.buttons['NEXT_CLASS'] = ctk.CTkButton(self, command=self.search_results_frame.next_result)
+
         # Button to move students to a different class
-        self.buttons['MOVE_STUDENT'] = ctk.CTkButton(self.roll_frame,
+        self.buttons['MOVE_STUDENT'] = ctk.CTkButton(roll_widget_frame,
                                                      text='Move Student',
                                                      command = self.create_move_student_dialog)
-        self.buttons['MOVE_STUDENT'].grid(row=MAX_CLASS_SIZE+1, column=0, padx=(5,0), pady=(0,5))
-        age_switch.grid(row=MAX_CLASS_SIZE+1, column=1, columnspan=2, pady=(0,5), padx=(0,5))
+        self.buttons['MOVE_STUDENT'].grid(row=0, column=0, columnspan=2, padx=(5,0), pady=(0,5))
 
         # Frame to hold waitlist buttons
         wait_buttons_frame = ctk.CTkFrame(self.wait_frame, fg_color=self.wait_frame.cget('border_color'), corner_radius=0)
@@ -223,13 +234,14 @@ class ClassInfoFrame(ctk.CTkFrame):
 
 
         ### Class Roll Frame ###
-        self.roll_frame.columnconfigure((0,1),weight=1)
+        self.roll_frame.columnconfigure((0,1,2,3),weight=1)
         self.roll_labels = {}
         self.bill_labels = {}
         self.age_labels = {}
+        self.pay_labels = {}
         roll_title = ctk.CTkLabel(self.roll_frame, fg_color=self.roll_frame.cget('border_color'),
                                    text='Class Roll', font=title_font, text_color='white')
-        roll_title.grid(row=self.roll_frame.grid_size()[1], column=0, columnspan=3, sticky='nsew')
+        roll_title.grid(row=self.roll_frame.grid_size()[1], column=0, columnspan=4, sticky='nsew')
         # Create placeholder labels based on global variable for max class size
         for row in range(1,MAX_CLASS_SIZE+1):
             # Student name
@@ -252,13 +264,21 @@ class ClassInfoFrame(ctk.CTkFrame):
             age_label.grid(row=name_label.grid_info().get('row'), column=1, sticky='nsew', ipadx=5)
             self.age_labels[f'STUDENT{row}'] = age_label
 
+            # Label that will contain payment for current month (if exists)
+            pay_label = ctk.CTkLabel(self.roll_frame, width=75, anchor='w',
+                                      font=ctk.CTkFont('Arial',18,'bold'),
+                                      bg_color='gray70' if row % 2 == 0 else 'gray80',
+                                      cursor='hand2')
+            pay_label.grid(row=name_label.grid_info().get('row'), column=2, sticky='nsew',)
+            self.pay_labels[f'STUDENT{row}'] = pay_label
+
             # Label that will contain $ symbols to indicate # of payments owed
-            bill_label = ctk.CTkLabel(self.roll_frame, width=100, anchor='w',
+            bill_label = ctk.CTkLabel(self.roll_frame, width=75, anchor='w',
                                       font=ctk.CTkFont('Arial',18,'bold'),
                                       text_color='red',
                                       bg_color='gray70' if row % 2 == 0 else 'gray80',
                                       cursor='hand2')
-            bill_label.grid(row=name_label.grid_info().get('row'), column=2, sticky='nsew', padx=(0,5))
+            bill_label.grid(row=name_label.grid_info().get('row'), column=3, sticky='nsew', padx=(0,5))
             self.bill_labels[f'STUDENT{row}'] = bill_label
 
         
@@ -361,13 +381,19 @@ class ClassInfoFrame(ctk.CTkFrame):
             # Hide entire row from view
             label.lower()
             
+        for label in self.age_labels.values():
+            for binding in ['<Button-1>', '<Enter>', '<Leave>']:
+                label.unbind(binding)
+            label.configure(text='')
+            label.lower()
+
         for label in self.bill_labels.values():
             for binding in ['<Button-1>', '<Enter>', '<Leave>']:
                 label.unbind(binding)
             label.configure(text='')
             label.lower()
 
-        for label in self.age_labels.values():
+        for label in self.pay_labels.values():
             for binding in ['<Button-1>', '<Enter>', '<Leave>']:
                 label.unbind(binding)
             label.configure(text='')
@@ -510,6 +536,7 @@ class ClassInfoFrame(ctk.CTkFrame):
         for row in range(1,MAX_CLASS_SIZE+1):
             label = self.roll_labels[f'STUDENT{row}']
             age_label = self.age_labels[f'STUDENT{row}']
+            pay_label = self.pay_labels[f'STUDENT{row}']
             bill_label = self.bill_labels[f'STUDENT{row}']
             # Update roll label if we have not reached potential_class_size or max_class_size
             # (whichever is larger)
@@ -517,11 +544,13 @@ class ClassInfoFrame(ctk.CTkFrame):
                 # Lift row back into view
                 label.lift()
                 age_label.lift()
+                pay_label.lift()
                 bill_label.lift()
                 # Create variable to store student name (if exists)
                 roll_txt = f"{row}. "
-                bill_txt = ''
                 age_txt = ''
+                pay_txt = ''
+                bill_txt = ''
                 # If student exists for this row, add their name
                 if row <= potential_class_size:
                     # Student name
@@ -543,6 +572,18 @@ class ClassInfoFrame(ctk.CTkFrame):
                             age_txt += str(today.year - birthday.year - ((today.month, today.day) < (birthday.month, birthday.day)))
                             age_txt += ' yrs'
 
+                    # Determine payment amount for current month and add to label
+                    if self.switches['PAYMENT'].get() == 'show':
+                        # Display 'BILLED' if student is billed for current month
+                        if roll_info.loc[row-1,'BILLED']:
+                            pay_txt += 'BILLED'
+                        # Display payment amount if student is paid for current month
+                        elif roll_info.loc[row-1,'PAID']:
+                            pay_txt += f"${roll_info.loc[row-1,'PAY']:.2f}"
+                        # Otherwise, leave pay label blank
+                        else:
+                            continue
+                            
                     # Add dollar signs ($) after the student's bill label if they owe for previous months
                     # (i.e. if a student has 3 asterisks under 'BILL', 3 dollar signs should display here)
                     if label.student_id in bill_info['STUDENT_ID'].values:
@@ -559,8 +600,8 @@ class ClassInfoFrame(ctk.CTkFrame):
 
                         self.tooltips.append(ToolTip(bill_label, msg=tooltip_txt, font=ctk.CTkFont('Segoe UI',16)))
 
-                    # Bind functions to both label and bill label
-                    for lab in [label, bill_label, age_label]:
+                    # Bind functions to all labels in row
+                    for lab in [label, age_label, pay_label, bill_label]:
                         # Highlight label when mouse hovers over it
                         lab.bind("<Enter>",    lambda event, c=lab.master, r=lab.grid_info().get('row'):
                                                         fn.highlight_label(c,r))
@@ -574,6 +615,7 @@ class ClassInfoFrame(ctk.CTkFrame):
                 # Update text in label
                 label.configure(text=roll_txt)
                 age_label.configure(text=age_txt)
+                pay_label.configure(text=pay_txt)
                 bill_label.configure(text=bill_txt)
 
         ### Waitlist Frame ###
@@ -706,22 +748,26 @@ class ClassInfoFrame(ctk.CTkFrame):
             # Otherwise, check if there is a name in this label
             elif text.split('.')[1].strip():
                 student_labels.append(label)
-
-        move_window = MoveStudentDialog(window=self.window,
-                                        title='Move Student',
-                                        database=self.database,
-                                        current_class_id=self.id,
-                                        student_labels=student_labels)
-        # Wait for the move student dialog window to be closed
-        self.wait_window(move_window)
-        # Update search results to reflect new class availability
-        self.search_results_frame.update_labels(select_first_result=False)
-        # Update currently selected StudentInfoFrame (if a student is active)
-        student_id = self.window.screens['Students'].id
-        if student_id is not None:
-            self.window.screens['Students'].update_labels(student_id)
-        # Update the displayed class roll
-        self.update_labels(self.id)
+        # If student_labels is empty, do nothing
+        if len(student_labels) == 0:
+            return
+        # Otherwise, create dialog window
+        else:
+            move_window = MoveStudentDialog(window=self.window,
+                                            title='Move Student',
+                                            database=self.database,
+                                            current_class_id=self.id,
+                                            student_labels=student_labels)
+            # Wait for the move student dialog window to be closed
+            self.wait_window(move_window)
+            # Update search results to reflect new class availability
+            self.search_results_frame.update_labels(select_first_result=False)
+            # Update currently selected StudentInfoFrame (if a student is active)
+            student_id = self.window.screens['Students'].id
+            if student_id is not None:
+                self.window.screens['Students'].update_labels(student_id)
+            # Update the displayed class roll
+            self.update_labels(self.id)
 
             
     # Add a name to the waitlist of currently selected class

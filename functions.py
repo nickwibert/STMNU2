@@ -10,6 +10,7 @@ import sqlite3
 import dbf
 import re
 from dotenv import load_dotenv
+from dotenv import load_dotenv
 
 import functions as fn
 from widgets.dialog_boxes import PasswordDialog
@@ -17,6 +18,8 @@ from widgets.dialog_boxes import PasswordDialog
 # Global variables
 from globals import DATA_DIR, BACKUP_DIR, QUERY_DIR, SQLITE_DB, \
                     CALENDAR_DICT, CURRENT_SESSION, CUTOFF_DATE
+load_dotenv()
+from globals import CURRENT_SESSION, PREVIOUS_SESSION
 load_dotenv()
 
 # Function to convert a given .dbf file to .csv
@@ -194,6 +197,15 @@ def transform_to_rdb(do_not_load=[], update_active=False, save_as='.csv'):
             # a payment in the last MONTHS_SINCE_LAST_PAYMENT months (see globals.py)
             payment_session = pd.to_datetime(payment[['YEAR','MONTH']].assign(DAY=1), errors='coerce')
             inactive_students = student.loc[~student['STUDENT_ID'].isin(payment.loc[payment_session >= CUTOFF_DATE,'STUDENT_ID']),'STUDENT_ID'].drop_duplicates()
+            # Determine which students were paid or billed in current/previous sessions
+            paid_students = payment.loc[((payment['MONTH']==CURRENT_SESSION.month) & (payment['YEAR']==CURRENT_SESSION.year))
+                                        | ((payment['MONTH']==PREVIOUS_SESSION.month) & (payment['YEAR']==PREVIOUS_SESSION.year)),
+                                        'STUDENT_ID'].unique()
+            billed_students = bill.loc[((bill['MONTH']==CURRENT_SESSION.month) & (bill['YEAR']==CURRENT_SESSION.year))
+                                        | ((bill['MONTH']==PREVIOUS_SESSION.month) & (bill['YEAR']==PREVIOUS_SESSION.year)),
+                                        'STUDENT_ID'].unique()
+            # Students who were not paid or billed in the current/previous sessions are considered INACTIVE
+            inactive_students = student.loc[(~student['STUDENT_ID'].isin(paid_students)) & (~student['STUDENT_ID'].isin(billed_students)),'STUDENT_ID'].drop_duplicates()
         # Otherwise, get active student status from current version of `student.csv`
         else:
             inactive_students = pd.read_sql('SELECT DISTINCT STUDENT_ID FROM student WHERE NOT ACTIVE', conn).squeeze()
@@ -206,6 +218,11 @@ def transform_to_rdb(do_not_load=[], update_active=False, save_as='.csv'):
         student['ACTIVE'] = (~student['STUDENT_ID'].isin(inactive_students))*1
 
         # Alter 'ACTIVE', change to 'True' if student has a payment for current session
+        # student = student.merge(payment.loc[(payment['MONTH']==CURRENT_SESSION.month)&(payment['YEAR']==CURRENT_SESSION.year),['STUDENT_ID','PAY']],
+        #                         how='left', on='STUDENT_ID')
+        # student['ACTIVE'] = np.where(student['PAY']>0,True,student['ACTIVE'])
+        # student = student.drop(columns=['PAY'])
+        
         student = student.merge(payment.loc[(payment['MONTH']==CURRENT_SESSION.month)&(payment['YEAR']==CURRENT_SESSION.year),['STUDENT_ID','PAY']],
                                 how='left', on='STUDENT_ID')
         student['ACTIVE'] = np.where(student['PAY']>0, 1, student['ACTIVE'])
@@ -539,7 +556,8 @@ def validate_entryboxes(dbf_table, confirm_button, entry_boxes, error_frame, wai
     error_labels = []
 
     # SPECIAL CASE: Ignore data validation for certain columns
-    cols_to_ignore = [col for i in range(1,10) for col in (f'TRIAL{i}', f'T{i}PHONE')] \
+    cols_to_ignore = ['FNAME', 'LNAME'] \
+                     + [col for i in range(1,10) for col in (f'TRIAL{i}', f'T{i}PHONE')] \
                      + [col for i in range(1,10) for col in (f'WAIT{i}', f'W{i}PHONE')] \
                      + [f'MAKEUP{i}' for i in range(1,5)]
 
@@ -789,6 +807,8 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
             note_textbox = labels
             # Enable textbox so user can modify
             note_textbox.configure(state='normal', fg_color='white')
+            # Focus textbox
+            note_textbox.focus_set()
 
             # For the note field, no validation is needed; the user can enter whatever they want.
             # So, the confirm button will simply end edit mode without checking anything.

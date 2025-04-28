@@ -241,6 +241,11 @@ class StudentDatabase:
                     if str(field_info.py_type) == "<class 'datetime.date'>":
                         if new_student_info[field] is not None:
                             new_student_info[field] = datetime.strptime(new_student_info[field], "%m/%d/%Y")
+                    # Special case: there may be fields which have no restrictions in the new program,
+                    # but still must be truncated to fit in the old program.
+                    elif len(str(new_student_info[field])) > field_info.length:
+                        new_student_info[field] = str(new_student_info[field])[:field_info.length]
+                        
                     # Special case: for payment dates, if the payment value is blank or zero, delete date
                     if 'DATE' in field and 'ENROLL' not in field:
                         prefix = field[:-4]
@@ -491,6 +496,7 @@ class StudentDatabase:
                     try:
                         # Get info about this field in the dbf file
                         field_info = self.classes_dbf.field_info(field)
+
                         # Convert date fields to proper format
                         if str(field_info.py_type) == "<class 'datetime.date'>":
                             if new_info[field] is not None and len(new_info[field]) > 0:
@@ -723,16 +729,23 @@ class StudentDatabase:
 
             # Add new instructor/daytime to student's record
             with record:
+                # Track duplicate classtimes
+                student_enrolled = False
                 # Loop through each instructor/daytime pair in STUD00
                 for teach_col, daytime_col in list(zip(teach_cols, daytime_cols)):
-                    # If instructor/daytime is already present, end function (this prevents enrolling the student in the same class twice)
+                    # Check if instructor/daytime is already present
                     if record[teach_col].strip() == new_class_info['TEACH'] and record[daytime_col].strip() == new_class_info['CLASSTIME']:
-                        break
-                    # Put instructor/daytime into first blank spot
-                    elif record[teach_col].strip() == '':
+                        # If this is a DUPLICATE classtime for the student, make sure we reset it to blank
+                        if student_enrolled:
+                            record[teach_col] = ''
+                            record[daytime_col] = ''
+                        else:
+                            student_enrolled = True
+                    # Put instructor/daytime into first blank spot (if not already enrolled)
+                    elif record[teach_col].strip() == '' and not student_enrolled:
                         record[teach_col] = new_class_info['TEACH']
                         record[daytime_col] = new_class_info['CLASSTIME']
-                        break
+                        student_enrolled = True
     
 
     # Remove student from class associated with `class_id`
@@ -791,7 +804,27 @@ class StudentDatabase:
                             # If so, delete this instructor and daytime from the student's record
                             record[teach_col] = ''
                             record[daytime_col] = ''
-                            break
+
+                    # Loop through each instructor/daytime pair AGAIN to make sure the classes get shifted up (if needed)
+                    previous_class_info = {'TEACH_placeholder' : 'teach', 'CLASSTIME_placeholder' : 'classtime'}
+                    for teach_col, daytime_col in list(zip(teach_cols, daytime_cols)):
+                        # If the previous classtime values are blank...
+                        if not any([val.strip() for val in previous_class_info.values()]):
+                            # And the current classtime values are NOT blank, shift them to the previous pair of fields
+                            if record[teach_col].strip() != '':
+                                for field in previous_class_info.keys():
+                                    record[field] = record[teach_col] if 'INS' in field else record[daytime_col]
+                                    
+                                record[teach_col] = ''
+                                record[daytime_col] = ''
+                        # Set the current classtime values to 'previous' and continue
+                        previous_class_info = {teach_col : record[teach_col], daytime_col : record[daytime_col]}
+
+
+
+                            
+                            
+
     
         # Change wait variable value to exit edit mode
         if wait_var:
