@@ -123,7 +123,8 @@ class STMNU(ctk.CTk):
         self.set_binds(new_screen)
 
     def set_binds(self, new_screen):
-        keys = ['<Return>', '<F1>', '<F2>', '<F3>', '<F4>', '<F5>', '<Prior>', '<Next>', '<Up>', '<Down>', '<Control-Home>']
+        keys = ['<Return>', '<F1>', '<F2>', '<F3>', '<F4>', '<F5>', '<F6>', '<F7>',
+                '<Prior>', '<Next>', '<Up>', '<Down>', '<Control-Home>']
         for key in keys:
             self.unbind(key)
 
@@ -148,6 +149,7 @@ class STMNU(ctk.CTk):
             self.bind('<F2>',     lambda event: frame.buttons['EDIT_CLASS_WAIT'].invoke())
             self.bind('<F3>',     lambda event: frame.buttons['EDIT_CLASS_NOTE'].invoke())
             self.bind('<F5>',     lambda event: frame.switches['AGE'].toggle())
+            self.bind('<F6>',     lambda event: frame.buttons['MOVE_STUDENT'].invoke())
 
 
     def prev_screen(self):
