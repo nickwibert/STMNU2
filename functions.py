@@ -10,7 +10,6 @@ import sqlite3
 import dbf
 import re
 from dotenv import load_dotenv
-from dotenv import load_dotenv
 
 import functions as fn
 from widgets.dialog_boxes import PasswordDialog
@@ -191,10 +190,6 @@ def transform_to_rdb(do_not_load=[], update_active=False, save_as='.csv'):
         
         ### Active column in `STUDENT` needs to be calculated based on payments, or loaded from existing data ###
         if update_active:
-            # Determine which students are 'inactive' by gathering all those who have not made
-            # a payment in the last MONTHS_SINCE_LAST_PAYMENT months (see globals.py)
-            payment_session = pd.to_datetime(payment[['YEAR','MONTH']].assign(DAY=1), errors='coerce')
-            inactive_students = student.loc[~student['STUDENT_ID'].isin(payment.loc[payment_session >= CUTOFF_DATE,'STUDENT_ID']),'STUDENT_ID'].drop_duplicates()
             # Determine which students were paid or billed in current/previous sessions
             paid_students = payment.loc[((payment['MONTH']==CURRENT_SESSION.month) & (payment['YEAR']==CURRENT_SESSION.year))
                                         | ((payment['MONTH']==PREVIOUS_SESSION.month) & (payment['YEAR']==PREVIOUS_SESSION.year)),
