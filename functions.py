@@ -17,7 +17,7 @@ from widgets.dialog_boxes import PasswordDialog
 
 # Global variables
 from globals import DATA_DIR, BACKUP_DIR, QUERY_DIR, SQLITE_DB, \
-                    CALENDAR_DICT, CURRENT_SESSION
+                    CALENDAR_DICT, CURRENT_SESSION, PREVIOUS_SESSION
 load_dotenv()
 
 # Function to convert a given .dbf file to .csv
