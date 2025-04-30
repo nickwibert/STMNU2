@@ -245,7 +245,7 @@ class ClassInfoFrame(ctk.CTkFrame):
         # Create placeholder labels based on global variable for max class size
         for row in range(1,MAX_CLASS_SIZE+1):
             # Student name
-            name_label = ctk.CTkLabel(self.roll_frame, width=250, anchor='w',
+            name_label = ctk.CTkLabel(self.roll_frame, width=225, anchor='w',
                                       font=ctk.CTkFont('Arial',18,'normal'),
                                       bg_color='gray70' if row % 2 == 0 else 'gray80',
                                       cursor='hand2')
@@ -265,8 +265,8 @@ class ClassInfoFrame(ctk.CTkFrame):
             self.age_labels[f'STUDENT{row}'] = age_label
 
             # Label that will contain payment for current month (if exists)
-            pay_label = ctk.CTkLabel(self.roll_frame, width=75, anchor='e',
-                                      font=ctk.CTkFont('Arial',18,'bold'),
+            pay_label = ctk.CTkLabel(self.roll_frame, width=150, anchor='e',
+                                      font=ctk.CTkFont('Arial',12,'bold'),
                                       bg_color='gray70' if row % 2 == 0 else 'gray80',
                                       cursor='hand2')
             pay_label.grid(row=name_label.grid_info().get('row'), column=2, sticky='nsew')
@@ -434,7 +434,7 @@ class ClassInfoFrame(ctk.CTkFrame):
                                                           & (self.database.payment['YEAR'] == CURRENT_SESSION.year))],
                                     how='left',
                                     on='STUDENT_ID'
-                            ).loc[:,['PAY','STUDENT_ID','FAMILY_ID','FNAME','LNAME','BIRTHDAY']]
+                            ).loc[:,['PAY','DATE','STUDENT_ID','FAMILY_ID','FNAME','LNAME','BIRTHDAY']]
         # Create 'PAID' which is true if student has a non-zero payment for the current month/year
         roll_info['PAID'] = roll_info['PAY'] > 0
         # Get `bill_info` as all the bill records for students in `roll_info`
@@ -560,7 +560,7 @@ class ClassInfoFrame(ctk.CTkFrame):
                             pay_txt += 'BILLED'
                         # Display payment amount if student is paid for current month
                         elif roll_info.loc[row-1,'PAID']:
-                            pay_txt += f"${roll_info.loc[row-1,'PAY']:.2f}"
+                            pay_txt += f"${roll_info.loc[row-1,'PAY']:.2f} ({roll_info.loc[row-1,'DATE']})"
                         # Otherwise, leave pay label blank
                         else:
                             pass
