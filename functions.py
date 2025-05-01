@@ -446,7 +446,8 @@ def populate_sqlite_from_csv(do_not_load=[]):
     table_names = pd.read_sql(f"""SELECT name
                                   FROM sqlite_schema
                                   WHERE type='table'
-                                        AND name NOT LIKE '%sqlite%'""",
+                                        AND name NOT LIKE '%sqlite%'
+                                        AND name NOT IN {tuple(t for t in do_not_load)}""",
                               conn
                    ).squeeze()
     # Loop through table names

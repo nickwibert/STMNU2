@@ -65,7 +65,7 @@ class StudentDatabase:
         # Populate tables with data (for tables included in `do_not_load`, this will
         # simply be the existing data from SQLite; otherwise it is overwritten with 
         # data loaded from dBASE)
-        fn.populate_sqlite_from_csv()
+        fn.populate_sqlite_from_csv(self.do_not_load)
 
 
     def search_student(self, query, show_inactive=False):

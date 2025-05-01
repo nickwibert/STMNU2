@@ -6,8 +6,7 @@ for each table, and does not populate them with any data.
 **/
 
 /** Create student table **/
-DROP TABLE IF EXISTS student;
-CREATE TABLE student (
+CREATE TABLE IF NOT EXISTS student (
     STUDENT_ID  INTEGER PRIMARY KEY     AUTOINCREMENT,
     FAMILY_ID   INTEGER,
     ACTIVE      INTEGER,
@@ -30,8 +29,7 @@ CREATE TABLE student (
 );
 
 /** Create guardian table **/
-DROP TABLE IF EXISTS guardian;
-CREATE TABLE guardian (
+CREATE TABLE IF NOT EXISTS guardian (
     GUARDIAN_ID INTEGER PRIMARY KEY     AUTOINCREMENT,
     FAMILY_ID   INTEGER,
     RELATION    TEXT,
@@ -45,8 +43,7 @@ CREATE TABLE guardian (
 );
 
 /** Create payment table **/
-DROP TABLE IF EXISTS payment;
-CREATE TABLE payment (
+CREATE TABLE IF NOT EXISTS payment (
     STUDENT_ID  INTEGER,
     MONTH       INTEGER,
     YEAR        INTEGER,
@@ -56,8 +53,7 @@ CREATE TABLE payment (
 );
 
 /** Create bill table **/
-DROP TABLE IF EXISTS bill;
-CREATE TABLE bill (
+CREATE TABLE IF NOT EXISTS bill (
     STUDENT_ID  INTEGER,
     MONTH       INTEGER,
     YEAR        INTEGER,
@@ -65,16 +61,14 @@ CREATE TABLE bill (
 );
 
 /** Create class_student table **/
-DROP TABLE IF EXISTS class_student;
-CREATE TABLE class_student (
+CREATE TABLE IF NOT EXISTS class_student (
     CLASS_ID    INTEGER,
     STUDENT_ID  INTEGER,
     UNIQUE (CLASS_ID, STUDENT_ID)
 );
 
 /** Create note table **/
-DROP TABLE IF EXISTS note;
-CREATE TABLE note (
+CREATE TABLE IF NOT EXISTS note (
     CLASS_ID    INTEGER,
     STUDENT_ID  INTEGER,
     NOTE_TXT    TEXT,
@@ -84,8 +78,7 @@ CREATE TABLE note (
 );
 
 /** Create classes table **/
-DROP TABLE IF EXISTS classes;
-CREATE TABLE classes (
+CREATE TABLE IF NOT EXISTS classes (
     CLASS_ID    INTEGER PRIMARY KEY     AUTOINCREMENT,
     SESSION     TEXT,
     TEACH       TEXT,
@@ -103,8 +96,7 @@ CREATE TABLE classes (
 );
 
 /** Create waitlist table **/
-DROP TABLE IF EXISTS wait;
-CREATE TABLE wait (
+CREATE TABLE IF NOT EXISTS wait (
     CLASS_ID    INTEGER,
     WAIT_NO     INTEGER,
     NAME        TEXT,
@@ -115,8 +107,7 @@ CREATE TABLE wait (
 );
 
 /** Create trial table **/
-DROP TABLE IF EXISTS trial;
-CREATE TABLE trial (
+CREATE TABLE IF NOT EXISTS trial (
     CLASS_ID    INTEGER,
     TRIAL_NO     INTEGER,
     NAME        TEXT,
@@ -128,8 +119,7 @@ CREATE TABLE trial (
 );
 
 /** Create makeup table **/
-DROP TABLE IF EXISTS makeup;
-CREATE TABLE makeup (
+CREATE TABLE IF NOT EXISTS makeup (
     CLASS_ID    INTEGER,
     MAKEUP_NO   INTEGER,
     NAME        TEXT,
