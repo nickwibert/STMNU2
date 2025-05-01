@@ -4,7 +4,7 @@ from datetime import datetime
 import calendar
 import functions as fn
 
-import rollsheets
+from rollsheets import rollsheets
 
 # Global variables
 from globals import CURRENT_SESSION
