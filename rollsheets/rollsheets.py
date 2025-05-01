@@ -82,7 +82,8 @@ def generate(conn, class_ids):
 
     # Set up document
     PAGESIZE = pagesizes.portrait(pagesizes.A4)
-    pdf = BaseDocTemplate(filename, pagesize=PAGESIZE, 
+    pdf = BaseDocTemplate(os.path.join('C:\\STMNU2\\rollsheets',filename),
+            pagesize=PAGESIZE, 
             leftMargin = 1.5 * cm, 
             rightMargin = 2.2 * cm,
             topMargin = 1.5 * cm, 

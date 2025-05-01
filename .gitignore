@@ -5,3 +5,5 @@ data/
 notes.ipynb
 # File containing sensitive info
 .env
+# Ignore PDF rollsheets; unique to each machine
+rollsheets/*.pdf
