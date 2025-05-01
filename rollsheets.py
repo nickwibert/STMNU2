@@ -227,7 +227,7 @@ def generate(conn, class_ids):
 
         # Create `trial_list` as a set of 8 blank lines, all intended for write-in
         trial_list = ListFlowable(
-                        [Paragraph('<u>TRIALS</u>' + '&nbsp;'*85 + '<u>DATE</u>',style=styles['trial']), Spacer(1,20)] +
+                        [Paragraph('<u>TRIALS</u>' + '&nbsp;'*85 + '<u>DATE</u>',style=styles['trial']), Spacer(1,15)] +
                         [Paragraph('_'*54, style=styles['trial']) for i in range(8)],
                         bulletColor='white'
         )
