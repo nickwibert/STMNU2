@@ -439,7 +439,8 @@ class ClassInfoFrame(ctk.CTkFrame):
                                 self.database.conn,
                                 params={'class_id'      : int(class_id),
                                         'current_month' : CURRENT_SESSION.month,
-                                        'current_year'  : CURRENT_SESSION.year})
+                                        'current_year'  : CURRENT_SESSION.year,
+                                        'show_inactive' : 0})
         
         # Get `bill_info` as all the bill records for students in `roll_info`
         # bill_info = self.database.bill.merge(roll_info, how='inner', on='STUDENT_ID'

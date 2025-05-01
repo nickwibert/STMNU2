@@ -143,7 +143,8 @@ def generate(conn, class_ids):
                                 conn,
                                 params={'class_id'      : class_id,
                                         'current_month' : CURRENT_SESSION.month,
-                                        'current_year'  : CURRENT_SESSION.year})
+                                        'current_year'  : CURRENT_SESSION.year,
+                                        'show_inactive' : 0})
         current_roll = current_roll.loc[current_roll['PAID']==1]
 
         # Get previous roll, including both those who were billed and those who paid for previous session
@@ -151,7 +152,8 @@ def generate(conn, class_ids):
                                 conn,
                                 params={'class_id'      : class_id,
                                         'current_month' : PREVIOUS_SESSION.month,
-                                        'current_year'  : PREVIOUS_SESSION.year})
+                                        'current_year'  : PREVIOUS_SESSION.year,
+                                        'show_inactive' : 1})
         previous_roll = previous_roll.loc[(previous_roll['PAID']==1) | (previous_roll['BILLED']==1)]
 
         # Create a list of Paragraphs to represent the class roll. Each Paragraph object will contain either a student's name,

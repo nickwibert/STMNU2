@@ -7,7 +7,7 @@ FROM (
     SELECT CS.CLASS_ID, S.STUDENT_ID, S.FNAME, S.LNAME, S.BIRTHDAY
     FROM class_student AS CS
         INNER JOIN student AS S ON CS.STUDENT_ID = S.STUDENT_ID
-    WHERE S.ACTIVE AND CLASS_ID=:class_id
+    WHERE (S.ACTIVE OR :show_inactive) AND CLASS_ID=:class_id
 ) AS ACTIVE_STUDENTS
     LEFT JOIN payment AS P ON ACTIVE_STUDENTS.STUDENT_ID = P.STUDENT_ID
                               AND P.MONTH=:current_month AND P.YEAR=:current_year
