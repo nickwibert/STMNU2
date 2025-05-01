@@ -446,7 +446,8 @@ class ClassInfoFrame(ctk.CTkFrame):
         #                              ).loc[:,['STUDENT_ID','MONTH','YEAR']]
         bill_info = pd.read_sql(f"""SELECT STUDENT_ID, MONTH, YEAR
                                     FROM bill
-                                    WHERE STUDENT_ID IN ({','.join(str(id) for id in roll_info['STUDENT_ID'])})""",
+                                    WHERE STUDENT_ID IN ({','.join(str(id) for id in roll_info['STUDENT_ID'])})
+                                    ORDER BY YEAR, MONTH""",
                                 self.database.conn)
         
         # wait_info = self.database.wait[self.database.wait['CLASS_ID'] == class_id
