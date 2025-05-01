@@ -247,7 +247,7 @@ class ClassInfoFrame(ctk.CTkFrame):
         # Create placeholder labels based on global variable for max class size
         for row in range(1,MAX_CLASS_SIZE+1):
             # Student name
-            name_label = ctk.CTkLabel(self.roll_frame, width=250, anchor='w',
+            name_label = ctk.CTkLabel(self.roll_frame, width=225, anchor='w',
                                       font=ctk.CTkFont('Arial',18,'normal'),
                                       bg_color='gray70' if row % 2 == 0 else 'gray80',
                                       cursor='hand2')
@@ -259,23 +259,23 @@ class ClassInfoFrame(ctk.CTkFrame):
             self.roll_labels[f'STUDENT{row}'] = name_label
 
             # Label that will contain the student's age
-            age_label = ctk.CTkLabel(self.roll_frame, width=50, justify='right',
+            age_label = ctk.CTkLabel(self.roll_frame, width=50,
                                       font=ctk.CTkFont('Arial',16,'normal'),
                                       bg_color='gray70' if row % 2 == 0 else 'gray80',
                                       cursor='hand2')
-            age_label.grid(row=name_label.grid_info().get('row'), column=1, sticky='nsew', ipadx=5)
+            age_label.grid(row=name_label.grid_info().get('row'), column=1, sticky='nsew')
             self.age_labels[f'STUDENT{row}'] = age_label
 
             # Label that will contain payment for current month (if exists)
-            pay_label = ctk.CTkLabel(self.roll_frame, width=75, anchor='w',
-                                      font=ctk.CTkFont('Arial',18,'bold'),
+            pay_label = ctk.CTkLabel(self.roll_frame, width=150, anchor='e',
+                                      font=ctk.CTkFont('Arial',12,'bold'),
                                       bg_color='gray70' if row % 2 == 0 else 'gray80',
                                       cursor='hand2')
-            pay_label.grid(row=name_label.grid_info().get('row'), column=2, sticky='nsew',)
+            pay_label.grid(row=name_label.grid_info().get('row'), column=2, sticky='nsew')
             self.pay_labels[f'STUDENT{row}'] = pay_label
 
             # Label that will contain $ symbols to indicate # of payments owed
-            bill_label = ctk.CTkLabel(self.roll_frame, width=75, anchor='w',
+            bill_label = ctk.CTkLabel(self.roll_frame, width=75, 
                                       font=ctk.CTkFont('Arial',18,'bold'),
                                       text_color='red',
                                       bg_color='gray70' if row % 2 == 0 else 'gray80',
@@ -430,27 +430,6 @@ class ClassInfoFrame(ctk.CTkFrame):
         header_info = pd.read_sql(f"SELECT * FROM classes WHERE CLASS_ID={class_id}", self.database.conn
                        ).squeeze()
 
-
-        # roll_info = pd.read_sql(f"""-- Keep only the active students who are either paid or billed
-        #                             SELECT ACTIVE_STUDENTS.STUDENT_ID, FNAME, LNAME, BIRTHDAY,
-        #                                 IIF(P.STUDENT_ID IS NULL, 0, 1) AS PAID,
-        #                                 IIF(B.STUDENT_ID IS NULL, 0, 1) AS BILLED
-        #                             FROM (
-        #                                 -- Get all (active) student IDs linked to this class ID
-        #                                 SELECT CS.CLASS_ID, S.STUDENT_ID, S.FNAME, S.LNAME, S.BIRTHDAY
-        #                                 FROM class_student AS CS
-        #                                     INNER JOIN student AS S ON CS.STUDENT_ID = S.STUDENT_ID
-        #                                 WHERE S.ACTIVE AND CLASS_ID = {class_id}
-        #                             ) AS ACTIVE_STUDENTS
-        #                                 LEFT JOIN payment AS P ON ACTIVE_STUDENTS.STUDENT_ID = P.STUDENT_ID
-        #                                                         AND P.MONTH={CURRENT_SESSION.month}
-        #                                                         AND P.YEAR={CURRENT_SESSION.year}
-        #                                 LEFT JOIN bill AS B ON ACTIVE_STUDENTS.STUDENT_ID = B.STUDENT_ID
-        #                                                         AND B.MONTH={CURRENT_SESSION.month}
-        #                                                         AND B.YEAR={CURRENT_SESSION.year}
-        #                             ORDER BY PAID DESC, BILLED DESC, LNAME ASC""",
-        #                         self.database.conn)
-
          # Read in query from 'roll_info.sql' as string
         with open(os.path.join(QUERY_DIR,'roll_info.sql'), 'r') as sql_file:
             sql_script = sql_file.read()
@@ -592,7 +571,7 @@ class ClassInfoFrame(ctk.CTkFrame):
                             pay_txt += 'BILLED'
                         # Display payment amount if student is paid for current month
                         elif roll_info.loc[row-1,'PAID']:
-                            pay_txt += f"${roll_info.loc[row-1,'PAY']:.2f}"
+                            pay_txt += f"${roll_info.loc[row-1,'PAY']:.2f} ({roll_info.loc[row-1,'DATE']})"
                         # Otherwise, leave pay label blank
                         else:
                             pass
