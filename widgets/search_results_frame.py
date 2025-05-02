@@ -176,11 +176,11 @@ class SearchResultsFrame(ctk.CTkFrame):
                 self.filter_dropdowns[filter_type] = filter_dropdown
 
             # Button to generate rollsheets
-            rollsheet_button = ctk.CTkButton(self.query_frame,
+            self.rollsheet_button = ctk.CTkButton(self.query_frame,
                                              text='Generate Rollsheets for\nCurrent Results',
                                              command=lambda: rollsheets.generate(self.database.conn,
                                                                                  self.df['CLASS_ID'].squeeze()))
-            rollsheet_button.grid(row=self.query_frame.grid_size()[1], column=0, pady=5)
+            self.rollsheet_button.grid(row=self.query_frame.grid_size()[1], column=0, pady=5)
 
             # Set default starting filters:
             # Gender = Girl

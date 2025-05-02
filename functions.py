@@ -682,7 +682,7 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
             widget.configure(state='disabled')
         except ValueError:
             continue
-    
+
     if 'STUDENT' in edit_type:
         for switch in info_frame.switches.values():
             switch.configure(state='disabled')
@@ -691,9 +691,14 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
             for label in row:
                 label.configure(state='disabled')
     elif 'CLASS' in edit_type:
-        for filter_frame in info_frame.search_results_frame.query_frame.winfo_children():
-            for widget in filter_frame.winfo_children():
-                widget.configure(state='disabled')
+        for checkbox in info_frame.search_results_frame.checkboxes.values():
+            checkbox.configure(state='disabled')
+
+        for dropdown in info_frame.search_results_frame.filter_dropdowns.values():
+            dropdown.configure(state='disabled')
+
+        info_frame.search_results_frame.rollsheet_button.configure(state='disabled')
+
         for label in info_frame.roll_labels.values():
             label.unbind('<Button-1>')
     info_frame.window.tabs.configure(state='disabled')
@@ -946,6 +951,8 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
             if checkbox.get():
                 filter_dropdown = info_frame.search_results_frame.filter_dropdowns[filter_type]
                 filter_dropdown.configure(state='normal')
+
+        info_frame.search_results_frame.rollsheet_button.configure(state='normal')
     
         for label in info_frame.roll_labels.values():
             # Click student name in class roll to pull up student record
