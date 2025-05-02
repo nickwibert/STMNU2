@@ -132,11 +132,11 @@ class ClassInfoFrame(ctk.CTkFrame):
                                                                fn.edit_info(frame, labels, type))
         self.buttons['EDIT_CLASS_WAIT'].grid(row=0, column=0, pady=10)
 
-        self.buttons['ADD_WAIT'] = ctk.CTkButton(wait_buttons_frame,
+        self.buttons['CLASS_ADD_WAIT'] = ctk.CTkButton(wait_buttons_frame,
                                                   width=100,
                                                   text='Create',
                                                   command=self.add_wait)
-        self.buttons['ADD_WAIT'].grid(row=0,column=1)
+        self.buttons['CLASS_ADD_WAIT'].grid(row=0,column=1)
 
         self.buttons['CLASS_REMOVE_WAIT'] = ctk.CTkButton(wait_buttons_frame,
                                                   text='Remove',
@@ -656,7 +656,9 @@ class ClassInfoFrame(ctk.CTkFrame):
 
                 trial_name_txt += trial_record['NAME'] if trial_record['NAME'] is not None else ''
                 trial_phone_txt += trial_record['PHONE'] if trial_record['PHONE'] is not None else ''
-                trial_date_txt += trial_record['DATE'] if trial_record['DATE'] is not None else ''
+                if trial_record['DATE'] is not None:
+                    # Force date to have leading zeros for month and day
+                    trial_date_txt += datetime.strptime(trial_record['DATE'], "%m/%d/%Y").strftime("%m/%d/%Y")
 
                 # Flag date with red bg if date is either blank or in the past
                 if pd.isna(pd.to_datetime(trial_date_txt)) or (pd.to_datetime(trial_date_txt).date() < datetime.today().date()):
@@ -684,7 +686,9 @@ class ClassInfoFrame(ctk.CTkFrame):
                 row_frame.grid()
                 row_color = 'grey65' if row_color=='grey75' else 'grey75'
                 makeup_name_txt += makeup_record['NAME'] if makeup_record['NAME'] is not None else ''
-                makeup_date_txt += str(makeup_record['DATE']) if makeup_record['DATE'] is not None else ''
+                if makeup_record['DATE'] is not None:
+                    # Force date to have leading zeros for month and day
+                    makeup_date_txt += datetime.strptime(makeup_record['DATE'], "%m/%d/%Y").strftime("%m/%d/%Y")
 
             # Update wait labels
             makeup_name_label.configure(text=makeup_name_txt)

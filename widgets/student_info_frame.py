@@ -508,6 +508,9 @@ class StudentInfoFrame(ctk.CTkFrame):
                         self.personal_labels[field].configure(text=student_info[field].upper())
                     elif field == 'EMAIL':
                         self.personal_labels[field].configure(text=student_info[field].lower())
+                    elif field in ['ENROLLDATE', 'BIRTHDAY']:
+                        date_txt = datetime.strptime(student_info[field], "%m/%d/%Y").strftime("%m/%d/%Y")
+                        self.personal_labels[field].configure(text=date_txt)
                     else:
                         self.personal_labels[field].configure(text=student_info[field])
 
@@ -580,6 +583,8 @@ class StudentInfoFrame(ctk.CTkFrame):
             else:
                 pay = f'{payment_info[payment_info['MONTH']==row]['PAY'].values[0]:.2f}'
                 date = payment_info[payment_info['MONTH']==row]['DATE'].values[0]
+                # Force date to have leading zeros for month and day
+                date = datetime.strptime(date, "%m/%d/%Y").strftime("%m/%d/%Y")
                 bill = '*' if row in bill_info['MONTH'].values else ''
 
             month = 'Reg Fee' if row==13 else calendar.month_abbr[row]

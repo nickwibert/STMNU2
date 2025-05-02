@@ -515,12 +515,15 @@ def validate_float(action, value_if_allowed, prior_value, text):
 
 # Validate that a date field is entered in the correct format "MM/DD/YYYY"
 def validate_date(date_text):
-    try:
-        if len(date_text) > 0 and date_text != datetime.strptime(date_text, "%m/%d/%Y").strftime("%m/%d/%Y"):
-            raise ValueError
-        return True
-    except ValueError:
-        return False
+    # Only check if the field is not blank
+    if len(date_text) > 0:
+        try:
+            datetime.strptime(date_text, "%m/%d/%Y")
+        except ValueError as e:
+            print(e)
+            return False
+    
+    return True
     
 
 # Apply "MM/DD/YYYY" formatting to a set of date columns (subset of df)
