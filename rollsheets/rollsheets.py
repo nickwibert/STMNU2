@@ -255,4 +255,4 @@ def generate(conn, class_ids):
     # After all rollsheets have been generated, build PDF file
     pdf.build(Story)
     # Try to print PDF
-    # os.startfile(filename, 'print')
+    os.startfile(os.path.join('C:\\STMNU2\\rollsheets',filename), 'open')
