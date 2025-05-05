@@ -30,7 +30,6 @@ CREATE TABLE IF NOT EXISTS student (
 
 /** Create guardian table **/
 CREATE TABLE IF NOT EXISTS guardian (
-    GUARDIAN_ID INTEGER PRIMARY KEY     AUTOINCREMENT,
     FAMILY_ID   INTEGER,
     RELATION    TEXT,
     FNAME       TEXT,

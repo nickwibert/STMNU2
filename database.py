@@ -96,9 +96,7 @@ class StudentDatabase:
         # Determine what the new family ID should be (max family ID plus 1)
         self.cursor.execute("SELECT MAX(CAST(FAMILY_ID AS integer))+1 AS NEW_FAMILY_ID FROM student")
         new_family_id = self.cursor.fetchone()[0]
-        # Determine new guardian ID if we need to create a new record
-        self.cursor.execute("SELECT MAX(CAST(GUARDIAN_ID AS integer))+1 AS NEW_GUARDIAN_ID FROM guardian")
-        new_guardian_id = self.cursor.fetchone()[0]
+
         # Add other fields in `student` table
         new_student_info.update({'ACTIVE'     : 1,
                                  'FAMILY_ID'  : new_family_id,
@@ -116,13 +114,13 @@ class StudentDatabase:
         for guardian_type in ['MOM','DAD']:
             if f'{guardian_type}NAME' in new_student_info.keys():
                 # Collect data into dict
-                guardian_info = {'GUARDIAN_ID' : new_guardian_id,
-                                'FAMILY_ID'    : new_family_id,
+                guardian_info = {'FAMILY_ID'    : new_family_id,
                                 'RELATION'     : guardian_type,
                                 'FNAME'        : new_student_info[f'{guardian_type}NAME'],
                                 'LNAME'        : new_student_info['LNAME'],
                                 'CREA_TMS'     : datetime.now(),
                                 'UPDT_TMS'     : datetime.now()}
+
                 # Insert into database
                 self.sqlite_insert('guardian', guardian_info)
 
@@ -162,10 +160,6 @@ class StudentDatabase:
                                         FROM guardian 
                                         WHERE FAMILY_ID='{family_id}'""",
                                     self.conn)
-        
-        # Determine new guardian ID if we need to create a new record
-        self.cursor.execute("SELECT MAX(CAST(GUARDIAN_ID AS integer))+1 AS NEW_GUARDIAN_ID FROM guardian")
-        new_guardian_id = self.cursor.fetchone()[0]
 
         new_student_info = {field : entry.get().strip() for (field,entry) in entry_boxes.items()}
         for field in new_student_info.keys():
@@ -200,8 +194,7 @@ class StudentDatabase:
                         self.sqlite_delete('guardian', {'FAMILY_ID' : family_id, 'RELATION' : relation})
                     # Otherwise, update existing guardian record or insert a new one
                     elif not is_blank:
-                        new_guardian_record = {'GUARDIAN_ID'  : new_guardian_id if guardian_record.empty else guardian_record['GUARDIAN_ID'],
-                                           'FAMILY_ID'    : family_id,
+                        new_guardian_record = {'FAMILY_ID'    : family_id,
                                            'RELATION'     : relation,
                                            'FNAME'        : new_student_info[f'{relation}NAME'],
                                            'LNAME'        : new_student_info['LNAME'],
@@ -209,9 +202,6 @@ class StudentDatabase:
                                            'UPDT_TMS'     : datetime.now()}
                         unique_idx = ['FAMILY_ID', 'RELATION']
                         self.sqlite_upsert('guardian', new_guardian_record, unique_idx)
-                        # If we created a new guardian record, increment new_guardian_id
-                        if new_guardian_id == new_guardian_record['GUARDIAN_ID']:
-                            new_guardian_id += 1
 
             new_student_info_sqlite = {k:v for k,v in new_student_info.items() if k not in ['MOMNAME','DADNAME']}
 

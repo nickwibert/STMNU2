@@ -98,8 +98,7 @@ def transform_to_rdb(do_not_load=[], update_active=False, save_as='.csv'):
         # Combine moms/dads into new table 'guardian', which holds guardian contact info.
         # The guardian will be connected to their children via the 'FAMILY_ID' key.
         guardian = pd.concat([moms, dads]).sort_values(by=['LNAME','FNAME'])
-        guardian.insert(0, 'GUARDIAN_ID', list(range(1,guardian.shape[0]+1)))
-        guardian = guardian.sort_values(by=['FAMILY_ID','GUARDIAN_ID'])
+        guardian = guardian.sort_values(by=['FAMILY_ID','RELATION'])
         
         # Create/update timestamps (placeholder)
         guardian.insert(len(guardian.columns),'CREA_TMS',[datetime.now()]*guardian.shape[0])
