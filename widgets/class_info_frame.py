@@ -656,7 +656,7 @@ class ClassInfoFrame(ctk.CTkFrame):
 
                 trial_name_txt += trial_record['NAME'] if trial_record['NAME'] is not None else ''
                 trial_phone_txt += trial_record['PHONE'] if trial_record['PHONE'] is not None else ''
-                if trial_record['DATE'] is not None:
+                if trial_record['DATE'] not in (None, ''):
                     # Force date to have leading zeros for month and day
                     trial_date_txt += datetime.strptime(trial_record['DATE'], "%m/%d/%Y").strftime("%m/%d/%Y")
 
@@ -686,7 +686,7 @@ class ClassInfoFrame(ctk.CTkFrame):
                 row_frame.grid()
                 row_color = 'grey65' if row_color=='grey75' else 'grey75'
                 makeup_name_txt += makeup_record['NAME'] if makeup_record['NAME'] is not None else ''
-                if makeup_record['DATE'] is not None:
+                if makeup_record['DATE'] not in (None, ''):
                     # Force date to have leading zeros for month and day
                     makeup_date_txt += datetime.strptime(makeup_record['DATE'], "%m/%d/%Y").strftime("%m/%d/%Y")
 
