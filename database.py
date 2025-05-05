@@ -96,6 +96,9 @@ class StudentDatabase:
         # Determine what the new family ID should be (max family ID plus 1)
         self.cursor.execute("SELECT MAX(CAST(FAMILY_ID AS integer))+1 AS NEW_FAMILY_ID FROM student")
         new_family_id = self.cursor.fetchone()[0]
+        # Determine new guardian ID if we need to create a new record
+        self.cursor.execute("SELECT MAX(CAST(GUARDIAN_ID AS integer))+1 AS NEW_GUARDIAN_ID FROM guardian")
+        new_guardian_id = self.cursor.fetchone()[0]
         # Add other fields in `student` table
         new_student_info.update({'ACTIVE'     : 1,
                                  'FAMILY_ID'  : new_family_id,
@@ -113,7 +116,7 @@ class StudentDatabase:
         for guardian_type in ['MOM','DAD']:
             if f'{guardian_type}NAME' in new_student_info.keys():
                 # Collect data into dict
-                guardian_info = {'GUARDIAN_ID' : self.guardian.shape[0]+1,
+                guardian_info = {'GUARDIAN_ID' : new_guardian_id,
                                 'FAMILY_ID'    : new_family_id,
                                 'RELATION'     : guardian_type,
                                 'FNAME'        : new_student_info[f'{guardian_type}NAME'],
