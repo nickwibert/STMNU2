@@ -670,8 +670,9 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
             info_frame.database.request_password = False
         
     # Disable relevant buttons and labels with click events
-    for button in info_frame.buttons.values():
-        button.configure(state='disabled', fg_color='grey')
+    for button_name, button in info_frame.buttons.items():
+        # Change color of button to grey UNLESS it is the 'active' button
+        button.configure(state='disabled', fg_color='grey' if button_name!='ACTIVATE_STUDENT' else button.cget('fg_color'))
 
     for row in info_frame.search_results_frame.result_rows:
         for label in row:
@@ -915,8 +916,9 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
         info_frame.window.unbind('<Escape>')
 
     # Re-enable the deactivated buttons
-    for button in info_frame.buttons.values():
-        button.configure(state='normal', fg_color='steelblue3')
+    for button_name, button in info_frame.buttons.items():
+        # Only change color if button is not 'ACTIVE' button
+        button.configure(state='normal', fg_color='steelblue3' if button_name!='ACTIVATE_STUDENT' else button.cget('fg_color'))
 
     for row in info_frame.search_results_frame.result_rows:
         for label in row:
