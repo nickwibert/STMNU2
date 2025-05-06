@@ -240,7 +240,8 @@ class SearchResultsFrame(ctk.CTkFrame):
         elif self.type == 'class':
             # SPECIAL CASES: If Funtastiks, Parent & Tot, or Level 5/6/8 chosen,
             # disable certain filters before updating search results
-            if self.filter_dropdowns['LEVEL'].get() in ['Funtastiks', 'Parent & Tot', 'Level 5/6/8', 'Gymtrainers']:
+            if (self.filter_dropdowns['LEVEL'].get() in ['Funtastiks', 'Parent & Tot', 'Level 5/6/8', 'Gymtrainers']
+                and self.checkboxes['LEVEL'].get()):
                 for filter_type in ['GENDER', 'INSTRUCTOR', 'DAY']:
                     # Only disable instructor / day of week for high-level classes
                     if filter_type != 'GENDER' and self.filter_dropdowns['LEVEL'].get() not in ['Level 5/6/8', 'Gymtrainers']:
