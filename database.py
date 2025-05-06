@@ -104,8 +104,8 @@ class StudentDatabase:
                                  'ENROLLDATE' : datetime.today().strftime('%m/%d/%Y'),
                                  'MONTHLYFEE' : 0,
                                  'BALANCE'    : 0,
-                                 'CREA_TMS'   : datetime.now(),
-                                 'UPDT_TMS'   : datetime.now()})
+                                 'CREA_TMS'   : datetime.now().strftime('%m/%d/%Y %H:%M:%S'),
+                                 'UPDT_TMS'   : datetime.now().strftime('%m/%d/%Y %H:%M:%S')})
         
         ## Step 1: Insert into SQLite database
         self.sqlite_insert('student', {k:v for k,v in new_student_info.items() if k not in ['MOMNAME','DADNAME']})
@@ -118,8 +118,8 @@ class StudentDatabase:
                                 'RELATION'     : guardian_type,
                                 'FNAME'        : new_student_info[f'{guardian_type}NAME'],
                                 'LNAME'        : new_student_info['LNAME'],
-                                'CREA_TMS'     : datetime.now(),
-                                'UPDT_TMS'     : datetime.now()}
+                                'CREA_TMS'     : datetime.now().strftime('%m/%d/%Y %H:%M:%S'),
+                                'UPDT_TMS'     : datetime.now().strftime('%m/%d/%Y %H:%M:%S')}
 
                 # Insert into database
                 self.sqlite_insert('guardian', guardian_info)
@@ -198,14 +198,14 @@ class StudentDatabase:
                                            'RELATION'     : relation,
                                            'FNAME'        : new_student_info[f'{relation}NAME'],
                                            'LNAME'        : new_student_info['LNAME'],
-                                           'CREA_TMS'     : datetime.now(),
-                                           'UPDT_TMS'     : datetime.now()}
+                                           'CREA_TMS'     : datetime.now().strftime('%m/%d/%Y %H:%M:%S'),
+                                           'UPDT_TMS'     : datetime.now().strftime('%m/%d/%Y %H:%M:%S')}
                         unique_idx = ['FAMILY_ID', 'RELATION']
                         self.sqlite_upsert('guardian', new_guardian_record, unique_idx)
 
             new_student_info_sqlite = {k:v for k,v in new_student_info.items() if k not in ['MOMNAME','DADNAME']}
 
-            new_student_info_sqlite.update({'UPDT_TMS' : datetime.now()})
+            new_student_info_sqlite.update({'UPDT_TMS' : datetime.now().strftime('%m/%d/%Y %H:%M:%S')})
             self.sqlite_update('student',
                                new_student_info_sqlite,
                                where_dict={'STUDENT_ID' : student_id})
@@ -400,8 +400,8 @@ class StudentDatabase:
             new_info = {id_field       : id,
                         other_id_field : 0,
                         'NOTE_TXT'     : note_txt,
-                        'CREA_TMS'     : datetime.now(),
-                        'UPDT_TMS'     : datetime.now()}
+                        'CREA_TMS'     : datetime.now().strftime('%m/%d/%Y %H:%M:%S'),
+                        'UPDT_TMS'     : datetime.now().strftime('%m/%d/%Y %H:%M:%S')}
             self.sqlite_upsert('note', new_info, unique_idx)
         # Otherwise, attempt to delete note 
         else:
@@ -539,8 +539,8 @@ class StudentDatabase:
                                  'WAIT_NO'  : wait_counter if len(wait_columns) > 1 else wait_no,
                                  'NAME'     : new_wait_name,
                                  'PHONE'    : new_wait_phone,
-                                 'CREA_TMS' : datetime.now(),
-                                 'UPDT_TMS' : datetime.now()}
+                                 'CREA_TMS' : datetime.now().strftime('%m/%d/%Y %H:%M:%S'),
+                                 'UPDT_TMS' : datetime.now().strftime('%m/%d/%Y %H:%M:%S')}
                 unique_idx = ['CLASS_ID', 'WAIT_NO']
                 self.sqlite_upsert('wait', new_wait_info, unique_idx)
                 wait_counter += 1
@@ -577,8 +577,8 @@ class StudentDatabase:
                                  'NAME'     : new_trial_name,
                                  'PHONE'    : new_trial_phone,
                                  'DATE'     : new_trial_date,
-                                 'CREA_TMS' : datetime.now(),
-                                 'UPDT_TMS' : datetime.now()}
+                                 'CREA_TMS' : datetime.now().strftime('%m/%d/%Y %H:%M:%S'),
+                                 'UPDT_TMS' : datetime.now().strftime('%m/%d/%Y %H:%M:%S')}
                 unique_idx = ['CLASS_ID', 'TRIAL_NO']
                 self.sqlite_upsert('trial', new_trial_info, unique_idx)
                 trial_counter += 1
@@ -611,8 +611,8 @@ class StudentDatabase:
                                    'MAKEUP_NO'  : makeup_counter if len(makeup_columns) > 1 else makeup_no,
                                    'NAME'     : new_makeup_name,
                                    'DATE'    : new_makeup_date,
-                                   'CREA_TMS' : datetime.now(),
-                                   'UPDT_TMS' : datetime.now()}
+                                   'CREA_TMS' : datetime.now().strftime('%m/%d/%Y %H:%M:%S'),
+                                   'UPDT_TMS' : datetime.now().strftime('%m/%d/%Y %H:%M:%S')}
                 unique_idx = ['CLASS_ID', 'MAKEUP_NO']
                 self.sqlite_upsert('makeup', new_makeup_info, unique_idx)
                 makeup_counter += 1
