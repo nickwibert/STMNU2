@@ -9,14 +9,15 @@ from rollsheets import rollsheets
 # Global variables
 from globals import CURRENT_SESSION
 
-# Scrollable frame to display the results from a search 
+# Parent class for a frame where user can search database
+# The first row in the grid is left blank here, to be filled by
+# child-class specific function `create_query_frame()` based on the needs
+# of the particular context
 class SearchResultsFrame(ctk.CTkFrame):
-    def __init__(self, master, type, max_row, **kwargs):
+    def __init__(self, master, max_row, **kwargs):
         super().__init__(master, **kwargs)
         # Maximum number of rows to return
         self.max_row = max_row
-        # Type of SearchResultsFrame (i.e. student, class)
-        self.type = type
         # Get database instance from parent frame
         self.database = self.master.database
         # Dataframe where currently displayed search results are stored
@@ -32,165 +33,9 @@ class SearchResultsFrame(ctk.CTkFrame):
         # Frame which contains results from search
         self.results_frame = ctk.CTkFrame(self)
 
-        # Create headers for search results
-        if self.type == 'student':
-            self.headers = ['First Name', 'Last Name']
-            self.column_widths = [150, 150]
-        elif self.type == 'class':
-            self.headers = ['Instructor', 'Time', 'Name', 'Available', 'Trials', 'Waitlist']
-            self.column_widths = [75, 75, 125, 75, 75, 75]
-        elif self.type == 'family':
-            self.headers = ['Last Name', 'Number of Children']
-            self.column_widths = [150, 150]
-        for i in range(len(self.headers)):
-            ctk.CTkLabel(self.results_frame,
-                         text=self.headers[i],
-                         width=self.column_widths[i],
-                         anchor = 'center' if self.headers[i] in ('Available', 'Max', 'Trials', 'Waitlist') else 'w'
-                        ).grid(row=0, column=i, padx=0, sticky='nsew')
-            
-        self.create_query_frame()
-        
-        # Configure results_frame and place in SearchResultsFrame
-        self.results_frame.rowconfigure(1, weight=1)
-        self.results_frame.columnconfigure(tuple(range(len(self.headers))), weight=1)
-        self.results_frame.grid(row=1,column=0,sticky='nsew')
 
-        # Scrollable list of search results
-        self.results_list = ctk.CTkScrollableFrame(self.results_frame)
-        self.results_list.grid(row=1,column=0,columnspan=len(self.headers),sticky='nsew')
-
-        # Create "max_row" placeholder labels for search results
-        self.create_labels()
-        self.update_labels()
-
-    def create_query_frame(self):
-        # Container holding search boxes where user will enter their query
-        self.query_frame = ctk.CTkFrame(self)
-        self.query_frame.columnconfigure((0,1),weight=1)
-        self.query_frame.rowconfigure(0,weight=1)
-        self.query_frame.grid(row=0,column=0,)
-
-        if self.type == 'student':
-            # Button to create new student
-            self.new_student_button = ctk.CTkButton(self.query_frame,
-                                                    text='Create New Student',
-                                                    command=self.master.create_student)
-            self.new_student_button.grid(row=0,column=0, columnspan=2)
-
-            ctk.CTkLabel(self.query_frame, text='STUDENT SEARCH', font=ctk.CTkFont('Britannic',18,'bold')
-                         ).grid(row=1,column=0,columnspan=2,sticky='nsew',padx=10)
-            search_help_text = 'Search for students by first name, last name, or both. '\
-                               'Search results are sorted by last name then first name.'
-            ctk.CTkLabel(self.query_frame, text=search_help_text, wraplength=self.query_frame.winfo_reqwidth()
-                         ).grid(row=2,column=0,columnspan=2,sticky='nsew',)
-
-            # Dictionary of entry boxes to stay organized. The keys will act as the labels
-            # next to each entry box, and the values will hold the actual EntryBox objects
-            self.entry_boxes = dict.fromkeys([hdr for hdr in self.headers if 'Name' in hdr])
-
-            # Create and grid each entry box in a loop
-            for row, key in list(zip(range(self.query_frame.grid_size()[1],len(self.entry_boxes.keys())+self.query_frame.grid_size()[1]), self.entry_boxes.keys())):
-                # Label to identify entry box
-                label = ctk.CTkLabel(self.query_frame, text=key + ':', anchor='w')
-                label.grid(row=row, column=0,sticky='e',pady=2)
-                self.entry_boxes[key] = (ctk.CTkEntry(self.query_frame, textvariable=ctk.StringVar()))
-                self.entry_boxes[key].grid(row=row, column=1, sticky='w',pady=2)
-
-            active_help_text = 'Only "active" students are shown by default.\nClick "Show Inactive" to search entire database.'
-            ctk.CTkLabel(self.query_frame, text=active_help_text, wraplength=self.query_frame.winfo_reqwidth()
-                        ).grid(row=self.query_frame.grid_size()[1],column=0,columnspan=2,sticky='ew',pady=2)
-            # Checkbox to show active students
-            self.active_checkbox = ctk.CTkCheckBox(self.query_frame, text='Show Inactive Students', command=self.update_labels)
-            self.active_checkbox.grid(row=self.query_frame.grid_size()[1], column=0, columnspan=2,)
-            # Button to perform search when clicked 
-            self.search_button = ctk.CTkButton(self.query_frame, text='Search', command=self.update_labels)
-            self.search_button.grid(row=self.query_frame.grid_size()[1], column=0, columnspan=2)
-
-        elif self.type == 'class':
-            ctk.CTkLabel(self.query_frame, text='CLASS SEARCH', font=ctk.CTkFont('Britannic',18,'bold')
-                         ).grid(row=1,column=0,columnspan=2,sticky='nsew',padx=10)
-            search_help_text = 'Click a checkbox to enable a filter, then choose a value.'
-            ctk.CTkLabel(self.query_frame, text=search_help_text, wraplength=self.query_frame.winfo_reqwidth()
-                         ).grid(row=2,column=0,columnspan=2,sticky='nsew',)
-            instructor_names = pd.read_sql("SELECT DISTINCT TEACH FROM classes ORDER BY TEACH",
-                                           self.database.conn
-                                ).squeeze()
-            # Dictionaries of values for different option menus.
-            # The dictionary keys is what the user will see, and
-            # the corresponding values will be the patterns used to 
-            # search the database.
-            self.filter_dicts = {
-                'INSTRUCTOR' :
-                    {k:v for (k,v) in zip(instructor_names.str.title(), instructor_names)},
-                'GENDER' :
-                    {
-                        "Girl's" : "GIRL",
-                        "Boy's"  : "BOY"
-                    },
-                'DAY' :
-                    {
-                        'Monday'    : 1,
-                        'Tuesday'   : 2,
-                        'Wednesday' : 3,
-                        'Thursday'  : 4,
-                        'Friday'    : 5,
-                        'Saturday'  : 6
-                    },
-                'LEVEL' :
-                    {
-                        'Beginner'       : 'BEG',
-                        'Intermediate'   : 'INT',
-                        'Advanced'       : 'ADV',
-                        'Level 5/6/8'    : 'LEVEL',
-                        'Gymtrainers'    : 'GYMTRAIN',
-                        'Tumbling'       : 'TUMBL',
-                        'Funtastiks'     : 'FUN',
-                        'Parent & Tot'   : 'TOT'
-                    },
-            }
-            self.filter_dropdowns = {}
-            self.checkboxes = {}
-            for filter_type, filter_dict in self.filter_dicts.items():
-                # Frame for option menu
-                filter_frame = ctk.CTkFrame(self.query_frame)
-                # Option menu
-                filter_dropdown = ctk.CTkOptionMenu(filter_frame,
-                                                    values=list(filter_dict.keys()),
-                                                    command=lambda choice: self.update_labels())
-
-                # Checkbox to enable/disable corresponding option menu
-                checkbox = ctk.CTkCheckBox(filter_frame,
-                                           text=f'{filter_type.title()}:',
-                                           command = lambda f=filter_dropdown: self.toggle_filter(f))
-                # Disable filters at outset
-                filter_dropdown.configure(state='disabled')
-
-                # Grid checkbox + option menu
-                checkbox.grid(row=0, column=0)
-                filter_dropdown.grid(row=0, column=1)
-                filter_frame.grid(row=self.query_frame.grid_size()[1], column=0, sticky='nsew')
-
-                # Store checkbox and option menu
-                self.checkboxes[filter_type] = checkbox
-                self.filter_dropdowns[filter_type] = filter_dropdown
-
-            # Button to generate rollsheets
-            self.rollsheet_button = ctk.CTkButton(self.query_frame,
-                                             text='Generate Rollsheets for\nCurrent Results',
-                                             command=lambda: rollsheets.generate(self.database.conn,
-                                                                                 self.df['CLASS_ID'].squeeze()))
-            self.rollsheet_button.grid(row=self.query_frame.grid_size()[1], column=0, pady=5)
-
-            # Set default starting filters:
-            # Gender = Girl
-            # self.filter_dropdowns['GENDER'].set("Girl's")
-            # # Day = Current Weekday (unless today is Sunday, then set to Monday)
-            # current_day = datetime.now().weekday()
-            # self.filter_dropdowns['DAY'].set(calendar.day_name[current_day] if current_day < 6 else "Monday")
-            # # Level = Beginner
-            # self.filter_dropdowns['LEVEL'].set("Beginner")
-
+    # Generic function to create labels for search results
+    # (represented as a 2D list, first dimension is row and second dimension is column)
     def create_labels(self):
         # 2D list to store each row in search results
         self.result_rows = []
@@ -221,57 +66,9 @@ class SearchResultsFrame(ctk.CTkFrame):
             # Store row
             self.result_rows.append(row_labels)
 
-    def update_labels(self, select_first_result=True):
-        if self.type in ['student', 'family']:
-            # Get user input
-            query = dict.fromkeys(self.entry_boxes.keys())
-            for key in query.keys():
-                query[key] = self.entry_boxes[key].get().strip()
 
-            # If user provided no input whatsoever, do nothing
-            if set(query.values()) == {''}: return
-
-            # Search for matches
-            if self.type == 'student':
-                self.df = self.database.search_student(query, show_inactive=self.active_checkbox.get())
-            elif self.type == 'family':
-                self.df = self.database.search_family(query)
-
-        elif self.type == 'class':
-            # SPECIAL CASES: If Funtastiks, Parent & Tot, or Level 5/6/8 chosen,
-            # disable certain filters before updating search results
-            if (self.filter_dropdowns['LEVEL'].get() in ['Funtastiks', 'Parent & Tot', 'Level 5/6/8', 'Gymtrainers']
-                and self.checkboxes['LEVEL'].get()):
-                for filter_type in ['GENDER', 'INSTRUCTOR', 'DAY']:
-                    # Only disable instructor / day of week for high-level classes
-                    if filter_type != 'GENDER' and self.filter_dropdowns['LEVEL'].get() not in ['Level 5/6/8', 'Gymtrainers']:
-                        continue
-                    # Disable filter if necessary
-                    if self.checkboxes[filter_type].get():
-                        self.checkboxes[filter_type].toggle()
-
-            # Get user input
-            filters = dict.fromkeys(self.filter_dicts.keys())
-            # Loop through each option menu
-            for filter_type in filters.keys():
-                filter_dict = self.filter_dicts[filter_type]
-                filter_dropdown = self.filter_dropdowns[filter_type]
-                # If this option menu is disabled, ignore value inside
-
-                if filter_dropdown.cget('state') == 'disabled':
-                    filter = ''
-                # Otherwise, get selected filter
-                else:
-                    filter = filter_dict[filter_dropdown.get()]
-                # Store selected filter
-                filters[filter_type] = filter
-
-            # Search for matches
-            self.df = self.database.filter_classes(filters)
-            
-        # Update matches in search results frame
-        self.display_search_results(select_first_result)
-
+    # Generic function to display search results in the scrollable frame
+    # (note: this is called after the child-class specific `update_labels()`)
     def display_search_results(self, select_first_result=True):
         # Loop through search result labels
         for row in self.result_rows:
@@ -338,7 +135,7 @@ class SearchResultsFrame(ctk.CTkFrame):
         else:
             self.select_result(self.master.id)
 
-    # Select a row from the search results
+    # Generic function to select a row from the search results
     def select_result(self, id):
         id_column = self.df.filter(like='_ID').squeeze()
         # If id_column is just one value, convert back to series
@@ -363,14 +160,17 @@ class SearchResultsFrame(ctk.CTkFrame):
             label.configure(bg_color='red' if label.flag else 'royalblue',
                             text_color='white' if label.flag else 'black')
 
-        if self.type=='class':
+        # Reset scroll frames (if possible)
+        try:
             self.master.reset_scroll_frames()
+        except AttributeError:
+            pass
 
         # Finally, update the relevant info frame based on `id`
         self.master.update_labels(id)
 
 
-    # Select previous result (row ABOVE current selection in search results)
+    # Generic function to select previous result (row ABOVE current selection in search results)
     def prev_result(self):
         # If currently selected result is first row in results, do nothing
         if self.selection_idx == 0:
@@ -381,7 +181,8 @@ class SearchResultsFrame(ctk.CTkFrame):
             prev_id = self.df.filter(like='_ID').iloc[prev_result_idx].values[0]
             self.select_result(prev_id)
 
-    # Select next result (row BELOW current selection in search results)
+
+    # Generic function to select next result (row BELOW current selection in search results)
     def next_result(self):
         # If currently selected result is last row in results, do nothing
         if self.selection_idx == (self.df.shape[0] - 1):
@@ -392,6 +193,259 @@ class SearchResultsFrame(ctk.CTkFrame):
             next_id = self.df.filter(like='_ID').iloc[next_result_idx].values[0]
             self.select_result(next_id)
 
+
+# Student-specific search results frame. User provides a first name and/or last name,
+# then browses the returned matches
+class StudentSearchResultsFrame(SearchResultsFrame):
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+
+        # Create headers for search results
+        self.headers = ['First Name', 'Last Name']
+        self.column_widths = [150, 150]
+        # Create/grid labels for headers
+        for i in range(len(self.headers)):
+            ctk.CTkLabel(self.results_frame,
+                         text=self.headers[i],
+                         width=self.column_widths[i],
+                         anchor = 'center' if self.headers[i] in ('Available', 'Max', 'Trials', 'Waitlist') else 'w'
+                        ).grid(row=0, column=i, padx=0, sticky='nsew')
+            
+        # Create 'query frame' which contains options to perform search/filter
+        self.create_query_frame()
+        
+        # Configure results_frame and place in SearchResultsFrame
+        self.results_frame.rowconfigure(1, weight=1)
+        self.results_frame.columnconfigure(tuple(range(len(self.headers))), weight=1)
+        self.results_frame.grid(row=1,column=0,sticky='nsew')
+
+        # Scrollable list of search results
+        self.results_list = ctk.CTkScrollableFrame(self.results_frame)
+        self.results_list.grid(row=1,column=0,columnspan=len(self.headers),sticky='nsew')
+
+        # Create "max_row" placeholder labels for search results
+        self.create_labels()
+        self.update_labels()
+
+
+    def create_query_frame(self):
+        # Container holding search boxes where user will enter their query
+        self.query_frame = ctk.CTkFrame(self)
+        self.query_frame.columnconfigure((0,1),weight=1)
+        self.query_frame.rowconfigure(0,weight=1)
+        self.query_frame.grid(row=0,column=0,)
+
+        # Button to create new student
+        self.new_student_button = ctk.CTkButton(self.query_frame,
+                                                text='Create New Student',
+                                                command=self.master.create_student)
+        self.new_student_button.grid(row=0,column=0, columnspan=2)
+
+        ctk.CTkLabel(self.query_frame, text='STUDENT SEARCH', font=ctk.CTkFont('Britannic',18,'bold')
+                        ).grid(row=1,column=0,columnspan=2,sticky='nsew',padx=10)
+        search_help_text = 'Search for students by first name, last name, or both. '\
+                            'Search results are sorted by last name then first name.'
+        ctk.CTkLabel(self.query_frame, text=search_help_text, wraplength=self.query_frame.winfo_reqwidth()
+                        ).grid(row=2,column=0,columnspan=2,sticky='nsew',)
+
+        # Dictionary of entry boxes to stay organized. The keys will act as the labels
+        # next to each entry box, and the values will hold the actual EntryBox objects
+        self.entry_boxes = dict.fromkeys([hdr for hdr in self.headers if 'Name' in hdr])
+
+        # Create and grid each entry box in a loop
+        for row, key in list(zip(range(self.query_frame.grid_size()[1],len(self.entry_boxes.keys())+self.query_frame.grid_size()[1]), self.entry_boxes.keys())):
+            # Label to identify entry box
+            label = ctk.CTkLabel(self.query_frame, text=key + ':', anchor='w')
+            label.grid(row=row, column=0,sticky='e',pady=2)
+            self.entry_boxes[key] = (ctk.CTkEntry(self.query_frame, textvariable=ctk.StringVar()))
+            self.entry_boxes[key].grid(row=row, column=1, sticky='w',pady=2)
+
+        active_help_text = 'Only "active" students are shown by default.\nClick "Show Inactive" to search entire database.'
+        ctk.CTkLabel(self.query_frame, text=active_help_text, wraplength=self.query_frame.winfo_reqwidth()
+                    ).grid(row=self.query_frame.grid_size()[1],column=0,columnspan=2,sticky='ew',pady=2)
+        # Checkbox to show active students
+        self.active_checkbox = ctk.CTkCheckBox(self.query_frame, text='Show Inactive Students', command=self.update_labels)
+        self.active_checkbox.grid(row=self.query_frame.grid_size()[1], column=0, columnspan=2,)
+        # Button to perform search when clicked 
+        self.search_button = ctk.CTkButton(self.query_frame, text='Search', command=self.update_labels)
+        self.search_button.grid(row=self.query_frame.grid_size()[1], column=0, columnspan=2)
+
+
+    def update_labels(self, select_first_result=True):
+        # Get user input
+        query = dict.fromkeys(self.entry_boxes.keys())
+        for key in query.keys():
+            query[key] = self.entry_boxes[key].get().strip()
+
+        # If user provided no input whatsoever, do nothing
+        if set(query.values()) == {''}: return
+
+        # Search for matches
+        self.df = self.database.search_student(query, show_inactive=self.active_checkbox.get())
+            
+        # Update matches in search results frame
+        self.display_search_results(select_first_result)
+
+
+# Scrollable frame to display the results from a search 
+class ClassSearchResultsFrame(SearchResultsFrame):
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+
+        # Create headers for search results
+        self.headers = ['Instructor', 'Time', 'Name', 'Available', 'Trials', 'Waitlist']
+        self.column_widths = [75, 75, 125, 75, 75, 75]
+
+        for i in range(len(self.headers)):
+            ctk.CTkLabel(self.results_frame,
+                         text=self.headers[i],
+                         width=self.column_widths[i],
+                         anchor = 'center' if self.headers[i] in ('Available', 'Max', 'Trials', 'Waitlist') else 'w'
+                        ).grid(row=0, column=i, padx=0, sticky='nsew')
+            
+        self.create_query_frame()
+        
+        # Configure results_frame and place in SearchResultsFrame
+        self.results_frame.rowconfigure(1, weight=1)
+        self.results_frame.columnconfigure(tuple(range(len(self.headers))), weight=1)
+        self.results_frame.grid(row=1,column=0,sticky='nsew')
+
+        # Scrollable list of search results
+        self.results_list = ctk.CTkScrollableFrame(self.results_frame)
+        self.results_list.grid(row=1,column=0,columnspan=len(self.headers),sticky='nsew')
+
+        # Create "max_row" placeholder labels for search results
+        self.create_labels()
+        self.update_labels()
+
+
+    def create_query_frame(self):
+        # Container holding search boxes where user will enter their query
+        self.query_frame = ctk.CTkFrame(self)
+        self.query_frame.columnconfigure((0,1),weight=1)
+        self.query_frame.rowconfigure(0,weight=1)
+        self.query_frame.grid(row=0,column=0,)
+
+        ctk.CTkLabel(self.query_frame, text='CLASS SEARCH', font=ctk.CTkFont('Britannic',18,'bold')
+                        ).grid(row=1,column=0,columnspan=2,sticky='nsew',padx=10)
+        search_help_text = 'Click a checkbox to enable a filter, then choose a value.'
+        ctk.CTkLabel(self.query_frame, text=search_help_text, wraplength=self.query_frame.winfo_reqwidth()
+                        ).grid(row=2,column=0,columnspan=2,sticky='nsew',)
+        instructor_names = pd.read_sql("SELECT DISTINCT TEACH FROM classes ORDER BY TEACH",
+                                        self.database.conn
+                            ).squeeze()
+        # Dictionaries of values for different option menus.
+        # The dictionary keys is what the user will see, and
+        # the corresponding values will be the patterns used to 
+        # search the database.
+        self.filter_dicts = {
+            'INSTRUCTOR' :
+                {k:v for (k,v) in zip(instructor_names.str.title(), instructor_names)},
+            'GENDER' :
+                {
+                    "Girl's" : "GIRL",
+                    "Boy's"  : "BOY"
+                },
+            'DAY' :
+                {
+                    'Monday'    : 1,
+                    'Tuesday'   : 2,
+                    'Wednesday' : 3,
+                    'Thursday'  : 4,
+                    'Friday'    : 5,
+                    'Saturday'  : 6
+                },
+            'LEVEL' :
+                {
+                    'Beginner'       : 'BEG',
+                    'Intermediate'   : 'INT',
+                    'Advanced'       : 'ADV',
+                    'Level 5/6/8'    : 'LEVEL',
+                    'Gymtrainers'    : 'GYMTRAIN',
+                    'Tumbling'       : 'TUMBL',
+                    'Funtastiks'     : 'FUN',
+                    'Parent & Tot'   : 'TOT'
+                },
+        }
+        self.filter_dropdowns = {}
+        self.checkboxes = {}
+        for filter_type, filter_dict in self.filter_dicts.items():
+            # Frame for option menu
+            filter_frame = ctk.CTkFrame(self.query_frame)
+            # Option menu
+            filter_dropdown = ctk.CTkOptionMenu(filter_frame,
+                                                values=list(filter_dict.keys()),
+                                                command=lambda choice: self.update_labels())
+
+            # Checkbox to enable/disable corresponding option menu
+            checkbox = ctk.CTkCheckBox(filter_frame,
+                                        text=f'{filter_type.title()}:',
+                                        command = lambda f=filter_dropdown: self.toggle_filter(f))
+            # Disable filters at outset
+            filter_dropdown.configure(state='disabled')
+
+            # Grid checkbox + option menu
+            checkbox.grid(row=0, column=0)
+            filter_dropdown.grid(row=0, column=1)
+            filter_frame.grid(row=self.query_frame.grid_size()[1], column=0, sticky='nsew')
+
+            # Store checkbox and option menu
+            self.checkboxes[filter_type] = checkbox
+            self.filter_dropdowns[filter_type] = filter_dropdown
+
+        # Button to generate rollsheets
+        self.rollsheet_button = ctk.CTkButton(self.query_frame,
+                                            text='Generate Rollsheets for\nCurrent Results',
+                                            command=lambda: rollsheets.generate(self.database.conn,
+                                                                                self.df['CLASS_ID'].squeeze()))
+        self.rollsheet_button.grid(row=self.query_frame.grid_size()[1], column=0, pady=5)
+
+        # Set default starting filters:
+        # Gender = Girl
+        # self.filter_dropdowns['GENDER'].set("Girl's")
+        # # Day = Current Weekday (unless today is Sunday, then set to Monday)
+        # current_day = datetime.now().weekday()
+        # self.filter_dropdowns['DAY'].set(calendar.day_name[current_day] if current_day < 6 else "Monday")
+        # # Level = Beginner
+        # self.filter_dropdowns['LEVEL'].set("Beginner")
+
+
+    def update_labels(self, select_first_result=True):
+        # SPECIAL CASES: If Funtastiks, Parent & Tot, or Level 5/6/8 chosen,
+        # disable certain filters before updating search results
+        if (self.filter_dropdowns['LEVEL'].get() in ['Funtastiks', 'Parent & Tot', 'Level 5/6/8', 'Gymtrainers']
+            and self.checkboxes['LEVEL'].get()):
+            for filter_type in ['GENDER', 'INSTRUCTOR', 'DAY']:
+                # Only disable instructor / day of week for high-level classes
+                if filter_type != 'GENDER' and self.filter_dropdowns['LEVEL'].get() not in ['Level 5/6/8', 'Gymtrainers']:
+                    continue
+                # Disable filter if necessary
+                if self.checkboxes[filter_type].get():
+                    self.checkboxes[filter_type].toggle()
+
+        # Get user input
+        filters = dict.fromkeys(self.filter_dicts.keys())
+        # Loop through each option menu
+        for filter_type in filters.keys():
+            filter_dict = self.filter_dicts[filter_type]
+            filter_dropdown = self.filter_dropdowns[filter_type]
+            # If this option menu is disabled, ignore value inside
+
+            if filter_dropdown.cget('state') == 'disabled':
+                filter = ''
+            # Otherwise, get selected filter
+            else:
+                filter = filter_dict[filter_dropdown.get()]
+            # Store selected filter
+            filters[filter_type] = filter
+
+        # Search for matches
+        self.df = self.database.filter_classes(filters)
+            
+        # Update matches in search results frame
+        self.display_search_results(select_first_result)
+
+
     # Enable/disable filter dropdown (class search results only)
     def toggle_filter(self, filter_dropdown):
         if filter_dropdown.cget('state') == 'disabled':
@@ -401,3 +455,4 @@ class SearchResultsFrame(ctk.CTkFrame):
 
         # Apply filters
         self.update_labels()
+

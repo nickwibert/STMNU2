@@ -5,7 +5,7 @@ import calendar
 from datetime import datetime
 
 import functions as fn
-from widgets.search_results_frame import SearchResultsFrame
+from widgets.search_results_frame import StudentSearchResultsFrame
 from widgets.dialog_boxes import MoveStudentDialog, NewStudentDialog
 
 # Global variables
@@ -32,7 +32,7 @@ class StudentInfoFrame(ctk.CTkFrame):
         self.rowconfigure((0,1), weight=1)
 
         # Frame which will contain search boxes / results to perform student search
-        self.search_results_frame = SearchResultsFrame(self, type='student', max_row=100)
+        self.search_results_frame = StudentSearchResultsFrame(self, max_row=100)
         # Frame which will contain student personal info
         self.personal_frame = ctk.CTkFrame(self)
         # Frame which will contain class information

@@ -5,7 +5,7 @@ from tktooltip import ToolTip
 import calendar
 from datetime import datetime
 import functions as fn
-from widgets.search_results_frame import SearchResultsFrame
+from widgets.search_results_frame import ClassSearchResultsFrame
 from widgets.dialog_boxes import MoveStudentDialog
 
 # Global values
@@ -103,7 +103,7 @@ class ClassInfoFrame(ctk.CTkFrame):
         self.note_frame.grid(row=3, column=2, sticky='nsew')
 
         # Create and add search results frame to grid
-        self.search_results_frame = SearchResultsFrame(self, type='class', max_row=100)
+        self.search_results_frame = ClassSearchResultsFrame(self, max_row=100)
         self.search_results_frame.grid(row=0, column=0, rowspan=4, sticky='nsew')
 
         ### BUTTONS ###
