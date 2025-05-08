@@ -827,7 +827,7 @@ class StudentDatabase:
     def sqlite_insert(self, table, row):
         cols = ', '.join(col for col in row.keys())
         vals = ', '.join(f"'{val}'" if val is not None else 'NULL' for val in row.values())
-        sql = f'INSERT INTO {table} ({cols})\n VALUES ({vals})'
+        sql = f"""INSERT INTO {table} ({cols})\n VALUES ({vals})"""
         self.cursor.execute(sql)
         self.conn.commit()
 
@@ -841,7 +841,7 @@ class StudentDatabase:
         set_clause = ', '.join([f'{field}="{value if value is not None else ''}"'\
                                 for field,value in new_info.items()])
         where_clause = ' AND '.join([f'{field}="{value}"' for field,value in where_dict.items()])
-        sql = f'UPDATE {table} SET {set_clause} WHERE {where_clause}'
+        sql = f"""UPDATE {table} SET {set_clause} WHERE {where_clause}"""
         self.cursor.execute(sql)
         self.conn.commit()
 
@@ -875,7 +875,7 @@ class StudentDatabase:
     # to delete does not exist, then nothing will happen.
     def sqlite_delete(self, table, where_dict):
         where_clause = ' AND '.join([f'{field}="{value}"' for field,value in where_dict.items()])
-        sql = f'DELETE FROM {table} WHERE {where_clause}'
+        sql = f"""DELETE FROM {table} WHERE {where_clause}"""
         self.cursor.execute(sql)
         self.conn.commit()
 

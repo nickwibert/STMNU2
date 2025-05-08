@@ -817,6 +817,11 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
             confirm_button.configure(command = lambda : wait_var.set('confirmed'))
             # Wait for user to click confirm
             confirm_button.wait_variable(wait_var)
+            # Replace apostrophes as needed
+            note_txt = note_textbox.get('1.0', 'end-1c')
+            note_txt = note_txt.replace('\'', '\'\'')
+            note_textbox.delete('1.0', 'end')
+            note_textbox.insert('1.0', note_txt)
             # Make textbox read-only again
             note_textbox.configure(state='disabled', fg_color=note_textbox.master.cget('fg_color'))
 
@@ -898,6 +903,11 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
                         # enter today's date as the payment date by default
                         if float(pay_value) != 0.0 and len(date_value) == 0:
                             entry_boxes[date_field].cget('textvariable').set(datetime.today().strftime('%m/%d/%Y'))
+                
+                # For strings, make sure to replace apostrophes appropriately (avoids SQLite errors)
+                for field, entry in entry_boxes.items():
+                    if entry.dtype=='string':
+                        entry.cget('textvariable').set(entry.get().replace('\'', '\'\''))
 
                 # Update dataframe and dbf file to reflect changes
                 if 'STUDENT' in edit_type:
