@@ -462,7 +462,8 @@ def populate_sqlite_from_csv(do_not_load=[]):
             dr = csv.DictReader(fin)
             to_db = [tuple(i[col] for col in columns) for i in dr]
 
-        # Insert all records into SQLite table
+        # Dump table, then insert all records into SQLite table
+        cur.execute(f"DELETE FROM {table}")
         cur.executemany(f"INSERT OR REPLACE INTO {table} ({', '.join(columns)}) VALUES ({', '.join(['?']*len(columns))});", to_db)
         # Save changes
         conn.commit()
