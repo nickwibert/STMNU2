@@ -703,8 +703,13 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
 
         info_frame.search_results_frame.rollsheet_button.configure(state='disabled')
 
-        for label in info_frame.roll_labels.values():
-            label.unbind('<Button-1>')
+        for student in info_frame.roll_labels.keys():
+            for label in [info_frame.roll_labels[student],
+                          info_frame.age_labels[student],
+                          info_frame.pay_labels[student],
+                          info_frame.bill_labels[student]]:
+                label.unbind('<Button-1>')
+
     info_frame.window.tabs.configure(state='disabled')
 
     # Special handling for removing a student from a class they are enrolled in:
@@ -969,10 +974,14 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
 
         info_frame.search_results_frame.rollsheet_button.configure(state='normal')
     
-        for label in info_frame.roll_labels.values():
-            # Click student name in class roll to pull up student record
-            label.bind("<Button-1>", lambda event, id=label.student_id:
-                                                info_frame.open_student_record(id))
+        for student, roll_label in info_frame.roll_labels.items():
+            for label in [roll_label,
+                          info_frame.age_labels[student],
+                          info_frame.pay_labels[student],
+                          info_frame.bill_labels[student]]:
+                # Click student name in class roll to pull up student record
+                label.bind("<Button-1>", lambda event, id=roll_label.student_id:
+                                                    info_frame.open_student_record(id))
             
         # Unbind functions from trial and wait labels
         for label in (info_frame.wait_labels | info_frame.trial_labels).values():
