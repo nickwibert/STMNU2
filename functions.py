@@ -836,7 +836,7 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
 
                 label = labels[key]
                 default_text = ctk.StringVar()
-                default_text.set(label.cget('text'))
+                default_text.set(label.cget('text') if label.cget('text') is not None else '')
                 # Match text justification in entry box with the parent label's anchor
                 match label.cget('anchor'):
                     case 'e':
