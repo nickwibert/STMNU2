@@ -378,7 +378,7 @@ class BackupDialog(DialogBox):
         self.label = ctk.CTkLabel(self, text='Back-up database?')
         self.buttons['YES'] = ctk.CTkButton(self, text='YES', command = self._yes_event)
         self.buttons['NO'] = ctk.CTkButton(self, text='NO', command = self._no_event)
-        self.countdown_label = ctk.CTkLabel(self, text='Exiting without backup in 5 seconds...')
+        self.countdown_label = ctk.CTkLabel(self, text='Exiting without backup in 3 seconds...')
 
         self.label.grid(row=0,column=0,columnspan=2,sticky='nsew')
         self.buttons['YES'].grid(row=1,column=0,)

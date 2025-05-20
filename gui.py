@@ -183,15 +183,18 @@ class STMNU(ctk.CTk):
 
     # Function called when the user closes the main program window
     def exit_program(self):
-        # Ask user if they want to backup files
-        wait_var = ctk.StringVar()
-        backup_dialog = BackupDialog(window=self, title='Backup Data?', wait_var=wait_var)
-        self.wait_variable(wait_var)
-        backup_dialog.update()
+        # # Ask user if they want to backup files
+        # wait_var = ctk.StringVar()
+        # backup_dialog = BackupDialog(window=self, title='Backup Data?', wait_var=wait_var)
+        # self.wait_variable(wait_var)
+        # backup_dialog.update()
 
-        # If user requests, backup SQLite database to CSV files in `backup_dir`
-        if wait_var.get() == 'backup':
-            self.database.backup_sqlite_to_csv()
+        # # If user requests, backup SQLite database to CSV files in `backup_dir`
+        # if wait_var.get() == 'backup':
+        #     self.database.backup_sqlite_to_csv()
+
+        # Always backup to CSV before exiting
+        self.database.backup_sqlite_to_csv()
 
         # Disconnect from SQLite database
         self.database.conn.close()
