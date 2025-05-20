@@ -191,7 +191,7 @@ class STMNU(ctk.CTk):
 
         # If user requests, backup SQLite database to CSV files in `backup_dir`
         if wait_var.get() == 'backup':
-            fn.backup_sqlite_to_csv()
+            self.database.backup_sqlite_to_csv()
 
         # Disconnect from SQLite database
         self.database.conn.close()

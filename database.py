@@ -9,7 +9,8 @@ import calendar
 from datetime import datetime
 
 # Global variables
-from globals import CURRENT_SESSION, CALENDAR_DICT, QUERY_DIR
+from globals import CURRENT_SESSION, CALENDAR_DICT, \
+                    QUERY_DIR, SQLITE_DB, BACKUP_DIR
 
 class StudentDatabase:
     def __init__(self, student_dbf_path, student_prev_year_dbf_path, clsbymon_dbf_path, do_not_load=[], update_active=False):
@@ -42,7 +43,7 @@ class StudentDatabase:
         self.request_password = True
         
         # SQLite database connection
-        self.conn = sqlite3.connect('C:\\STMNU2\\data\\database.db')
+        self.conn = sqlite3.connect(SQLITE_DB)
         self.cursor = self.conn.cursor()
 
     # Load data from DBF files (old dBASE program), transform to relational database,
@@ -812,16 +813,11 @@ class StudentDatabase:
                                 record[daytime_col] = ''
                         # Set the current classtime values to 'previous' and continue
                         previous_class_info = {teach_col : record[teach_col], daytime_col : record[daytime_col]}
-
-
-
-                            
-                            
-
     
         # Change wait variable value to exit edit mode
         if wait_var:
             wait_var.set('done')
+
 
     # Function to insert record into SQLite database table.
     def sqlite_insert(self, table, row):
@@ -830,6 +826,7 @@ class StudentDatabase:
         sql = f"""INSERT INTO {table} ({cols})\n VALUES ({vals})"""
         self.cursor.execute(sql)
         self.conn.commit()
+
 
     # Function to update an existing record in SQLite database table.
     # If the record we request to update does not exist, nothing happens.
@@ -844,6 +841,7 @@ class StudentDatabase:
         sql = f"""UPDATE {table} SET {set_clause} WHERE {where_clause}"""
         self.cursor.execute(sql)
         self.conn.commit()
+
 
     # Function to perform an insert/update in SQLite database depending on what is necessary.
     # The argument `unique_idx` is a list of column names which are considered to be a unique set
@@ -871,6 +869,7 @@ class StudentDatabase:
         self.cursor.execute(sql)
         self.conn.commit()
 
+
     # Function to delete record from SQLite database table. If the record that we request
     # to delete does not exist, then nothing will happen.
     def sqlite_delete(self, table, where_dict):
@@ -880,3 +879,27 @@ class StudentDatabase:
         self.conn.commit()
 
 
+    # Backup SQLite database to individual CSV files. This is simply intended as an extra layer of caution
+    # in case something unexpected happens with the '.db' file. Every time the user exits the program, they
+    # will be prompted to perform this backup.
+    def backup_sqlite_to_csv(self):
+        # Create folder inside BACKUP_DIR based on current session (if doesn't exist)
+        session =  f"{calendar.month_abbr[CURRENT_SESSION.month].upper()}{CURRENT_SESSION.year}"
+        session_dir = os.path.join(BACKUP_DIR, session)
+        if not os.path.exists(session_dir):
+            os.makedirs(session_dir)
+        # Create folder inside `session_dir` based on current day
+        date_dir = os.path.join(session_dir, datetime.now().strftime('%b%d_%y').upper())
+        if not os.path.exists(date_dir):
+            os.makedirs(date_dir)
+
+        # Get names of all database tables as Pandas Series
+        table_names = pd.read_sql("SELECT name FROM sqlite_schema WHERE type='table' ORDER BY name",
+                                  self.conn
+                       ).squeeze()
+        
+        # Loop through table names
+        for table_name in table_names:
+            # Load into Pandas DataFrame and then save out to CSV
+            table_df = pd.read_sql(f"SELECT * FROM {table_name}", self.conn)
+            table_df.to_csv(os.path.join(date_dir, f'{table_name}.csv'), index=False)
