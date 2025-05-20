@@ -226,6 +226,11 @@ class StudentDatabase:
             # Should only be one record; if not, we have a duplicate that needs to be wiped
             if len(match) > 1:
                 print("ERROR: Duplicate detected")
+                for dup in match:
+                    if dup['FNAME'].strip() in [None, ''] and dup['LNAME'].strip() in [None,'']:
+                        pass
+                    else:
+                        record = dup
             else:
                 record = match[0]
             # Focus on this student's record
@@ -713,8 +718,17 @@ class StudentDatabase:
         with self.student_dbf:
             studentno_idx = self.student_dbf.create_index(lambda rec: rec.studentno)
             # Get DBF record corresponding to student
-            record = studentno_idx.search(match=studentno)[0]
-
+            match = studentno_idx.search(match=studentno)
+            # Should only be one record; if not, we have a duplicate that needs to be wiped
+            if len(match) > 1:
+                print("ERROR: Duplicate detected")
+                for dup in match:
+                    if dup['FNAME'].strip() in [None, ''] and dup['LNAME'].strip() in [None,'']:
+                        pass
+                    else:
+                        record = dup
+            else:
+                record = match[0]
             # Add new instructor/daytime to student's record
             with record:
                 # Track duplicate classtimes
