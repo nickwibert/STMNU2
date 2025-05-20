@@ -386,7 +386,7 @@ class BackupDialog(DialogBox):
         self.countdown_label.grid(row=2,column=0,columnspan=2,sticky='nsew')
 
         # Start countdown
-        self.countdown(count=5)
+        self.countdown(count=3)
 
     def countdown(self,count):
         self.countdown_label.configure(text=f'Exiting without backup in {count} seconds...')
