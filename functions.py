@@ -70,6 +70,10 @@ def transform_to_rdb(do_not_load=[], update_active=False, save_as='.csv'):
         STUD00 = STUD00.rename(columns={'REGFEE' : 'REGPAY', 'REGFEEDATE' : 'REGDATE'})
         STUD99 = STUD99.rename(columns={'REGFEE' : 'REGPAY', 'REGFEEDATE' : 'REGDATE'})
 
+        # If both first name and last name are blank, drop
+        STUD00 = STUD00.dropna(subset=['FNAME','LNAME'],how='all')
+        STUD99 = STUD99.dropna(subset=['FNAME','LNAME'],how='all')
+
         clsbymon = pd.read_csv(os.path.join(DATA_DIR, 'dbf_format', 'clsbymon.csv'))
 
         # Connect to SQLite database
@@ -232,7 +236,6 @@ def transform_to_rdb(do_not_load=[], update_active=False, save_as='.csv'):
         ### CLASS_STUDENT ###
         # Table to connect student with classes
         class_student = pd.DataFrame()
-        
         # Go through each instructor/daytime combination, then join with 'clsbymon' to get corresponding CLASS_ID
         # (if the instructor/daytime does not exist in clsbymon, then no record is created in 'class_student')
         for teach_col, daytime_col in list(zip(['INSTRUCTOR', 'INST2', 'INST3'], ['DAYTIME','DAYTIME2','DAYTIME3'])):
