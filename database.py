@@ -223,8 +223,11 @@ class StudentDatabase:
             studentno_idx = table_to_update.create_index(lambda rec: rec.studentno)
             # get a list of all matching records
             match = studentno_idx.search(match=studentno)
-            # should only be one student with that studentno
-            record = match[0]
+            # Should only be one record; if not, we have a duplicate that needs to be wiped
+            if len(match) > 1:
+                print("ERROR: Duplicate detected")
+            else:
+                record = match[0]
             # Focus on this student's record
             with record:
                 # Loop through each field
@@ -516,14 +519,10 @@ class StudentDatabase:
         # middle of the waitlist, all the entries will shift upward.
         wait_counter = 1
         wait_columns = [col_name for col_name in new_info.index if 'WAIT' in col_name]
+        wait_columns.sort()
         for field in wait_columns:
             # Extract wait number from field name
             wait_no = int(field[-1])
-            # Get existing record for this waitlist entry (if exists)
-            wait_record = pd.read_sql(f"""SELECT *
-                                          FROM wait 
-                                          WHERE CLASS_ID={class_id} AND WAIT_NO={wait_no}""",
-                                    self.conn).squeeze()
 
             # New information
             new_wait_name = new_info[f'WAIT{wait_no}']
@@ -544,7 +543,8 @@ class StudentDatabase:
                                  'UPDT_TMS' : datetime.now().strftime('%m/%d/%Y %H:%M:%S')}
                 unique_idx = ['CLASS_ID', 'WAIT_NO']
                 self.sqlite_upsert('wait', new_wait_info, unique_idx)
-                wait_counter += 1
+
+            wait_counter += 1
 
     def update_trial_info(self, class_id, new_info):
         # `trial_counter` tracks how many trials have been entered as we loop through
@@ -552,14 +552,10 @@ class StudentDatabase:
         # middle of the trials, all the entries will shift upward.
         trial_counter = 1 
         trial_columns = [col_name for col_name in new_info.index if 'TRIAL' in col_name]
+        trial_columns.sort()
         for field in trial_columns:
             # Extract trial number from field name
             trial_no = int(field[-1])
-            # Get existing record for this trial entry (if exists)
-            trial_record = pd.read_sql(f"""SELECT *
-                                          FROM trial 
-                                          WHERE CLASS_ID={class_id} AND TRIAL_NO={trial_no}""",
-                                    self.conn).squeeze()
 
             # New info
             new_trial_name = new_info[f'TRIAL{trial_no}']
@@ -582,20 +578,17 @@ class StudentDatabase:
                                  'UPDT_TMS' : datetime.now().strftime('%m/%d/%Y %H:%M:%S')}
                 unique_idx = ['CLASS_ID', 'TRIAL_NO']
                 self.sqlite_upsert('trial', new_trial_info, unique_idx)
-                trial_counter += 1
+
+            trial_counter += 1
 
 
     def update_makeup_info(self, class_id, new_info):
         makeup_counter = 1 
         makeup_columns = [col_name for col_name in new_info.index if 'MAKEUP' in col_name]
+        makeup_columns.sort()
         for field in makeup_columns:
             # Extract makeup number from field name
             makeup_no = int(field[-1])
-            # Get existing record for this makeup entry (if exists)
-            makeup_record = pd.read_sql(f"""SELECT *
-                                            FROM makeup 
-                                            WHERE CLASS_ID={class_id} AND MAKEUP_NO={makeup_no}""",
-                                        self.conn).squeeze()
 
             # New info
             new_makeup_name = new_info[f'MAKEUP{makeup_no}']
@@ -616,7 +609,8 @@ class StudentDatabase:
                                    'UPDT_TMS' : datetime.now().strftime('%m/%d/%Y %H:%M:%S')}
                 unique_idx = ['CLASS_ID', 'MAKEUP_NO']
                 self.sqlite_upsert('makeup', new_makeup_info, unique_idx)
-                makeup_counter += 1
+
+            makeup_counter += 1
     
 
     # Similar to `search_students`, but for classes. User selects options to filter down
