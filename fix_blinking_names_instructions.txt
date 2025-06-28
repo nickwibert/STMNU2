@@ -1,0 +1,22 @@
+How to fix the program when old students are blinking again
+
+Step 1: Open Visual Studio Code
+Step 2: Navigate to the file called `main.py` and open. You should see about 20 lines of code
+Step 3: Change the line of code below:
+
+WHERE IT SAYS AROUND LINE 10:
+	`update_active=False`
+
+CHANGE TO:
+	`update_active=True`
+
+Step 4: Run program as normal (just click the shortcut like always) and then close it out.
+Step 5: Undo the change you made in step 3. Specifically,
+
+WHERE IT SAYS AROUND LINE 10:
+	`update_active=True`
+
+CHANGE BACK TO:
+	`update_active=False`
+
+And you are done.
