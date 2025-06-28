@@ -222,18 +222,13 @@ class StudentDatabase:
         with table_to_update:
             studentno_idx = table_to_update.create_index(lambda rec: rec.studentno)
             # get a list of all matching records
-            match = studentno_idx.search(match=studentno)
+            matches = studentno_idx.search(match=studentno)
             # Should only be one record; if not, we have a duplicate that needs to be wiped
-            if len(match) > 1:
-                print("ERROR: Duplicate detected")
-                for dup in match:
-                    if dup['FNAME'].strip() in [None, ''] and dup['LNAME'].strip() in [None,'']:
-                        pass
-                    else:
-                        record = dup
-            else:
-                record = match[0]
+            if len(matches) > 1:
+                self.handle_duplicate_studentno(matches, studentno, table_to_update)
+
             # Focus on this student's record
+            record = matches[0]
             with record:
                 # Loop through each field
                 for field in new_student_info.keys():
@@ -826,6 +821,38 @@ class StudentDatabase:
         if wait_var:
             wait_var.set('done')
 
+
+    def handle_duplicate_studentno(self, matches, studentno, table):
+        print(f"Duplicate detected for studentno {studentno}")
+
+        # Start with an empty dictionary for the merged record
+        merged_data = {}
+
+        # Get field names, excluding system fields
+        field_names = [field for field in table.field_names if field != 'deleted']
+        print(field_names[0])
+        # Coalesce values field by field
+        for field in field_names:
+            for r in matches:
+                with r:
+                    val = r[field]
+
+                    # Define what counts as 'non-empty'
+                    if val not in (None, '', 0):
+                        merged_data[field] = val
+                        break  # Take the first non-empty value
+
+        # Create a new record or update an existing one
+        # Let's update the first record and delete the rest
+        primary = matches[0]
+        with primary:
+            for field, value in merged_data.items():
+                primary[field] = value
+
+        # Delete other duplicates
+        for r in matches[1:]:
+            with r:
+                dbf.delete(r)
 
     # Function to insert record into SQLite database table.
     def sqlite_insert(self, table, row):
