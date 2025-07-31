@@ -125,7 +125,7 @@ def generate(conn, class_ids):
     ### SPECIAL CASE: Need to create header/footer/PageTemplate once outside of loop,
     ### because of how 'NextPageTemplate' handler works
     class_info = pd.read_sql(f"SELECT * FROM classes WHERE CLASS_ID={class_ids[0]}", conn).squeeze()    
-    header_content = Paragraph(f"{class_info['TEACH']}<br />{class_info['CLASSTIME']}<br />{class_info['SESSION']}", styles['header'])
+    header_content = Paragraph(f"{class_info['TEACH']}<br />{class_info['CLASSTIME']}<br />{calendar.month_abbr[CURRENT_SESSION.month].upper()}", styles['header'])
     footer_content = Paragraph(datetime.now().strftime("Rollsheet printed on %m/%d/%Y at %I:%M %p"), styles['Normal'])
     template = PageTemplate(id=f'{class_ids[0]}', frames=[frame1,frame2,frame3,frame4],
                             onPage=partial(header_and_footer,
@@ -241,7 +241,7 @@ def generate(conn, class_ids):
         if i < len(class_ids)-1:
             # Get class info for the next loop, create header_content
             class_info = pd.read_sql(f"SELECT * FROM classes WHERE CLASS_ID={class_ids[i+1]}", conn).squeeze()    
-            header_content = Paragraph(f"{class_info['TEACH']}<br />{class_info['CLASSTIME']}<br />{class_info['SESSION']}", styles['header'])
+            header_content = Paragraph(f"{class_info['TEACH']}<br />{class_info['CLASSTIME']}<br />{calendar.month_abbr[CURRENT_SESSION.month].upper()}", styles['header'])
             # Add new page template for the next loop
             pdf.addPageTemplates(PageTemplate(id=f'{class_ids[i+1]}', frames=[frame1,frame2,frame3,frame4],
                                             onPage=partial(header_and_footer,
