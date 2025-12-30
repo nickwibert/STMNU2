@@ -309,9 +309,9 @@ class NewStudentDialog(DialogBox):
         self.wait_var.set('validate')
         # Button to confirm info
         self.confirm_button = ctk.CTkButton(self, text="Create Student")
-        self.confirm_button.configure(command=lambda d=self.database.student_dbf, c=self.confirm_button,
-                                                     eb=self.entry_boxes, ef=self.error_frame, v=self.wait_var:
-                                                        fn.validate_entryboxes(d, c, eb, ef, v))
+        self.confirm_button.configure(command=lambda c=self.confirm_button, eb=self.entry_boxes,
+                                                     ef=self.error_frame, v=self.wait_var:
+                                                        fn.validate_entryboxes(c, eb, ef, v))
         # Store confirm command to re-assign it to button later
         confirm_command = self.confirm_button.cget('command')
         self.confirm_button.grid(row=3, column=0)

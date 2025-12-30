@@ -442,41 +442,28 @@ class ClassInfoFrame(ctk.CTkFrame):
                                         'current_year'  : CURRENT_SESSION.year,
                                         'show_inactive' : 0})
         
-        # Get `bill_info` as all the bill records for students in `roll_info`
-        # bill_info = self.database.bill.merge(roll_info, how='inner', on='STUDENT_ID'
-        #                              ).loc[:,['STUDENT_ID','MONTH','YEAR']]
         bill_info = pd.read_sql(f"""SELECT STUDENT_ID, MONTH, YEAR
                                     FROM bill
                                     WHERE STUDENT_ID IN ({','.join(str(id) for id in roll_info['STUDENT_ID'])})
                                     ORDER BY YEAR, MONTH""",
                                 self.database.conn)
         
-        # wait_info = self.database.wait[self.database.wait['CLASS_ID'] == class_id
-        #                     ].reset_index(drop=True
-        #                     ).fillna('')
         wait_info = pd.read_sql(f"""SELECT CLASS_ID, WAIT_NO, NAME, PHONE
                                     FROM wait
                                     WHERE CLASS_ID={class_id}""",
                                 self.database.conn)
         
-        # trial_info = self.database.trial[self.database.trial['CLASS_ID'] == class_id
-        #                     ].reset_index(drop=True
-        #                     ).fillna('')
         trial_info = pd.read_sql(f"""SELECT CLASS_ID, TRIAL_NO, NAME, PHONE, DATE
                                      FROM trial
                                      WHERE CLASS_ID={class_id}""",
                                 self.database.conn)
         
-        # makeup_info = self.database.makeup[self.database.makeup['CLASS_ID'] == class_id
-        #                     ].reset_index(drop=True
-        #                     ).fillna('')
         makeup_info = pd.read_sql(f"""SELECT CLASS_ID, MAKEUP_NO, NAME, DATE
                                      FROM makeup
                                      WHERE CLASS_ID={class_id}""",
                                 self.database.conn)
         
         # This will either be empty, or contain exactly one note
-        # note_info = self.database.note[self.database.note['CLASS_ID'] == class_id].squeeze()
         note_info = pd.read_sql(f"""SELECT CLASS_ID, NOTE_TXT
                                     FROM note
                                     WHERE CLASS_ID = {class_id}""",

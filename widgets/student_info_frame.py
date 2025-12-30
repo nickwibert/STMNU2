@@ -304,7 +304,7 @@ class StudentInfoFrame(ctk.CTkFrame):
         self.payment_labels = {}
         # Values that will populate month column
         month_column = ['Month'] + list(calendar.month_name)[1:] + ['Reg. Fee']
-        # Prefixes/suffixes to store labels and also access data from STUD00.dbf (JANPAY, JANDATE, etc.)
+        # Prefixes/suffixes to store labels (based on conventions from old STUD00.dbf)
         prefix = ['HEADER'] + list(CALENDAR_DICT.values())
         suffix = [['HEADER','PAY','DATE', 'BILL'] for _ in range(14)]
 
@@ -563,7 +563,7 @@ class StudentInfoFrame(ctk.CTkFrame):
             self.year_frame.configure(fg_color = 'indian red')
             
 
-        # Prefixes/suffixes to store labels and also access data from STUD00.dbf (JANPAY, JANDATE, etc.)
+        # Prefixes/suffixes to store labels (based on conventions from old STUD00.dbf)
         prefix = ['HEADER'] + list(CALENDAR_DICT.values())
         suffix = [['HEADER','PAY','DATE', 'BILL'] for _ in range(14)]
         

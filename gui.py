@@ -46,9 +46,6 @@ class STMNU(ctk.CTk):
         self.protocol("WM_DELETE_WINDOW", self.exit_program)
 
     def create_main_window(self):
-        # Load data from dBASE program
-        self.database.load_data_from_dbase()
-
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
         self.rowconfigure(1, weight=10)
