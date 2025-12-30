@@ -15,10 +15,20 @@ QUERY_DIR = 'C:\\STMNU2\\queries'
 
 ### Determine current and previous sessions ###
 # Change to next month after the 25th (i.e. if today is Jan 26th, program will consider it as February)
-CURRENT_MONTH = datetime.now().month if datetime.now().day <= 25 else datetime.now().month + 1
-# The current year will simply reflect the real-life current year; technically this could cause problems
-# in the program between December 26th and 31st, so need to revisit this during that time
-CURRENT_YEAR = datetime.now().year
+if datetime.now().day <= 25:
+    CURRENT_MONTH = datetime.now().month
+    CURRENT_YEAR = datetime.now().year 
+else:
+    # Special handling for EOY; if current month is December and it is after the 25th,
+    # consider session as January of the following year
+    if datetime.now().month == 12:
+        CURRENT_MONTH = 1
+        CURRENT_YEAR = datetime.now().year + 1
+    # Otherwise just add 1 to current month num
+    else:
+        CURRENT_MONTH = datetime.now().month + 1
+        CURRENT_YEAR = datetime.now().year 
+
 # Declare current session as the first day of the session month
 CURRENT_SESSION = datetime(year=CURRENT_YEAR, month=CURRENT_MONTH, day=1)
 
