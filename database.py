@@ -541,3 +541,23 @@ class StudentDatabase:
             # Load into Pandas DataFrame and then save out to CSV
             table_df = pd.read_sql(f"SELECT * FROM {table_name}", self.conn)
             table_df.to_csv(os.path.join(date_dir, f'{table_name}.csv'), index=False)
+
+
+    # Given a date lower bound, grab student emails for all students enrolled since then
+    def export_emails_to_csv(self, enrolldate_lower_bound, file_path):
+         # Read in query from 'get_emails.sql' as string
+        with open(os.path.join(QUERY_DIR,'get_emails.sql'), 'r') as sql_file:
+            sql_script = sql_file.read()
+
+        # Parameters used in query
+        params = {'enrolldate_lower_bound' : enrolldate_lower_bound}
+
+        # Query database and return results as DataFrame
+        email_df = pd.read_sql(sql_script, self.conn, params=params)
+
+        # 4. Save the file if a path was selected
+        if file_path:
+            email_df.to_csv(file_path, index=False)
+            print(f"File saved at: {file_path}")
+        else:
+            print("Save cancelled.")

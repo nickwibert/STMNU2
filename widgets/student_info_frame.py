@@ -6,7 +6,7 @@ from datetime import datetime
 
 import functions as fn
 from widgets.search_results_frame import StudentSearchResultsFrame
-from widgets.dialog_boxes import MoveStudentDialog, NewStudentDialog
+from widgets.dialog_boxes import MoveStudentDialog, NewStudentDialog, ExportEmailDialog
 
 # Global variables
 from globals import CURRENT_SESSION, CALENDAR_DICT
@@ -750,3 +750,11 @@ class StudentInfoFrame(ctk.CTkFrame):
             self.search_results_frame.entry_boxes['Last Name'].cget('textvariable').set(new_student_record['LNAME'])
             self.search_results_frame.search_button.invoke()
             self.search_results_frame.select_result(new_student_record['STUDENT_ID'])
+
+
+    def create_export_emails_dialog(self):
+        export_window = ExportEmailDialog(
+            window=self.window,
+            title='Export Emails',
+            database=self.database
+        )

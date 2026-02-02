@@ -239,7 +239,13 @@ class StudentSearchResultsFrame(SearchResultsFrame):
         self.new_student_button = ctk.CTkButton(self.query_frame,
                                                 text='Create New Student',
                                                 command=self.master.create_student)
-        self.new_student_button.grid(row=0,column=0, columnspan=2)
+        self.new_student_button.grid(row=0,column=0)
+
+        # Button to export student emails
+        self.export_emails_button = ctk.CTkButton(self.query_frame,
+                                                text='Export Emails',
+                                                command=self.master.create_export_emails_dialog)
+        self.export_emails_button.grid(row=0,column=1)
 
         ctk.CTkLabel(self.query_frame, text='STUDENT SEARCH', font=ctk.CTkFont('Britannic',18,'bold')
                         ).grid(row=1,column=0,columnspan=2,sticky='nsew',padx=10)

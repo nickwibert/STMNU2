@@ -409,3 +409,88 @@ class BackupDialog(DialogBox):
         self.countdown_label.destroy()
         for button in self.buttons.values():
             button.destroy()
+
+
+class ExportEmailDialog(DialogBox):
+    def __init__(self, database, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.database = database
+        self.entry_boxes = {}
+
+        # self.after(200, lambda : self.entry_boxes['ENROLLDATE_LOWER_BOUND'].focus())
+
+        # Set location of window relative to the main window
+        popup_width = 300
+        popup_height = 250
+        x = self.window.winfo_x() + popup_width//2
+        y = self.window.winfo_y() + popup_height//2
+        self.geometry(f'{popup_width}x{popup_height}+{x}+{y}')
+
+        # If window is closed, change the wait variable so the program does not get stuck
+        self.protocol("WM_DELETE_WINDOW", lambda : self.wait_var.set('exit'))
+
+
+    def _create_widgets(self):
+        self.columnconfigure(0, weight=1)
+
+        self.header_label = ctk.CTkLabel(self, anchor='center',
+                                         text=f"Select an enrollment date lower bound, then click to export emails.",
+                                         wraplength=300)
+        self.header_label.grid(row=0,column=0,sticky='nsew')
+
+        self.entry_boxes['ENROLLDATE_LOWER_BOUND'] = ctk.CTkEntry(
+            master=self,
+            placeholder_text=datetime.today().strftime('%m/%d/%Y'),
+            font=ctk.CTkFont('Segoe UI',20)
+        )
+
+        self.entry_boxes['ENROLLDATE_LOWER_BOUND'].dtype = 'datetime.date'
+
+        self.entry_boxes['ENROLLDATE_LOWER_BOUND'].grid(row=1,column=0)
+
+        # Frame to contain error messages (if needed)
+        self.error_frame = ctk.CTkFrame(self, height=100)
+        self.error_frame.columnconfigure(0,weight=1)
+        self.error_frame.grid(row=2, column=0, sticky='nsew')
+        # Wait variable
+        self.wait_var = ctk.StringVar()
+        self.wait_var.set('validate')
+        # Button to confirm info
+        self.export_button = ctk.CTkButton(self, text="Export Emails")
+        self.export_button.configure(command=lambda c=self.export_button, eb=self.entry_boxes,
+                                                     ef=self.error_frame, v=self.wait_var:
+                                                        fn.validate_entryboxes(c, eb, ef, v))
+        # Store confirm command to re-assign it to button later
+        confirm_command = self.export_button.cget('command')
+        self.export_button.grid(row=3, column=0)
+        self.bind('<Control-End>', lambda event: self.export_button.invoke())
+
+        # Wait for valid input before continuing
+        self.export_button.wait_variable(self.wait_var)
+        
+        if self.wait_var.get() != 'exit':
+            # Once date is validated, open the "Save As" popup dialog
+            file_path = ctk.filedialog.asksaveasfilename(
+                parent=self,
+                defaultextension=".csv",
+                filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+                title="Choose Export Location"
+            )
+            self.database.export_emails_to_csv(
+                enrolldate_lower_bound=self.entry_boxes['ENROLLDATE_LOWER_BOUND'].get(),
+                file_path=file_path)
+
+        self._exit_event()
+            
+    def _wait_event(self):
+        for widget in self.error_frame.winfo_children():
+            widget.destroy()
+
+        self.export_button.configure(state='normal')
+        if self.wait_var.get() != 'validate':
+            self.wait_var.set('validate')
+
+    def _exit_event(self):
+        self.wait_var.set('close')
+        # Destroy pop-up window
+        self.destroy()
