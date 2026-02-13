@@ -1,11 +1,15 @@
 import customtkinter as ctk
 import functions as fn
+import os
 
 # Widgets
 from widgets.class_info_frame import ClassInfoFrame
 from widgets.student_info_frame import StudentInfoFrame
 from widgets.family_info_frame import FamilyInfoFrame
-from widgets.dialog_boxes import BackupDialog
+from widgets.dialog_boxes import BackupDialog, PasswordDialog
+from widgets.financial_utility_frame import FinancialUtilityFrame
+
+from globals import CURRENT_SESSION, PREVIOUS_SESSION
 
 class STMNU(ctk.CTk):
     def __init__(self, database):
@@ -76,6 +80,29 @@ class STMNU(ctk.CTk):
         #                                             database=self.database)
         # self.screens['Families'].grid(row=0,column=0, sticky='nsew')
 
+        # Secret financial utility screen, separate from `self.screens` -- must be accessed by hotkey
+        self.utility_screen = ctk.CTkFrame(self.main_frame)
+        self.utility_screen.columnconfigure((0,1), weight=1)
+        self.utility_screen.rowconfigure(0,weight=1)
+        self.utility_screen.grid(row=0,column=0,sticky='nsew')
+
+        self.left_utility_frame = FinancialUtilityFrame(
+            window=self,
+            master=self.utility_screen,
+            database=self.database,
+            default_year=CURRENT_SESSION.year - 1
+        )
+        self.left_utility_frame.grid(row=0,column=0,sticky='nsew',padx=5)
+
+        self.right_utility_frame = FinancialUtilityFrame(
+            window=self,
+            master=self.utility_screen,
+            database=self.database,
+            default_year=CURRENT_SESSION.year
+        )
+        self.right_utility_frame.grid(row=0,column=1,sticky='nsew',padx=5)
+
+        
         # Button "menu" which user clicks to change screens
         self.tabs = ctk.CTkSegmentedButton(self,
                                            font=ctk.CTkFont('Segoe UI Light', 24),
@@ -120,12 +147,15 @@ class STMNU(ctk.CTk):
         self.set_binds(new_screen)
 
     def set_binds(self, new_screen):
-        keys = ['<Return>', '<F1>', '<F2>', '<F3>', '<F4>', '<F5>', '<F6>', '<F7>',
+        keys = ['<Return>', '<F1>', '<F2>', '<F3>', '<F4>', '<F5>', '<F6>', '<F7>', '<F12>',
                 '<Prior>', '<Next>', '<Up>', '<Down>', '<Control-Home>']
         for key in keys:
             self.unbind(key)
 
         frame = self.screens[new_screen]
+
+        # F12 is the permanent hotkey for utility screen
+        self.bind('<F12>',              lambda event: self.open_utility_screen())
 
         if new_screen == 'Students':
             self.bind('<Prior>',        lambda event: frame.buttons['PREV_STUDENT'].invoke())
@@ -200,7 +230,11 @@ class STMNU(ctk.CTk):
         self.destroy()
             
 
-
+    def open_utility_screen(self):
+        dialog = PasswordDialog(window=self, text="Enter password:", title="Financial Utility")
+        password = dialog.get_input()
+        if password == os.getenv('FINANCIAL_UTILITY_PASSWORD'):
+            self.utility_screen.lift()
 
 
         
