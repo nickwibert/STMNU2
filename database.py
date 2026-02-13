@@ -587,3 +587,26 @@ class StudentDatabase:
             }    
         )
         return df
+    
+
+    def get_financial_as_of_today(self, year):
+         # Read in query from 'financial_summary.sql' as string
+        with open(os.path.join(QUERY_DIR,'financial_as_of_today.sql'), 'r') as sql_file:
+            sql_script = sql_file.read()
+
+        # Parameters used in query
+        params = {'session_year' : year}
+
+        # Query database and return results as DataFrame
+        df = pd.read_sql(
+            sql_script,
+            self.conn,
+            params=params,
+            dtype={
+                'year'                  : np.int32,
+                'month'                 : np.int32,
+                'paid_student_count'    : np.int32,
+                'gross_paid'            : np.float64,
+            }    
+        )
+        return df.squeeze()

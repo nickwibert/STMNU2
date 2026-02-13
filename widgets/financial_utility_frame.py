@@ -38,7 +38,14 @@ class FinancialUtilityFrame(ctk.CTkFrame):
         
         # Set year to default passed in value
         self.filter_dropdowns['SESSION_YEAR'].set(f'{default_year}')
-        self.filter_dropdowns['SESSION_YEAR'].grid(row=0,column=0,columnspan=3)
+        self.filter_dropdowns['SESSION_YEAR'].grid(row=0,column=0)
+
+        self.financial_as_of_today_frame = ctk.CTkFrame(self)
+        self.financial_as_of_today_frame.columnconfigure(0,weight=1)
+        self.financial_as_of_today_frame.rowconfigure(0,weight=1)
+        self.financial_as_of_today_frame.rowconfigure(1,weight=3)
+        self.financial_as_of_today_frame.grid(row=0,column=1,columnspan=2,sticky='nsew')
+
 
         self.month_frames = {}
         for month_idx in range(12):
@@ -58,6 +65,22 @@ class FinancialUtilityFrame(ctk.CTkFrame):
 
     # Create a label for each bit of student information and place into the frame
     def create_labels(self):
+
+        # Create special label based on pay/billing as of current month/day
+        self.today_header_label = ctk.CTkLabel(
+            self.financial_as_of_today_frame,
+            text = '',
+            font=ctk.CTkFont('Arial',28,'bold'),
+            wraplength=500
+        )
+        self.today_header_label.grid(row=0,column=0,sticky='nsew')
+        self.today_payment_label = ctk.CTkLabel(
+            self.financial_as_of_today_frame,
+            text='',
+            font=ctk.CTkFont('Arial',20,'bold'),
+            text_color='green'
+        )
+        self.today_payment_label.grid(row=1,column=0,sticky='nsew')
 
         self.payment_labels = {}
         self.bill_labels = {}
@@ -107,6 +130,8 @@ class FinancialUtilityFrame(ctk.CTkFrame):
 
     def reset_labels(self):
         # Wipe info from labels
+        self.today_header_label.configure(text='')
+        self.today_payment_label.configure(text='')
         for label in self.payment_labels.values():
             label.configure(text=' \n ')
 
@@ -121,6 +146,14 @@ class FinancialUtilityFrame(ctk.CTkFrame):
         
         # Current year for this frame
         selected_year = self.filter_dropdowns['SESSION_YEAR'].get()
+        # Get financial as of today for current session
+        today_df = self.database.get_financial_as_of_today(year=selected_year)
+        today_header_txt = f'Payments for {datetime.now().strftime("%b")} session as of\n {datetime.now().strftime("%b %d")}, {selected_year}:'
+        self.today_header_label.configure(text=today_header_txt)
+        today_payment_txt =  f'${today_df.gross_paid}\n({int(today_df.paid_student_count)} students)'
+        self.today_payment_label.configure(text=today_payment_txt)
+
+        # Get monthly financial summary for this year
         df = self.database.get_financial_summary(year=selected_year)
 
         for month_num, month_name in enumerate(calendar.month_name):
