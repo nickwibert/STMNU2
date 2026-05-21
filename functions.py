@@ -17,6 +17,9 @@ from globals import DATA_DIR, BACKUP_DIR, QUERY_DIR, SQLITE_DB, \
                     CALENDAR_DICT, CURRENT_SESSION, PREVIOUS_SESSION
 load_dotenv()
 
+# Global variable to store the last time password was entered
+password_last_entered_time = datetime.min 
+
 # Function to create SQLite database file named `database.db` at the path
 # specified in `db_dir`. Tables are created by running `create_tables.sql`
 # found in the path specified by `create_query_path`.
@@ -243,14 +246,18 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
     wait_var.set('validate')
 
     # To edit payments, user needs to enter a password.
-    if edit_type == 'STUDENT_PAYMENT':
-        if info_frame.database.request_password:
+    # Reference global payment time variable to check last time password was entered
+    global password_last_entered_time
+    min_since_last_password = (datetime.now() - password_last_entered_time).seconds / 60.0
+    print(min_since_last_password)
+    if edit_type in ('STUDENT_PAYMENT', 'CLASS'):
+        if min_since_last_password > 60 or edit_type == 'CLASS':
             dialog = PasswordDialog(window=info_frame.window, text="Enter password:", title="Edit Payments")
             password = dialog.get_input()
             if password != os.getenv('PAYMENT_PASSWORD'):
                 return
-            # Don't require the user to enter the password again until the program has been restarted
-            info_frame.database.request_password = False
+            # Update password enter time
+            password_last_entered_time = datetime.now()
         
     # Disable relevant buttons and labels with click events
     for button_name, button in info_frame.buttons.items():
