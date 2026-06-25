@@ -5,8 +5,6 @@ import sqlite3
 import calendar
 from datetime import datetime
 
-import functions as fn 
-
 # Global variables
 from globals import CURRENT_SESSION, CALENDAR_DICT, \
                     QUERY_DIR, SQLITE_DB, BACKUP_DIR
@@ -274,41 +272,7 @@ class StudentDatabase:
         # Otherwise, attempt to delete note 
         else:
             self.sqlite_delete('note', where_dict={id_field : id})
-
-
-    # Create new class record in `classes` table
-    def create_class(self, entry_boxes):
-        # Extract all (non-blank) user entries
-        new_class_info = {field : entry.get().strip() for (field,entry) in entry_boxes.items() if entry.get()}
-
-        # Derive am_pm by assuming 8-11:59 are AM times, and all else are PM
-        class_hour = int(new_class_info['CLASSTIME'].split(':')[0])
-        am_pm = 'AM' if 8 < class_hour and class_hour < 12 else 'PM'
-
-        # We receive CLASSTIME as just the hour/minute -- add day abbrev at start
-        # TODO: eventually need to clean up classes table to have separate columns
-        # rather than using the outdated dbase representation
-        weekday_int = list(calendar.day_name).index(new_class_info['WEEKDAY']) + 1
-        weekday_abbr = 'TH' if weekday_int == 4 else calendar.day_abbr[weekday_int-1][0]
-        new_class_info['CLASSTIME'] = weekday_abbr + ' ' + new_class_info['CLASSTIME']
-
-        # Capitalize instructor name
-        new_class_info['TEACH'] = new_class_info['TEACH'].upper()
-
-        # Add other fields in `classes` table
-        new_class_info.update({
-            'DAYOFWEEK'  : weekday_int,
-            'AM_PM'      : am_pm,
-            'CREA_TMS'   : datetime.now().strftime('%m/%d/%Y %H:%M:%S'),
-            'UPDT_TMS'   : datetime.now().strftime('%m/%d/%Y %H:%M:%S')
-        })
-
-        # Drop 'weekday' name column
-        new_class_info.pop('WEEKDAY', None)
-        
-        ## Insert into SQLite database
-        self.sqlite_insert('classes', {k:v for k,v in new_class_info.items()})
-
+                        
 
     def update_class_info(self, class_id, entry_boxes, edit_type, wait_var=None):
         # Change wait variable value to exit edit mode
@@ -337,26 +301,6 @@ class StudentDatabase:
             self.update_trial_info(class_id, new_info)
         elif 'MAKEUP' in edit_type:
             self.update_makeup_info(class_id, new_info)
-
-        ## Otherwise, update class directly
-        # Extract weekday abbr and class time 
-        weekday_abbr, class_time = new_info['CLASSTIME'].split(' ')
-        weekday_int = 4 if weekday_abbr == 'TH' else fn.get_weekday_index(weekday_abbr)
-        # Derive AM_PM again incase the time changed
-        class_hour = int(class_time.split(':')[0])
-        am_pm = 'AM' if 8 < class_hour and class_hour < 12 else 'PM'
-
-        new_class_info = {'CLASS_ID' : class_id,
-                          'TEACH'    : new_info['TEACH'],
-                          'DAYOFWEEK': weekday_int,
-                          'CLASSTIME': new_info['CLASSTIME'],
-                          'CLASSNAME': new_info['CLASSNAME'],
-                          'AM_PM'    : am_pm,
-                          'UPDT_TMS' : datetime.now().strftime('%m/%d/%Y %H:%M:%S')}
-
-        self.sqlite_update('classes',
-                            new_class_info,
-                            where_dict={'CLASS_ID' : class_id})
 
 
     def update_wait_info(self, class_id, new_info):

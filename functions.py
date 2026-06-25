@@ -110,18 +110,7 @@ def validate_date(date_text):
             return False
     
     return True
-
-# Validate that a time is entered in format "HH:MM"
-def validate_time(time_text):
-    if len(time_text) > 0:
-        try:
-            datetime.strptime(time_text, '%H:%M')
-        except ValueError as e:
-            print(e)
-            return False
-        
-    return True
-
+    
 
 # Apply "MM/DD/YYYY" formatting to a set of date columns (subset of df)
 def format_date_columns(date_df):
@@ -186,23 +175,13 @@ def validate_entryboxes(confirm_button, entry_boxes, error_frame, wait_var):
 
             # Validate dates and floats 
             if ((dtype == 'datetime.date' and not fn.validate_date(proposed_value))
-                or (dtype == 'float' and (len(str(proposed_value)) == 0 or float(proposed_value) > 999.99))
-                or (dtype == 'time' and not validate_time(proposed_value))
-                or (dtype == 'daytime'
-                    and (not validate_time(proposed_value.split(' ')[1])
-                         or proposed_value.split(' ')[0] not in ['M','T','W','TH','F','S'])
-                    )
-            ):
+                or (dtype == 'float' and (len(str(proposed_value)) == 0 or float(proposed_value) > 999.99))):
+
                 # Set error message for date fields
                 if dtype == 'datetime.date':
                     error_txt = f'Error: {field} must be entered in standard date format (MM/DD/YYYY).'
                 elif dtype == 'float':
                     error_txt = f'Error: {field} must be a number between 0 and 999.99'
-                elif dtype == 'time':
-                    error_txt = f'Error: {field} must be entered in standard time format (HH:MM).'
-                elif dtype == 'daytime':
-                    error_txt = f'Error: {field} must be entered in standard day/time format (i.e. "M 4:00")'
-
 
                 error_labels.append(ctk.CTkLabel(error_frame,
                                                     text=error_txt,
@@ -455,9 +434,6 @@ def edit_info(edit_frame, labels, edit_type, year=CURRENT_SESSION.year):
                     vcmd = (info_frame.register(fn.validate_float), '%d', '%P', '%s', '%S')
                     entry_box.configure(validate = 'key', validatecommand=vcmd)
                     entry_box.dtype = 'int' if key == 'ZIP' else 'float'
-                # Special case: day/time from clases screen (i.e. M 4:00)
-                elif any(substr in key for substr in ['CLASSTIME','TIME']):
-                    entry_box.dtype = 'daytime'
                 # All other fields are plain strings
                 else:
                     entry_box.dtype = 'string'
@@ -606,16 +582,6 @@ def focus_and_clear(event):
     # If entry is a money field and contains "0.00" as its value, delete the text to start blank
     if entry_box.get() == '0.00':
         entry_box.delete(0,'end')
-
-def get_weekday_index(first_letter):
-    # Standardize to uppercase for matching
-    letter = first_letter.upper()
-    
-    # Iterate through day names (Monday=0, Tuesday=1, etc.)
-    for index, name in enumerate(calendar.day_name):
-        if name.startswith(letter):
-            return index + 1
-    return None
 
 def button_click():
     print("button clicked")
