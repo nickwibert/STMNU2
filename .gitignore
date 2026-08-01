@@ -7,3 +7,5 @@ notes.ipynb
 .env
 # Ignore PDF rollsheets; unique to each machine
 rollsheets/*.pdf
+# miscellaneous files that should not be tracked
+misc/*
