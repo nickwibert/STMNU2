@@ -13,7 +13,7 @@ from reportlab.lib import pagesizes, colors
 from reportlab.platypus.paragraph import Paragraph
 from functools import partial
 
-from globals import QUERY_DIR, CURRENT_SESSION, PREVIOUS_SESSION
+from globals import MAIN_DIR, QUERY_DIR, CURRENT_SESSION, PREVIOUS_SESSION
 
 
 # Given a year, month, and day number (1=Monday, 2=Tuesday, ..., 6=Saturday),
@@ -82,7 +82,7 @@ def generate(conn, class_ids):
 
     # Set up document
     PAGESIZE = pagesizes.portrait(pagesizes.A4)
-    pdf = BaseDocTemplate(os.path.join('C:\\STMNU2\\rollsheets',filename),
+    pdf = BaseDocTemplate(os.path.join(MAIN_DIR / 'rollsheets',filename),
             pagesize=PAGESIZE, 
             leftMargin = 1.5 * cm, 
             rightMargin = 2.2 * cm,
@@ -255,4 +255,4 @@ def generate(conn, class_ids):
     # After all rollsheets have been generated, build PDF file
     pdf.build(Story)
     # Try to print PDF
-    os.startfile(os.path.join('C:\\STMNU2\\rollsheets',filename), 'open')
+    os.startfile(os.path.join(MAIN_DIR / 'rollsheets',filename), 'open')

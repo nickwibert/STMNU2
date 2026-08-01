@@ -5,13 +5,18 @@
 
 # Libraries
 from datetime import datetime, timedelta
+from pathlib import Path
+
+# Gets the directory where the `main.py` is running
+# (works on both Mac and Windows)
+MAIN_DIR = Path(__file__).resolve().parent
 
 ### Absolute file paths used throughout the program ###
-DATA_DIR = 'C:\\STMNU2\\data'
-SQLITE_DB = DATA_DIR + '\\database.db'
-BACKUP_DIR = DATA_DIR + '\\BACKUP'
+DATA_DIR = MAIN_DIR / 'data'
+SQLITE_DB = DATA_DIR / 'database.db'
+BACKUP_DIR = DATA_DIR / 'BACKUP'
 
-QUERY_DIR = 'C:\\STMNU2\\queries'
+QUERY_DIR = MAIN_DIR / 'queries'
 
 ### Determine current and previous sessions ###
 # Change to next month after the 25th (i.e. if today is Jan 26th, program will consider it as February)

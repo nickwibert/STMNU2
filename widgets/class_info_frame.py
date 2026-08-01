@@ -6,7 +6,7 @@ import calendar
 from datetime import datetime
 import functions as fn
 from widgets.search_results_frame import ClassSearchResultsFrame
-from widgets.dialog_boxes import MoveStudentDialog
+from widgets.dialog_boxes import MoveStudentDialog, NewClassDialog
 
 # Global values
 from globals import CURRENT_SESSION, MAX_CLASS_SIZE, MAX_WAIT_SIZE, MAX_TRIAL_SIZE, MAX_MAKEUP_SIZE, \
@@ -112,6 +112,13 @@ class ClassInfoFrame(ctk.CTkFrame):
         # when 'Edit' mode is activated
         self.buttons['PREV_CLASS'] = ctk.CTkButton(self, command=self.search_results_frame.prev_result)
         self.buttons['NEXT_CLASS'] = ctk.CTkButton(self, command=self.search_results_frame.next_result)
+
+        # Button to edit class info
+        self.buttons['EDIT_CLASS'] = ctk.CTkButton(self.header_frame,
+                                         text="Edit Class",
+                                         command = lambda frame=self.header_frame, labels=self.header_labels, type='CLASS':
+                                                      fn.edit_info(frame, labels, type))
+        self.buttons['EDIT_CLASS'].grid(row=self.header_frame.grid_size()[1], column=0, padx=5)
 
         # Button to move students to a different class
         self.buttons['MOVE_STUDENT'] = ctk.CTkButton(roll_widget_frame,
@@ -809,3 +816,34 @@ class ClassInfoFrame(ctk.CTkFrame):
     def reset_scroll_frames(self):
         for scroll_frame in self.scroll_frames:
             scroll_frame._parent_canvas.yview_moveto(0)
+
+
+    def create_class(self):
+        # Get the # of student records at the moment
+        self.database.cursor.execute('SELECT COUNT(CLASS_ID) FROM classes')
+        class_count = self.database.cursor.fetchone()[0]
+        new_window = NewClassDialog(window=self.window,
+                                      title='New Class',
+                                      database=self.database)
+        # Wait for the new class dialog window to be closed
+        self.wait_window(new_window)
+        # If a class has indeed been added to the database, open the new class record
+        self.database.cursor.execute('SELECT COUNT(CLASS_ID) FROM classes')
+        new_class_count = self.database.cursor.fetchone()[0]
+        if new_class_count != class_count:
+            new_class_record = pd.read_sql("SELECT CLASS_ID, TEACH, DAYOFWEEK, MAX(CLASS_ID) FROM classes", self.database.conn).squeeze()
+            filter_selections = {
+                'INSTRUCTOR' : new_class_record['TEACH'].capitalize(),
+                'DAY' : calendar.day_name[new_class_record['DAYOFWEEK']-1]
+            }
+            # Enable instructor and day of week filters only
+            for filter_type, c in self.search_results_frame.checkboxes.items():
+                if filter_type in ['INSTRUCTOR', 'DAY']:
+                    if not c.get(): c.toggle()
+                    self.search_results_frame.filter_dropdowns[filter_type
+                                            ].set(filter_selections[filter_type])
+                else:
+                    if c.get(): c.toggle()
+            # Select new class 
+            self.search_results_frame.update_labels()
+            self.search_results_frame.select_result(new_class_record['CLASS_ID'])

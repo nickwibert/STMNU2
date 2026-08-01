@@ -5,6 +5,8 @@ import sqlite3
 import calendar
 from datetime import datetime
 
+import functions as fn 
+
 # Global variables
 from globals import CURRENT_SESSION, CALENDAR_DICT, \
                     QUERY_DIR, SQLITE_DB, BACKUP_DIR
@@ -272,7 +274,41 @@ class StudentDatabase:
         # Otherwise, attempt to delete note 
         else:
             self.sqlite_delete('note', where_dict={id_field : id})
-                        
+
+
+    # Create new class record in `classes` table
+    def create_class(self, entry_boxes):
+        # Extract all (non-blank) user entries
+        new_class_info = {field : entry.get().strip() for (field,entry) in entry_boxes.items() if entry.get()}
+
+        # Derive am_pm by assuming 8-11:59 are AM times, and all else are PM
+        class_hour = int(new_class_info['CLASSTIME'].split(':')[0])
+        am_pm = 'AM' if 8 < class_hour and class_hour < 12 else 'PM'
+
+        # We receive CLASSTIME as just the hour/minute -- add day abbrev at start
+        # TODO: eventually need to clean up classes table to have separate columns
+        # rather than using the outdated dbase representation
+        weekday_int = list(calendar.day_name).index(new_class_info['WEEKDAY']) + 1
+        weekday_abbr = 'TH' if weekday_int == 4 else calendar.day_abbr[weekday_int-1][0]
+        new_class_info['CLASSTIME'] = weekday_abbr + ' ' + new_class_info['CLASSTIME']
+
+        # Capitalize instructor name
+        new_class_info['TEACH'] = new_class_info['TEACH'].upper()
+
+        # Add other fields in `classes` table
+        new_class_info.update({
+            'DAYOFWEEK'  : weekday_int,
+            'AM_PM'      : am_pm,
+            'CREA_TMS'   : datetime.now().strftime('%m/%d/%Y %H:%M:%S'),
+            'UPDT_TMS'   : datetime.now().strftime('%m/%d/%Y %H:%M:%S')
+        })
+
+        # Drop 'weekday' name column
+        new_class_info.pop('WEEKDAY', None)
+        
+        ## Insert into SQLite database
+        self.sqlite_insert('classes', {k:v for k,v in new_class_info.items()})
+
 
     def update_class_info(self, class_id, entry_boxes, edit_type, wait_var=None):
         # Change wait variable value to exit edit mode
@@ -301,6 +337,26 @@ class StudentDatabase:
             self.update_trial_info(class_id, new_info)
         elif 'MAKEUP' in edit_type:
             self.update_makeup_info(class_id, new_info)
+        else:
+            ## Otherwise, update class directly
+            # Extract weekday abbr and class time 
+            weekday_abbr, class_time = new_info['CLASSTIME'].split(' ')
+            weekday_int = 4 if weekday_abbr == 'TH' else fn.get_weekday_index(weekday_abbr)
+            # Derive AM_PM again incase the time changed
+            class_hour = int(class_time.split(':')[0])
+            am_pm = 'AM' if 8 < class_hour and class_hour < 12 else 'PM'
+
+            new_class_info = {'CLASS_ID' : class_id,
+                            'TEACH'    : new_info['TEACH'],
+                            'DAYOFWEEK': weekday_int,
+                            'CLASSTIME': new_info['CLASSTIME'],
+                            'CLASSNAME': new_info['CLASSNAME'],
+                            'AM_PM'    : am_pm,
+                            'UPDT_TMS' : datetime.now().strftime('%m/%d/%Y %H:%M:%S')}
+
+            self.sqlite_update('classes',
+                                new_class_info,
+                                where_dict={'CLASS_ID' : class_id})
 
 
     def update_wait_info(self, class_id, new_info):
@@ -461,7 +517,22 @@ class StudentDatabase:
     # Function to insert record into SQLite database table.
     def sqlite_insert(self, table, row):
         cols = ', '.join(col for col in row.keys())
-        vals = ', '.join(f"'{val}'" if val is not None else 'NULL' for val in row.values())
+
+        # Replace single apostrophe in string values to avoid errors
+        cleaned_values = [
+            (
+                val.replace("'", "''").replace("\\''", "\\'")
+                if (
+                    isinstance(val, str)
+                    and "'" in val
+                    and "''" not in val
+                    and "\\'" not in val
+                )
+                else val
+            )
+            for val in row.values()
+        ]
+        vals = ', '.join(f"'{val}'" if val is not None else 'NULL' for val in cleaned_values)
         sql = f"""INSERT INTO {table} ({cols})\n VALUES ({vals})"""
         self.cursor.execute(sql)
         self.conn.commit()
@@ -470,13 +541,24 @@ class StudentDatabase:
     # Function to update an existing record in SQLite database table.
     # If the record we request to update does not exist, nothing happens.
     def sqlite_update(self, table, new_info, where_dict):
+        # Replace single apostrophe in string values to avoid errors
+        for key, value in new_info.items():
+            if (
+                isinstance(value, str)
+                and "'" in value
+                and "''" not in value
+                and "\\'" not in value
+            ):
+                new_info[key] = value.replace("'", "''").replace("\\''", "\\'")
+                print(key, value)
+
         # `where_dict` is a dictionary that allows us to locate the record(s) which must be updated
         # The dictionary key is the column name(s), and the values are the actual values
         # (i.e. if we are updating the student table, where_dict={'STUDENT_ID' : <student id>}
         # and for a trial, where_dict={'CLASS_ID':<class id>, 'TRIAL_NO':<trial #>}
-        set_clause = ', '.join([f'{field}="{value if value is not None else ''}"'\
+        set_clause = ', '.join([f"{field}='{value if value is not None else ''}'"\
                                 for field,value in new_info.items()])
-        where_clause = ' AND '.join([f'{field}="{value}"' for field,value in where_dict.items()])
+        where_clause = ' AND '.join([f"{field}='{value}'" for field,value in where_dict.items()])
         sql = f"""UPDATE {table} SET {set_clause} WHERE {where_clause}"""
         self.cursor.execute(sql)
         self.conn.commit()
@@ -491,6 +573,16 @@ class StudentDatabase:
     # (In simple terms, this function updates the relevant record if it already exists, otherwise
     #  it goes ahead and creates a new record)
     def sqlite_upsert(self, table, new_info, unique_idx):
+        # Replace single apostrophe in string values to avoid errors
+        for key, value in new_info.items():
+            if (
+                isinstance(value, str)
+                and "'" in value
+                and "''" not in value
+                and "\\'" not in value
+            ):
+                new_info[key] = value.replace("'", "''").replace("\\''", "\\'")
+
         cols = ', '.join(col for col in new_info.keys())
         vals = ', '.join(f"'{val}'" if val is not None else 'NULL' for val in new_info.values())
         conflict_cols = ', '.join(col for col in unique_idx)

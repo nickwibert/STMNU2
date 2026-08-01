@@ -399,12 +399,23 @@ class ClassSearchResultsFrame(SearchResultsFrame):
             self.checkboxes[filter_type] = checkbox
             self.filter_dropdowns[filter_type] = filter_dropdown
 
+        # Frame for buttons
+        self.button_frame = ctk.CTkFrame(self.query_frame)
+        self.button_frame.columnconfigure((0,1),weight=1)
+        self.button_frame.grid(row=self.query_frame.grid_size()[1], column=0, pady=5)
+
         # Button to generate rollsheets
-        self.rollsheet_button = ctk.CTkButton(self.query_frame,
+        self.rollsheet_button = ctk.CTkButton(self.button_frame,
                                             text='Generate Rollsheets for\nCurrent Results',
                                             command=lambda: rollsheets.generate(self.database.conn,
                                                                                 self.df['CLASS_ID'].squeeze()))
-        self.rollsheet_button.grid(row=self.query_frame.grid_size()[1], column=0, pady=5)
+        self.rollsheet_button.grid(row=0, column=0, pady=5)
+
+        # Button to create new class
+        self.new_class_button = ctk.CTkButton(self.button_frame,
+                                                text='Create New Class',
+                                                command=self.master.create_class)
+        self.new_class_button.grid(row=0, column=1, pady=5)
 
         # Set default starting filters:
         # Gender = Girl

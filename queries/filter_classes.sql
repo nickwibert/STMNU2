@@ -1,13 +1,61 @@
 /** Used in `SearchResultsFrame.update_labels()` to determine
     the number of open spots, waitlist, and trials for 
     each class in the displayed search results **/
+with 
+
+time_start_index as (
+    select 
+        class_id,
+        DAYOFWEEK,
+        TIMEOFDAY,
+        CLASSTIME,
+        CLASSNAME,
+        MIN(
+            CASE WHEN instr(classtime, '0') > 0 THEN instr(classtime, '0') ELSE 999 END,                
+            CASE WHEN instr(classtime, '1') > 0 THEN instr(classtime, '1') ELSE 999 END,                
+            CASE WHEN instr(classtime, '2') > 0 THEN instr(classtime, '2') ELSE 999 END,                
+            CASE WHEN instr(classtime, '3') > 0 THEN instr(classtime, '3') ELSE 999 END,                
+            CASE WHEN instr(classtime, '4') > 0 THEN instr(classtime, '4') ELSE 999 END,                
+            CASE WHEN instr(classtime, '5') > 0 THEN instr(classtime, '5') ELSE 999 END,                
+            CASE WHEN instr(classtime, '6') > 0 THEN instr(classtime, '6') ELSE 999 END,                
+            CASE WHEN instr(classtime, '7') > 0 THEN instr(classtime, '7') ELSE 999 END,                
+            CASE WHEN instr(classtime, '8') > 0 THEN instr(classtime, '8') ELSE 999 END,                
+            CASE WHEN instr(classtime, '9') > 0 THEN instr(classtime, '9') ELSE 999 END
+        ) as first_digit_index,
+        instr(classtime,':') as colon_index
+    FROM classes
+    GROUP BY 
+        class_id, DAYOFWEEK, TIMEOFDAY, CLASSTIME, CLASSNAME
+),
+
+extracted_times as (
+
+    select
+        time_start_index.*,
+        substring(classtime, first_digit_index) as extracted_time_full
+    from time_start_index
+
+),
+
+extracted_hour_minute as (
+
+    select
+        et.*,
+        cast(substring(extracted_time_full, 0, instr(extracted_time_full, ':')) as INTEGER) as extracted_hour,
+        cast(substring(extracted_time_full, instr(extracted_time_full, ':')+1, 999) as INTEGER) as extracted_minute
+    from extracted_times et
+
+)
 
 -- Finally, get number of trial spots, as well as class info from `classes` table
-SELECT COUNTS.CLASS_ID, C.TEACH, C.CLASSTIME,
-       CONCAT(SUBSTRING(C.CLASSNAME, 0, 25),'...') AS CLASSNAME,
-       C.MAX - COUNTS.CLASS_COUNT AS AVAILABLE,
-       COUNTS.TRIAL_COUNT,
-       COUNT(W.WAIT_NO) AS WAITLIST_COUNT
+SELECT
+    COUNTS.CLASS_ID,
+    C.TEACH,
+    C.CLASSTIME,
+    CONCAT(SUBSTRING(C.CLASSNAME, 0, 25),'...') AS CLASSNAME,
+    C.MAX - COUNTS.CLASS_COUNT AS AVAILABLE,
+    COUNTS.TRIAL_COUNT,
+    COUNT(W.WAIT_NO) AS WAITLIST_COUNT
 FROM (
     -- Get number of waitlist spots
     SELECT CLASS_COUNTS.CLASS_ID, CLASS_COUNTS.CLASS_COUNT,
@@ -36,10 +84,17 @@ FROM (
 ) AS COUNTS
     LEFT JOIN wait AS W ON COUNTS.CLASS_ID = W.CLASS_ID
     INNER JOIN classes AS C ON COUNTS.CLASS_ID = C.CLASS_ID
-WHERE (TEACH LIKE :instructor_filter)
-    AND (CLASSNAME LIKE :gender_filter)
-    AND (DAYOFWEEK LIKE :day_filter)
-    AND (CLASSNAME LIKE :level_filter OR CLASSTIME LIKE :level_filter)
+    LEFT JOIN extracted_hour_minute as EHM ON C.CLASS_ID = EHM.CLASS_ID
+WHERE (C.TEACH LIKE :instructor_filter)
+    AND (C.CLASSNAME LIKE :gender_filter)
+    AND (C.DAYOFWEEK LIKE :day_filter)
+    AND (C.CLASSNAME LIKE :level_filter OR C.CLASSTIME LIKE :level_filter)
 GROUP BY C.CLASS_ID
-ORDER BY DAYOFWEEK, TIMEOFDAY
+-- sort using extracted times from CLASSTIME field
+ORDER BY
+    C.DAYOFWEEK,
+    C.AM_PM,
+    EHM.extracted_hour,
+    EHM.extracted_minute,
+    C.CLASSNAME
 COLLATE NOCASE
