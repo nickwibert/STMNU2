@@ -93,8 +93,12 @@ GROUP BY C.CLASS_ID
 -- sort using extracted times from CLASSTIME field
 ORDER BY
     C.DAYOFWEEK,
-    C.AM_PM,
-    EHM.extracted_hour,
+    CASE AM_PM 
+        WHEN 'AM' THEN 
+            CASE WHEN EHM.extracted_hour = 12 THEN 0 ELSE EHM.extracted_hour END
+        WHEN 'PM' THEN 
+            CASE WHEN EHM.extracted_hour = 12 THEN 12 ELSE EHM.extracted_hour + 12 END
+    END ASC,
     EHM.extracted_minute,
     C.CLASSNAME
 COLLATE NOCASE
